@@ -34,15 +34,6 @@ int main(int argc, char** argv){
   fpstracker = 0;
 
   // Launch CUDA/GL
-
-#ifdef __APPLE__
-  // Needed in OSX to force use of OpenGL3.2 
-  glfwOpenWindowHint(GLFW_OPENGL_VERSION_MAJOR, 3);
-  glfwOpenWindowHint(GLFW_OPENGL_VERSION_MINOR, 2);
-  glfwOpenWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-  glfwOpenWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-#endif
-
   if (init(argc, argv)) {
     // GLFW main loop
     mainLoop();
