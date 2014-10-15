@@ -1,0 +1,62 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClInclude Include="..\..\src\ObjCore\obj.h">
+      <Filter>ObjCore</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\ObjCore\objloader.h">
+      <Filter>ObjCore</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\rasterizeKernels.h">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\glslUtility.h">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\cudaMat4.h">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\main.h">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\rasterizeTools.h">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\utilities.h">
+      <Filter>headers</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\src\ObjCore\obj.cpp">
+      <Filter>ObjCore</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\ObjCore\objloader.cpp">
+      <Filter>ObjCore</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\glslUtility.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\utilities.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\src\main.cpp">
+      <Filter>source</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="ObjCore">
+      <UniqueIdentifier>{c37932d5-6627-43c3-9d6b-84866740745c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="source">
+      <UniqueIdentifier>{ac7cf277-45d1-4732-a3bf-abef7e8f1d85}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="headers">
+      <UniqueIdentifier>{ff2076c3-2be2-4a20-89ed-1f27da7b052a}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <CudaCompile Include="..\..\src\rasterizeKernels.cu">
+      <Filter>source</Filter>
+    </CudaCompile>
+  </ItemGroup>
+</Project>
