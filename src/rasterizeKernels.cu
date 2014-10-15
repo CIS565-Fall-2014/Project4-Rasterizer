@@ -8,12 +8,6 @@
 #include "rasterizeKernels.h"
 #include "rasterizeTools.h"
 
-#if CUDA_VERSION >= 5000
-    #include <helper_math.h>
-#else
-    #include <cutil_math.h>
-#endif
-
 glm::vec3* framebuffer;
 fragment* depthbuffer;
 float* device_vbo;

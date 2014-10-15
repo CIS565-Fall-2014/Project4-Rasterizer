@@ -34,48 +34,51 @@ int main(int argc, char** argv){
   fpstracker = 0;
 
   // Launch CUDA/GL
-  #ifdef __APPLE__
+
+#ifdef __APPLE__
   // Needed in OSX to force use of OpenGL3.2 
   glfwOpenWindowHint(GLFW_OPENGL_VERSION_MAJOR, 3);
   glfwOpenWindowHint(GLFW_OPENGL_VERSION_MINOR, 2);
   glfwOpenWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
   glfwOpenWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-  init();
-  #else
-  init(argc, argv);
-  #endif
+#endif
 
-  initCuda();
+  if (init(argc, argv)) {
+    // GLFW main loop
+    mainLoop();
+  }
 
-  initVAO();
-  initTextures();
+  return 0;
+}
 
-  GLuint passthroughProgram;
-  passthroughProgram = initShader("shaders/passthroughVS.glsl", "shaders/passthroughFS.glsl");
+void mainLoop() {
+  while(!glfwWindowShouldClose(window)){
+    glfwPollEvents();
+    runCuda();
 
-  glUseProgram(passthroughProgram);
-  glActiveTexture(GL_TEXTURE0);
+    time_t seconds2 = time (NULL);
 
-  #ifdef __APPLE__
-    // send into GLFW main loop
-    while(1){
-      display();
-      if (glfwGetKey(GLFW_KEY_ESC) == GLFW_PRESS || !glfwGetWindowParam( GLFW_OPENED )){
-          kernelCleanup();
-          cudaDeviceReset(); 
-          exit(0);
-      }
+    if(seconds2-seconds >= 1){
+
+        fps = fpstracker/(seconds2-seconds);
+        fpstracker = 0;
+        seconds = seconds2;
     }
 
-    glfwTerminate();
-  #else
-    glutDisplayFunc(display);
-    glutKeyboardFunc(keyboard);
+    string title = "CIS565 Rasterizer | " + utilityCore::convertIntToString((int)fps) + " FPS";
+		glfwSetWindowTitle(window, title.c_str());
+    
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
+    glBindTexture(GL_TEXTURE_2D, displayImage);
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glClear(GL_COLOR_BUFFER_BIT);   
 
-    glutMainLoop();
-  #endif
-  kernelCleanup();
-  return 0;
+    // VAO, shader program, and texture already bound
+    glDrawElements(GL_TRIANGLES, 6,  GL_UNSIGNED_SHORT, 0);
+    glfwSwapBuffers(window);
+  }
+  glfwDestroyWindow(window);
+  glfwTerminate();
 }
 
 //-------------------------------
@@ -111,156 +114,77 @@ void runCuda(){
   fpstracker++;
 
 }
-
-#ifdef __APPLE__
-
-  void display(){
-      runCuda();
-      time_t seconds2 = time (NULL);
-
-      if(seconds2-seconds >= 1){
-
-        fps = fpstracker/(seconds2-seconds);
-        fpstracker = 0;
-        seconds = seconds2;
-
-      }
-
-      string title = "CIS565 Rasterizer | "+ utilityCore::convertIntToString((int)fps) + "FPS";
-
-      glfwSetWindowTitle(title.c_str());
-
-
-      glBindBuffer( GL_PIXEL_UNPACK_BUFFER, pbo);
-      glBindTexture(GL_TEXTURE_2D, displayImage);
-      glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, 
-            GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-
-
-      glClear(GL_COLOR_BUFFER_BIT);   
-
-      // VAO, shader program, and texture already bound
-      glDrawElements(GL_TRIANGLES, 6,  GL_UNSIGNED_SHORT, 0);
-
-      glfwSwapBuffers();
-  }
-
-#else
-
-  void display(){
-    runCuda();
-	time_t seconds2 = time (NULL);
-
-    if(seconds2-seconds >= 1){
-
-      fps = fpstracker/(seconds2-seconds);
-      fpstracker = 0;
-      seconds = seconds2;
-
-    }
-
-    string title = "CIS565 Rasterizer | "+ utilityCore::convertIntToString((int)fps) + "FPS";
-    glutSetWindowTitle(title.c_str());
-
-    glBindBuffer( GL_PIXEL_UNPACK_BUFFER, pbo);
-    glBindTexture(GL_TEXTURE_2D, displayImage);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, 
-        GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-
-    glClear(GL_COLOR_BUFFER_BIT);   
-
-    // VAO, shader program, and texture already bound
-    glDrawElements(GL_TRIANGLES, 6,  GL_UNSIGNED_SHORT, 0);
-
-    glutPostRedisplay();
-    glutSwapBuffers();
-  }
-
-  void keyboard(unsigned char key, int x, int y)
-  {
-    switch (key) 
-    {
-       case(27):
-         shut_down(1);    
-         break;
-    }
-  }
-
-#endif
   
 //-------------------------------
 //----------SETUP STUFF----------
 //-------------------------------
 
-#ifdef __APPLE__
-  void init(){
+bool init(int argc, char* argv[]) {
+  glfwSetErrorCallback(errorCallback);
 
-    if (glfwInit() != GL_TRUE){
-      shut_down(1);      
-    }
-
-    // 16 bit color, no depth, alpha or stencil buffers, windowed
-    if (glfwOpenWindow(width, height, 5, 6, 5, 0, 0, 0, GLFW_WINDOW) != GL_TRUE){
-      shut_down(1);
-    }
-
-    // Set up vertex array object, texture stuff
-    initVAO();
-    initTextures();
+  if (!glfwInit()) {
+      return false;
   }
-#else
-  void init(int argc, char* argv[]){
-    glutInit(&argc, argv);
-    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA);
-    glutInitWindowSize(width, height);
-    glutCreateWindow("CIS565 Rasterizer");
 
-    // Init GLEW
-    glewInit();
-    GLenum err = glewInit();
-    if (GLEW_OK != err)
-    {
-      /* Problem: glewInit failed, something is seriously wrong. */
-      std::cout << "glewInit failed, aborting." << std::endl;
-      exit (1);
-    }
-
-    initVAO();
-    initTextures();
+  width = 800;
+  height = 800;
+  window = glfwCreateWindow(width, height, "CIS 565 Pathtracer", NULL, NULL);
+  if (!window){
+      glfwTerminate();
+      return false;
   }
-#endif
+  glfwMakeContextCurrent(window);
+  glfwSetKeyCallback(window, keyCallback);
 
-void initPBO(GLuint* pbo){
-  if (pbo) {
-    // set up vertex data parameter
-    int num_texels = width*height;
-    int num_values = num_texels * 4;
-    int size_tex_data = sizeof(GLubyte) * num_values;
+  // Set up GL context
+  glewExperimental = GL_TRUE;
+  if(glewInit()!=GLEW_OK){
+    return false;
+  }
+
+  // Initialize other stuff
+  initVAO();
+  initTextures();
+  initCuda();
+  initPBO();
+  
+  GLuint passthroughProgram;
+  passthroughProgram = initShader();
+
+  glUseProgram(passthroughProgram);
+  glActiveTexture(GL_TEXTURE0);
+
+  return true;
+}
+
+void initPBO(){
+  // set up vertex data parameter
+  int num_texels = width*height;
+  int num_values = num_texels * 4;
+  int size_tex_data = sizeof(GLubyte) * num_values;
     
-    // Generate a buffer ID called a PBO (Pixel Buffer Object)
-    glGenBuffers(1,pbo);
-    // Make this the current UNPACK buffer (OpenGL is state-based)
-    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, *pbo);
-    // Allocate data for the buffer. 4-channel 8-bit image
-    glBufferData(GL_PIXEL_UNPACK_BUFFER, size_tex_data, NULL, GL_DYNAMIC_COPY);
-    cudaGLRegisterBufferObject( *pbo );
-  }
+  // Generate a buffer ID called a PBO (Pixel Buffer Object)
+  glGenBuffers(1, &pbo);
+
+  // Make this the current UNPACK buffer (OpenGL is state-based)
+  glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
+
+  // Allocate data for the buffer. 4-channel 8-bit image
+  glBufferData(GL_PIXEL_UNPACK_BUFFER, size_tex_data, NULL, GL_DYNAMIC_COPY);
+  cudaGLRegisterBufferObject(pbo);
+
 }
 
 void initCuda(){
   // Use device with highest Gflops/s
-  cudaGLSetGLDevice( compat_getMaxGflopsDeviceId() );
-
-  initPBO(&pbo);
+  cudaGLSetGLDevice(0);
 
   // Clean up on program exit
   atexit(cleanupCuda);
-
-  runCuda();
 }
 
 void initTextures(){
-    glGenTextures(1,&displayImage);
+    glGenTextures(1, &displayImage);
     glBindTexture(GL_TEXTURE_2D, displayImage);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -304,18 +228,19 @@ void initVAO(void){
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 }
 
-GLuint initShader(const char *vertexShaderPath, const char *fragmentShaderPath){
-    GLuint program = glslUtility::createProgram(vertexShaderPath, fragmentShaderPath, attributeLocations, 2);
-    GLint location;
 
-    glUseProgram(program);
-    
-    if ((location = glGetUniformLocation(program, "u_image")) != -1)
-    {
-        glUniform1i(location, 0);
-    }
+GLuint initShader() {
+  const char *attribLocations[] = { "Position", "Tex" };
+  GLuint program = glslUtility::createDefaultProgram(attribLocations, 2);
+  GLint location;
+  
+  glUseProgram(program);
+  if ((location = glGetUniformLocation(program, "u_image")) != -1)
+  {
+    glUniform1i(location, 0);
+  }
 
-    return program;
+  return program;
 }
 
 //-------------------------------
@@ -351,4 +276,18 @@ void shut_down(int return_code){
   glfwTerminate();
   #endif
   exit(return_code);
+}
+
+//------------------------------
+//-------GLFW CALLBACKS---------
+//------------------------------
+
+void errorCallback(int error, const char* description){
+    fputs(description, stderr);
+}
+
+void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods){
+    if(key == GLFW_KEY_ESCAPE && action == GLFW_PRESS){
+        glfwSetWindowShouldClose(window, GL_TRUE);
+    }
 }

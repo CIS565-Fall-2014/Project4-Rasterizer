@@ -4,36 +4,24 @@
 #ifndef MAIN_H
 #define MAIN_H
 
-#ifdef __APPLE__
-	#include <GL/glfw.h>
-#else
-	#include <GL/glew.h>
-	#include <GL/glut.h>
-#endif
+#include <GL/glew.h>
+#include <GLFW/glfw3.h>
 
-#include <stdlib.h>
 #include <cuda_runtime.h>
 #include <cuda_gl_interop.h>
-#include <string>
-#include <iostream>
-#include <sstream>
 #include <fstream>
+#include <glm/glm.hpp>
+#include <glslUtil/glslUtility.hpp>
+#include <iostream>
+#include <objUtil/objloader.h>
+#include <sstream>
+#include <stdlib.h>
+#include <string>
 #include <time.h>
-#include "glslUtility.h"
-#include "glm/glm.hpp"
+
+
 #include "rasterizeKernels.h"
 #include "utilities.h"
-#include "ObjCore/objloader.h"
-
-#if CUDA_VERSION >= 5000
-    #include <helper_cuda.h>
-    #include <helper_cuda_gl.h>
-    #define compat_getMaxGflopsDeviceId() gpuGetMaxGflopsDeviceId() 
-#else
-    #include <cutil_inline.h>
-    #include <cutil_gl_inline.h>
-    #define compat_getMaxGflopsDeviceId() cutGetMaxGflopsDeviceId()
-#endif
 
 using namespace std;
 
@@ -51,6 +39,8 @@ GLuint pbo = (GLuint)NULL;
 GLuint displayImage;
 uchar4 *dptr;
 
+GLFWwindow *window;
+
 obj* mesh;
 
 float* vbo;
@@ -64,7 +54,7 @@ int ibosize;
 //----------CUDA STUFF-----------
 //-------------------------------
 
-int width=800; int height=800;
+int width = 800; int height = 800;
 
 //-------------------------------
 //-------------MAIN--------------
@@ -88,18 +78,12 @@ void runCuda();
 //-------------------------------
 //----------SETUP STUFF----------
 //-------------------------------
-
-#ifdef __APPLE__
-	void init();
-#else
-	void init(int argc, char* argv[]);
-#endif
-
-void initPBO(GLuint* pbo);
+bool init(int argc, char* argv[]);
+void initPBO();
 void initCuda();
 void initTextures();
 void initVAO();
-GLuint initShader(const char *vertexShaderPath, const char *fragmentShaderPath);
+GLuint initShader();
 
 //-------------------------------
 //---------CLEANUP STUFF---------
@@ -108,6 +92,12 @@ GLuint initShader(const char *vertexShaderPath, const char *fragmentShaderPath);
 void cleanupCuda();
 void deletePBO(GLuint* pbo);
 void deleteTexture(GLuint* tex);
-void shut_down(int return_code);
+
+//------------------------------
+//-------GLFW CALLBACKS---------
+//------------------------------
+void mainLoop();
+void errorCallback(int error, const char *description);
+void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods);
 
 #endif
