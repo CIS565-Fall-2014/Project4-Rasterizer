@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.0.0)
 #set (CMAKE_C_COMPILER clang)
 #set (CMAKE_CXX_COMPILER clang++)
 
-project(Project3-Pathtracer)
+project(Project4-Rasterizer)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 
@@ -94,6 +94,6 @@ set(SOURCE_FILES ${SOURCE_FILES} "${EXTERNAL}/src/glslUtil/glslUtility.cpp")
 set(SOURCE_FILES ${SOURCE_FILES} "${EXTERNAL}/src/objUtil/obj.cpp")
 set(SOURCE_FILES ${SOURCE_FILES} "${EXTERNAL}/src/objUtil/objloader.cpp")
 
-cuda_add_executable(Project3-Pathtracer ${SOURCE_FILES} OPTIONS -arch=sm_20)
+cuda_add_executable(Project4-Rasterizer ${SOURCE_FILES} OPTIONS -arch=sm_20)
 
-target_link_libraries(Project3-Pathtracer ${CORELIBS})
+target_link_libraries(Project4-Rasterizer ${CORELIBS})
