@@ -3,7 +3,7 @@ CIS565: Project 4: CUDA Rasterizer
 -------------------------------------------------------------------------------
 Fall 2013
 -------------------------------------------------------------------------------
-Due Thursday 10/31/2012
+Due Monday 10/27/2014 @ 12 PM
 -------------------------------------------------------------------------------
 
 -------------------------------------------------------------------------------
@@ -32,9 +32,7 @@ The Project4 root directory contains the following subdirectories:
 * src/ contains the source code for the project. Both the Windows Visual Studio solution and the OSX makefile reference this folder for all source; the base source code compiles on OSX and Windows without modification.
 * objs/ contains example obj test files: cow.obj, cube.obj, tri.obj.
 * renders/ contains an example render of the given example cow.obj file with a z-depth fragment shader. 
-* PROJ4_WIN/ contains a Windows Visual Studio 2010 project and all dependencies needed for building and running on Windows 7.
-* PROJ4_OSX/ contains a OSX makefile, run script, and (hopefully) all dependencies needed for building and running on Mac OSX 10.8. 
-* PROJ4_NIX/ contains a makefile tested to work on Ubuntu 12.04
+* windows/ contains a Windows Visual Studio 2010 project and all dependencies needed for building and running on Windows 7.
 
 The Windows and OSX versions of the project build and run exactly the same way as in Project0, Project1, and Project2.
 
@@ -164,7 +162,7 @@ THIRD PARTY CODE POLICY
 -------------------------------------------------------------------------------
 SELF-GRADING
 -------------------------------------------------------------------------------
-* On the submission date, email your grade, on a scale of 0 to 100, to Liam, liamboone+cis565@gmail.edu, with a one paragraph explanation.  Be concise and realistic.  Recall that we reserve 30 points as a sanity check to adjust your grade.  Your actual grade will be (0.7 * your grade) + (0.3 * our grade).  We hope to only use this in extreme cases when your grade does not realistically reflect your work - it is either too high or too low.  In most cases, we plan to give you the exact grade you suggest.
+* On the submission date, email your grade, on a scale of 0 to 100, to Liam, harmoli+cis565@seas.upenn.edu, with a one paragraph explanation.  Be concise and realistic.  Recall that we reserve 30 points as a sanity check to adjust your grade.  Your actual grade will be (0.7 * your grade) + (0.3 * our grade).  We hope to only use this in extreme cases when your grade does not realistically reflect your work - it is either too high or too low.  In most cases, we plan to give you the exact grade you suggest.
 * Projects are not weighted evenly, e.g., Project 0 doesn't count as much as the path tracer.  We will determine the weighting at the end of the semester based on the size of each project.
 
 ---

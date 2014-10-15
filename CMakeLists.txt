@@ -88,9 +88,7 @@ endif()
 #Add all source files. Headers don't need to be listed here since the compiler will find them;
 #we just need the actual files being fed directly to the compiler
 set(SOURCE_FILES "src/main.cpp")
-set(SOURCE_FILES ${SOURCE_FILES} "src/cudaMat4.cpp")
 set(SOURCE_FILES ${SOURCE_FILES} "src/rasterizeKernels.cu")
-set(SOURCE_FILES ${SOURCE_FILES} "src/rasterizeTools.cpp")
 set(SOURCE_FILES ${SOURCE_FILES} "src/utilities.cpp")
 set(SOURCE_FILES ${SOURCE_FILES} "${EXTERNAL}/src/glslUtil/glslUtility.cpp")
 set(SOURCE_FILES ${SOURCE_FILES} "${EXTERNAL}/src/objUtil/obj.cpp")
