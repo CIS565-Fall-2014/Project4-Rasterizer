@@ -95,9 +95,9 @@ void runCuda(){
   ibosize = mesh->getIBOsize();
 
   //Pclip = (Mprojection)(Mview)(Mmodel)(Pmodel)
-  glm::mat4 glmModelTransform =glm::mat4();
+  glm::mat4 model =glm::mat4();
   glm::mat4 projection = glm::perspective(60.0f, static_cast<float>(width) / static_cast<float>(height), 0.1f, 30.0f);
-  glm::mat4 camera = glm::lookAt(glm::vec3(4, 6, 4), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
+  glm::mat4 view = glm::lookAt(glm::vec3(4, 6, 4), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
 
   cudaGLMapBufferObject((void**)&dptr, pbo);
   cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize);
