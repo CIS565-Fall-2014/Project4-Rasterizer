@@ -2,7 +2,7 @@
 // Written by Yining Karl Li, Copyright (c) 2012 University of Pennsylvania
 
 #include "main.h"
-
+#include "../external/include/glm/gtc/matrix_transform.hpp"
 //-------------------------------
 //-------------MAIN--------------
 //-------------------------------
@@ -39,6 +39,7 @@ int main(int argc, char** argv){
     mainLoop();
   }
 
+  system("pause");
   return 0;
 }
 
@@ -93,6 +94,11 @@ void runCuda(){
   ibo = mesh->getIBO();
   ibosize = mesh->getIBOsize();
 
+  //Pclip = (Mprojection)(Mview)(Mmodel)(Pmodel)
+  glm::mat4 glmModelTransform =glm::mat4();
+  glm::mat4 projection = glm::perspective(60.0f, static_cast<float>(width) / static_cast<float>(height), 0.1f, 30.0f);
+  glm::mat4 camera = glm::lookAt(glm::vec3(4, 6, 4), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
+
   cudaGLMapBufferObject((void**)&dptr, pbo);
   cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize);
   cudaGLUnmapBufferObject(pbo);
@@ -119,7 +125,7 @@ bool init(int argc, char* argv[]) {
 
   width = 800;
   height = 800;
-  window = glfwCreateWindow(width, height, "CIS 565 Pathtracer", NULL, NULL);
+  window = glfwCreateWindow(width, height, "CIS 565 Rasterizer", NULL, NULL);
   if (!window){
       glfwTerminate();
       return false;
