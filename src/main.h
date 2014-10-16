@@ -25,6 +25,11 @@
 
 using namespace std;
 
+
+//transformations
+glm::mat4 glmProjectionTransform;
+glm::mat4 glmMVtransform;
+
 //-------------------------------
 //------------GL STUFF-----------
 //-------------------------------

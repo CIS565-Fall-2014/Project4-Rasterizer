@@ -33,6 +33,16 @@ __host__ __device__ glm::vec3 multiplyMV(cudaMat4 m, glm::vec4 v){
   return r;
 }
 
+//Multiplies a cudaMat4 matrix and a vec4 and return vec4
+__host__ __device__ glm::vec4 multiplyMV4(cudaMat4 m, glm::vec4 v){
+  glm::vec4 r(1,1,1,1);
+  r.x = (m.x.x*v.x)+(m.x.y*v.y)+(m.x.z*v.z)+(m.x.w*v.w);
+  r.y = (m.y.x*v.x)+(m.y.y*v.y)+(m.y.z*v.z)+(m.y.w*v.w);
+  r.z = (m.z.x*v.x)+(m.z.y*v.y)+(m.z.z*v.z)+(m.z.w*v.w);
+  r.w = (m.w.x*v.x)+(m.w.y*v.y)+(m.w.z*v.z)+(m.w.w*v.w);
+  return r;
+}
+
 //LOOK: finds the axis aligned bounding box for a given triangle
 __host__ __device__ void getAABBForTriangle(triangle tri, glm::vec3& minpoint, glm::vec3& maxpoint){
   minpoint = glm::vec3(min(min(tri.p0.x, tri.p1.x),tri.p2.x), 

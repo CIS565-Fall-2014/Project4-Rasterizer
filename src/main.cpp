@@ -32,19 +32,29 @@ int main(int argc, char** argv){
   frame = 0;
   seconds = time (NULL);
   fpstracker = 0;
-
   // Launch CUDA/GL
   if (init(argc, argv)) {
     // GLFW main loop
     mainLoop();
   }
-
   return 0;
 }
 
 void mainLoop() {
+
+
+
+
+
   while(!glfwWindowShouldClose(window)){
     glfwPollEvents();
+
+
+
+	glm::mat4 glmModelTransform =glm::mat4();
+	glm::mat4 glmViewTransform =utilityCore::buildTransformationMatrix(glm::vec3(0.0f,0.0f,0.2f),glm::vec3(0.0f,85.0f,0.0f),glm::vec3(1.0f));
+	glmProjectionTransform =glm::mat4(glm::vec4(1.36f,0.0f,0.0f,0.0f),glm::vec4(0.0f,2.75f,0.0f,0.0f),glm::vec4(0.0f,0.0f,-1.67f,-53.33f),glm::vec4(0.0f,0.0f,-1.0f,0.0f));
+	glmMVtransform = glmViewTransform * glmModelTransform;
     runCuda();
 
     time_t seconds2 = time (NULL);
@@ -68,6 +78,7 @@ void mainLoop() {
     glDrawElements(GL_TRIANGLES, 6,  GL_UNSIGNED_SHORT, 0);
     glfwSwapBuffers(window);
   }
+
   glfwDestroyWindow(window);
   glfwTerminate();
 }
@@ -84,17 +95,14 @@ void runCuda(){
   vbo = mesh->getVBO();
   vbosize = mesh->getVBOsize();
 
-  float newcbo[] = {0.0, 1.0, 0.0, 
-                    0.0, 0.0, 1.0, 
-                    1.0, 0.0, 0.0};
-  cbo = newcbo;
-  cbosize = 9;
+  cbo = mesh->getCBO();
+  cbosize = mesh->getCBOsize();
 
   ibo = mesh->getIBO();
   ibosize = mesh->getIBOsize();
 
   cudaGLMapBufferObject((void**)&dptr, pbo);
-  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize);
+  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize, glmProjectionTransform,glmMVtransform);
   cudaGLUnmapBufferObject(pbo);
 
   vbo = NULL;
@@ -119,7 +127,7 @@ bool init(int argc, char* argv[]) {
 
   width = 800;
   height = 800;
-  window = glfwCreateWindow(width, height, "CIS 565 Pathtracer", NULL, NULL);
+  window = glfwCreateWindow(width, height, "CUDA rasterizer", NULL, NULL);
   if (!window){
       glfwTerminate();
       return false;
