@@ -94,13 +94,18 @@ void runCuda(){
   ibo = mesh->getIBO();
   ibosize = mesh->getIBOsize();
 
+  nbo = mesh->getNBO();
+  nbosize = mesh->getNBOsize();
+
   //Pclip = (Mprojection)(Mview)(Mmodel)(Pmodel)
-  glm::mat4 model =glm::mat4();
-  glm::mat4 projection = glm::perspective(60.0f, static_cast<float>(width) / static_cast<float>(height), 0.1f, 30.0f);
-  glm::mat4 view = glm::lookAt(glm::vec3(4, 6, 4), glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
+  model =glm::mat4();
+  nearfar = glm::vec2(0.1f, 1000.0f);
+  projection = glm::perspective(60.0f, (float)(width) / (float)(height),nearfar.x,nearfar.y);
+  view = glm::lookAt(glm::vec3(0, 2, 2), glm::vec3(0, 0, -1), glm::vec3(0, 1, 0));
 
   cudaGLMapBufferObject((void**)&dptr, pbo);
-  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize);
+  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, 
+	  cbosize, ibo, ibosize,nbo,nbosize,model,view,projection);
   cudaGLUnmapBufferObject(pbo);
 
   vbo = NULL;
