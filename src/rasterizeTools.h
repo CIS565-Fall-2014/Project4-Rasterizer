@@ -24,6 +24,7 @@ struct fragment{
   glm::vec3 position;
 };
 
+
 //Multiplies a cudaMat4 matrix and a vec4
 __host__ __device__ glm::vec3 multiplyMV(cudaMat4 m, glm::vec4 v){
   glm::vec3 r(1,1,1);

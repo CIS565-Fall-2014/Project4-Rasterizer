@@ -41,20 +41,25 @@ int main(int argc, char** argv){
 }
 
 void mainLoop() {
+  
+  float fov_rad = FOV_DEG * PI / 180.0f;
+  float AR = width / height;
+
+  glm::mat4 glmModelTransform =glm::mat4();
+  glm::mat4 glmViewTransform =utilityCore::buildTransformationMatrix(glm::vec3(0.0f,-.25f,2.0f),glm::vec3(0.0f,0.0f,0.0f),glm::vec3(1.0f));
+	
+  //projection matrix assuming Near:1 Far: 100
+  glmProjectionTransform =glm::mat4(glm::vec4(1/AR/tan(fov_rad * 0.5f),0.0f,0.0f,0.0f),glm::vec4(0.0f,1/tan(fov_rad * 0.5f),0.0f,0.0f),glm::vec4(0.0f,0.0f,-1.02f,-2.02f),glm::vec4(0.0f,0.0f,-1.0f,0.0f));
+  glmMVtransform = glmViewTransform * glmModelTransform;
 
 
-
-
+  //construct light
+  Light.position = lightPos;
+  Light.color = lightCol;
 
   while(!glfwWindowShouldClose(window)){
     glfwPollEvents();
 
-
-
-	glm::mat4 glmModelTransform =glm::mat4();
-	glm::mat4 glmViewTransform =utilityCore::buildTransformationMatrix(glm::vec3(0.0f,0.0f,0.2f),glm::vec3(0.0f,85.0f,0.0f),glm::vec3(1.0f));
-	glmProjectionTransform =glm::mat4(glm::vec4(1.36f,0.0f,0.0f,0.0f),glm::vec4(0.0f,2.75f,0.0f,0.0f),glm::vec4(0.0f,0.0f,-1.67f,-53.33f),glm::vec4(0.0f,0.0f,-1.0f,0.0f));
-	glmMVtransform = glmViewTransform * glmModelTransform;
     runCuda();
 
     time_t seconds2 = time (NULL);
@@ -102,7 +107,7 @@ void runCuda(){
   ibosize = mesh->getIBOsize();
 
   cudaGLMapBufferObject((void**)&dptr, pbo);
-  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize, glmProjectionTransform,glmMVtransform);
+  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize, glmProjectionTransform,glmMVtransform,Light);
   cudaGLUnmapBufferObject(pbo);
 
   vbo = NULL;

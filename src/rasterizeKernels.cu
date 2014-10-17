@@ -26,7 +26,7 @@ void checkCUDAError(const char *msg) {
   cudaError_t err = cudaGetLastError();
   if( cudaSuccess != err) {
     fprintf(stderr, "Cuda error: %s: %s.\n", msg, cudaGetErrorString( err) ); 
-    exit(EXIT_FAILURE); 
+   // exit(EXIT_FAILURE); 
   }
 } 
 
@@ -135,10 +135,11 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
   }
 }
 
-//TODO: Implement a vertex shader
+//vertex shader
 __global__ void vertexShadeKernel(float* vbo, int vbosize, cudaMat4 * MVP){
   int index = (blockIdx.x * blockDim.x) + threadIdx.x;
   if(index<vbosize/3){
+
 	  glm::vec4 oldP = glm::vec4(vbo[3*index],vbo[3*index + 1],vbo[3*index +2], 1.0f);
 	  glm::vec4 newP = multiplyMV4(*MVP,oldP); 
 	  vbo[3*index] = newP.x/newP.w;
@@ -173,9 +174,60 @@ __global__ void primitiveAssemblyKernel(float* vbo, int vbosize, float* cbo, int
 
 //TODO: Implement a rasterization method, such as scanline.
 __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, fragment* depthbuffer, glm::vec2 resolution){
-  int index = (blockIdx.x * blockDim.x) + threadIdx.x;
-  if(index<primitivesCount){
+	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+	if(index<primitivesCount){
+		
+		int totalPixel = resolution.x * resolution.y;
+		float halfResoX =  0.5f * (float) resolution.x;
+		float halfResoY =  0.5f * (float) resolution.y;
+		glm::vec3 normal = glm::normalize(glm::cross(primitives[index].p1 - primitives[index].p0, primitives[index].p2 - primitives[index].p1));
 
+		if(normal.z >= 0.0f) return;
+
+		glm::vec3 Min,Max;
+		getAABBForTriangle(primitives[index],Min,Max);
+		float pixelWidth = 1.0f/(float) resolution.x;
+		float pixelHeight = 1.0f/(float) resolution.y;
+
+		//loop thru all pixels in the bounding box
+		for(int i = 0;i < (Max.x - Min.x)/pixelWidth + 1; i++)
+		{
+			for(int j = 0;j <(Max.y - Min.y)/pixelHeight + 1; j++)
+			{
+				glm::vec2 pixelPos = glm::vec2(Min.x + (float)i * pixelWidth, Min.y + (float)j * pixelHeight);
+				glm::vec3 pixelBaryPos = calculateBarycentricCoordinate(primitives[index], pixelPos);
+				
+				//not in triangle
+				if(!isBarycentricCoordInBounds(pixelBaryPos))
+				{
+					continue;
+				}
+
+				else
+				{
+					int x,y, pixelIndex;
+					x = pixelPos.x * halfResoX + halfResoX;
+					y = pixelPos.y  * halfResoY+ halfResoY;
+					pixelIndex = x + y * resolution.x;
+
+					float pixelDepth = getZAtCoordinate(pixelBaryPos, primitives[index]);
+
+					if(pixelIndex < totalPixel && pixelIndex >= 0)// && pixelDepth < depthbuffer[pixelIndex].position.z)
+					{
+						depthbuffer[pixelIndex].position = glm::vec3(pixelPos.x,pixelPos.y,pixelDepth);
+						depthbuffer[pixelIndex].normal = normal;
+						//depthbuffer[pixelIndex].color = pixelBaryPos.x * primitives[index].c0 + pixelBaryPos.y * primitives[index].c1 + pixelBaryPos.z * primitives[index].c2;
+						depthbuffer[pixelIndex].color = glm::vec3(0.0f,1.0f,0.0f);
+					}
+
+				}
+
+			}
+		}
+		
+
+		//Only display vertices
+		/*
 		  int x0,y0,x1,y1,x2,y2, P0,P1,P2;
 		  x0 = primitives[index].p0.x * 0.5f * resolution.x + 0.5f * resolution.x;
 		  x1 = primitives[index].p1.x * 0.5f * resolution.x + 0.5f * resolution.x;
@@ -195,17 +247,25 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 		  if(P0 < totalPixel && P0 >=0) depthbuffer[P0].color = primitives[index].c0;
 		  if(P1 < totalPixel && P1 >=0)depthbuffer[P1].color = primitives[index].c1;
 		  if(P2 < totalPixel && P2 >=0)depthbuffer[P2].color = primitives[index].c2;
-
-  }
+		*/
+	}
 }
 
 //TODO: Implement a fragment shader
-__global__ void fragmentShadeKernel(fragment* depthbuffer, glm::vec2 resolution){
+__global__ void fragmentShadeKernel(fragment* depthbuffer, light Light, glm::vec2 resolution){
   int x = (blockIdx.x * blockDim.x) + threadIdx.x;
   int y = (blockIdx.y * blockDim.y) + threadIdx.y;
   int index = x + (y * resolution.x);
   if(x<=resolution.x && y<=resolution.y){
-	 // depthbuffer[index].color= glm::vec3(x/resolution.x,y/resolution.y,0.0f);
+
+	//  glm::vec3 L = glm::normalize(Light.position - depthbuffer[index].position);
+
+	//  float coe = glm::dot(L,depthbuffer[index].normal);
+	//  coe = (coe<0.0f) ? 0.0f:coe;
+	 // coe = (coe>1.0f) ? 1.0f:coe;
+
+	 // coe = abs(depthbuffer[index].position.z/2.0f);
+	//  depthbuffer[index].color *= coe * Light.color;
   }
 }
 
@@ -222,7 +282,8 @@ __global__ void render(glm::vec2 resolution, fragment* depthbuffer, glm::vec3* f
 }
 
 // Wrapper for the __global__ call that sets up the kernel calls and memory management
-void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float* vbo, int vbosize, float* cbo, int cbosize, int* ibo, int ibosize, glm::mat4 glmProjectionTransform, glm::mat4 glmMVtransform){
+void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float* vbo, int vbosize, float* cbo, int cbosize, int* ibo, int ibosize, glm::mat4 glmProjectionTransform, glm::mat4 glmMVtransform,light Light){
+	
 	projectionTransform = new cudaMat4;
 	MVtransform = new cudaMat4;
 	MVPtransform = new cudaMat4;
@@ -242,6 +303,9 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
 	cudaMemcpy(dev_projectionTransform,projectionTransform,sizeof(cudaMat4),cudaMemcpyHostToDevice);
 	cudaMemcpy(dev_MVtransform,MVtransform,sizeof(cudaMat4),cudaMemcpyHostToDevice);
 	cudaMemcpy(dev_MVPtransform,MVPtransform,sizeof(cudaMat4),cudaMemcpyHostToDevice);
+
+	light transformedLight = Light;
+	transformedLight.position = multiplyMV(*MVPtransform,glm::vec4(Light.position,1.0f));
 
 	// set up crucial magic
 	int tileSize = 8;
@@ -289,7 +353,7 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
 	//------------------------------
 	//vertex shader
 	//------------------------------
-	vertexShadeKernel<<<primitiveBlocks, tileSize>>>(device_vbo, vbosize,dev_MVtransform);
+	vertexShadeKernel<<<primitiveBlocks, tileSize>>>(device_vbo, vbosize,dev_MVPtransform);
 
 	cudaDeviceSynchronize();
 	//------------------------------
@@ -308,7 +372,7 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
 	//------------------------------
 	//fragment shader
 	//------------------------------
-	fragmentShadeKernel<<<fullBlocksPerGrid, threadsPerBlock>>>(depthbuffer, resolution);
+	fragmentShadeKernel<<<fullBlocksPerGrid, threadsPerBlock>>>(depthbuffer, transformedLight, resolution);
 
 	cudaDeviceSynchronize();
 	//------------------------------

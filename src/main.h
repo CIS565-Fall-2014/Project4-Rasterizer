@@ -25,6 +25,11 @@
 
 using namespace std;
 
+#define FOV_DEG 30
+glm::vec3 lightPos = glm::vec3(0.5f,0.5f,-0.5f);
+glm::vec3 lightCol = glm::vec3(1.0f,1.0f,1.0f);
+
+light Light;
 
 //transformations
 glm::mat4 glmProjectionTransform;
