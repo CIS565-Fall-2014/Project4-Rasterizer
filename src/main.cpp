@@ -2,7 +2,7 @@
 // Written by Yining Karl Li, Copyright (c) 2012 University of Pennsylvania
 
 #include "main.h"
-#include "../external/include/glm/gtc/matrix_transform.hpp"
+
 //-------------------------------
 //-------------MAIN--------------
 //-------------------------------
@@ -88,6 +88,10 @@ void runCuda(){
   float newcbo[] = {0.0, 1.0, 0.0, 
                     0.0, 0.0, 1.0, 
                     1.0, 0.0, 0.0};
+
+  //float newcbo[] = {0.5, 0.5, 0.5, 
+	 // 0.5, 0.5, 0.5, 
+	 // 0.5, 0.5, 0.5};
   cbo = newcbo;
   cbosize = 9;
 
@@ -97,15 +101,9 @@ void runCuda(){
   nbo = mesh->getNBO();
   nbosize = mesh->getNBOsize();
 
-  //Pclip = (Mprojection)(Mview)(Mmodel)(Pmodel)
-  model =glm::mat4();
-  nearfar = glm::vec2(0.1f, 1000.0f);
-  projection = glm::perspective(60.0f, (float)(width) / (float)(height),nearfar.x,nearfar.y);
-  view = glm::lookAt(glm::vec3(0, 2, 2), glm::vec3(0, 0, -1), glm::vec3(0, 1, 0));
-
   cudaGLMapBufferObject((void**)&dptr, pbo);
   cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, 
-	  cbosize, ibo, ibosize,nbo,nbosize,model,view,projection);
+	  cbosize, ibo, ibosize,nbo,nbosize);
   cudaGLUnmapBufferObject(pbo);
 
   vbo = NULL;

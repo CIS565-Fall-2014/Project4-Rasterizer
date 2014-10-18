@@ -79,6 +79,7 @@
     <ClCompile Include="..\..\..\external\src\objUtil\objloader.cpp" />
     <ClCompile Include="..\..\..\src\main.cpp" />
     <ClCompile Include="..\..\..\src\utilities.cpp" />
+    <ClCompile Include="temp.cpp" />
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="..\..\..\src\rasterizeKernels.cu">

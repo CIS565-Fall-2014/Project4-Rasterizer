@@ -104,9 +104,4 @@ void errorCallback(int error, const char *description);
 void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods);
 
 
-//Added
-glm::mat4 model;
-glm::mat4 projection;
-glm::mat4 view;
-glm::vec2 nearfar;
 #endif
