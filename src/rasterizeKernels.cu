@@ -7,8 +7,15 @@
 #include <thrust/random.h>
 #include "rasterizeKernels.h"
 #include "rasterizeTools.h"
-#include "../external/include/glm/gtc/matrix_transform.hpp"
 
+//Added
+#include "../external/include/glm/gtc/matrix_transform.hpp"
+#include <thrust/copy.h>
+#include <thrust/count.h>
+#include <thrust/remove.h>
+#include <thrust/device_ptr.h>
+
+extern bool BackfaceCulling;
 extern glm::vec2 nearfar;
 glm::vec3* framebuffer;
 fragment* depthbuffer;
@@ -187,6 +194,13 @@ __global__ void primitiveAssemblyKernel(float* vbo,float* nbo, int vbosize, floa
       primitives[index].n0 = glm::vec3(nbo[p0i],nbo[p0i+1],nbo[p0i+2]);
 	  primitives[index].n1 = glm::vec3(nbo[p1i],nbo[p1i+1],nbo[p1i+2]);
 	  primitives[index].n2 = glm::vec3(nbo[p2i],nbo[p2i+1],nbo[p2i+2]);
+
+	  
+	  //Backfaceculling
+	  primitives[index].discard = false;
+	  float eps = 0.00001f;
+	  if(calculateSignedArea(primitives[index]) < eps) 
+		  primitives[index].discard = true;	  
   }
 }
 
@@ -223,6 +237,18 @@ __device__ void GetTwoLinesIntersect(glm::vec2 p1,glm::vec2 p2,glm::vec2 q1,glm:
 		}
 	}
 
+}
+
+//glm::normalize maybe wrong if vector length is 0, so I add this 
+//Besides, don't use .length(), as it is always 3!
+__device__ glm::vec3 GetNormal(glm::vec3 origin)
+{
+	
+	float eps = 0.0000001f;
+	if(glm::length(origin)<eps)
+		return origin;
+	else
+		return origin/(float)glm::length(origin);
 }
 
 //TODO: Implement a rasterization method, such as scanline.
@@ -262,8 +288,9 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 						frag.position.z = - frag.position.z;
 						frag.color =  InterpolateBC(baryCoord,tri.c0,tri.c1,tri.c2);	
 
-						//frag.normal = (tri.n0 + tri.n1 + tri.n2)/3.0f;
-						frag.normal = glm::normalize(InterpolateBC(baryCoord,tri.n0,tri.n1,tri.n2));
+						//frag.normal = (tri.n0 + tri.n1 + tri.n2)/3.0f; //Not smooth
+						frag.normal = InterpolateBC(baryCoord,tri.n0,tri.n1,tri.n2);
+						frag.normal = GetNormal(frag.normal);
 
 						//only the closest triangle shows
 						if (depthbuffer[depthIndex].position.z  < frag.position.z
@@ -277,7 +304,6 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 	}
 }
 
-
 //TODO: Implement a fragment shader
 __global__ void fragmentShadeKernel(fragment* depthbuffer, glm::vec2 resolution,glm::vec3 eyepos,glm::vec3 lightpos,
 	glm::mat4 projection, glm::mat4 view,glm::mat4 model,glm::vec2 nearfar){
@@ -289,12 +315,15 @@ __global__ void fragmentShadeKernel(fragment* depthbuffer, glm::vec2 resolution,
 	  glm::vec3 p = depthbuffer [index].position;
 	  p = glm::vec3((glm::inverse(projection) * glm::inverse(model*view) * glm::vec4(p,1)));
 
-	  glm::vec3 L =  glm::normalize(lightpos-p);
-	  glm::vec3 N = glm::normalize(depthbuffer[index].normal);
-	  glm::vec3 H = eyepos - L;
-	  float shininess = 50.0f;
+	  glm::vec3 L =  GetNormal(lightpos-p);
+	  glm::vec3 N = GetNormal(depthbuffer[index].normal);
+	  glm::vec3 E = GetNormal(eyepos - p);
+	  glm::vec3 H = GetNormal(E + L); 
+
+	  float shininess = 100.0f;
+	  //Blinn-Phong
 	  float diffusefactor =  glm::clamp(glm::dot(N,L),0.0f,1.0f);
-	  float specularfactor = glm::pow(glm::max(glm::dot(N,H)/(N.length()*H.length()),0.0f),shininess);
+	  float specularfactor = glm::pow(glm::max(glm::dot(N,H),0.0f),shininess);
 
 	  glm::vec3 lightcolor(1,1,1);
 	  depthbuffer [index].color = 
@@ -312,16 +341,16 @@ __global__ void render(glm::vec2 resolution, fragment* depthbuffer, glm::vec3* f
   //AA
   if(x >= 1 && y >= 1 && x < resolution.x && y < resolution.y)
 	{
-		glm::vec3 sumColor = glm::vec3(0.0f);
+		glm::vec3 sumc = glm::vec3(0.0f);
 		for(int i = -1; i <= 1; i++){
 			for(int j = -1; j <= 1; j++)
 			{
 				index = x + i + ((y+j) * resolution.x);
-				sumColor += depthbuffer[index].color;
+				sumc += depthbuffer[index].color;
 			}
 		}
 		index = x + (y * resolution.x);
-		depthbuffer[index].color = sumColor / 9.0f;
+		depthbuffer[index].color = sumc / 9.0f;
 	}
 
   __syncthreads();
@@ -330,7 +359,36 @@ __global__ void render(glm::vec2 resolution, fragment* depthbuffer, glm::vec3* f
        framebuffer[index] = depthbuffer[index].color;
   }
 
+}
 
+//Stream Compact
+struct Is_Exist
+{
+	__host__ __device__
+	bool operator()(const triangle x)
+	{
+		if(!x.discard) return true;
+		else return false;
+	}
+};
+
+struct Is_Not_Exist
+{
+	__host__ __device__
+	bool operator()(const triangle x)
+	{
+		if(x.discard) return true;
+		else return false;
+	}
+};
+
+void ThrustStreamCompact(thrust::device_ptr<triangle> origin,int &N)
+{
+	//Count how many rays still exist
+	int finallength = thrust::count_if(origin, origin+N,Is_Exist());
+	thrust::remove_if(origin, origin+N,Is_Not_Exist());
+	N = finallength;
+	return;
 }
 
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
@@ -340,7 +398,7 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
 		//Added
 		glm::mat4 model =glm::mat4();
 		glm::vec2 nearfar = glm::vec2(0.1f, 100.0f);
-		glm::vec3 eye = glm::vec3(0, 0.5, 1);
+		glm::vec3 eye = glm::vec3(0, 1, 1);
 		glm::mat4 projection = glm::perspective(60.0f, (float)(width) / (float)(height),nearfar.x,nearfar.y);
 		glm::mat4 view = glm::lookAt(eye, glm::vec3(0, 0, -1), glm::vec3(0, 1, 0));
 		glm::vec3 lightpos = glm::vec3(0,4,4);
@@ -409,11 +467,22 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
 		primitiveBlocks = ceil(((float)ibosize/3)/((float)tileSize));
 		primitiveAssemblyKernel<<<primitiveBlocks, tileSize>>>(device_vbo,device_nbo, vbosize, device_cbo, cbosize, device_ibo, ibosize, primitives);
 
+		//Stream Compact after Backface Culling
+		int numOfPrimitives = ibosize/3;
+		//std::cout<<"Number of primitives before Backface Culling:"<<numOfPrimitives<<std::endl;
+		if(BackfaceCulling)
+		{
+			thrust::device_ptr<triangle> primStart(primitives);	
+	        ThrustStreamCompact(primStart,numOfPrimitives);
+		    primitiveBlocks = ceil((float)numOfPrimitives/((float)tileSize));
+		}
+		//std::cout<<"Number of primitives after Backface Culling:"<<numOfPrimitives<<std::endl;
+
 		cudaDeviceSynchronize();
 		//------------------------------
 		//rasterization
 		//------------------------------
-		rasterizationKernel<<<primitiveBlocks, tileSize>>>(primitives, ibosize/3, depthbuffer, resolution,nearfar);
+		rasterizationKernel<<<primitiveBlocks, tileSize>>>(primitives, numOfPrimitives, depthbuffer, resolution,nearfar);
 
 		cudaDeviceSynchronize();
 		//------------------------------

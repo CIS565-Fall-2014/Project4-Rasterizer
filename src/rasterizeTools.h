@@ -19,6 +19,8 @@ struct triangle {
   glm::vec3 n0;
   glm::vec3 n1;
   glm::vec3 n2;
+
+  bool discard;
 };
 
 struct fragment{
@@ -48,7 +50,8 @@ __host__ __device__ void getAABBForTriangle(triangle tri, glm::vec3& minpoint, g
 
 //LOOK: calculates the signed area of a given triangle
 __host__ __device__ float calculateSignedArea(triangle tri){
-  return 0.5*((tri.p2.x - tri.p0.x)*(tri.p1.y - tri.p0.y) - (tri.p1.x - tri.p0.x)*(tri.p2.y - tri.p0.y));
+  //return 0.5*((tri.p2.x - tri.p0.x)*(tri.p1.y - tri.p0.y) - (tri.p1.x - tri.p0.x)*(tri.p2.y - tri.p0.y));
+	return -0.5*((tri.p2.x - tri.p0.x)*(tri.p1.y - tri.p0.y) - (tri.p1.x - tri.p0.x)*(tri.p2.y - tri.p0.y));
 }
 
 //LOOK: helper function for calculating barycentric coordinates
