@@ -76,6 +76,7 @@ __host__ __device__ bool isBarycentricCoordInBounds(glm::vec3 barycentricCoord){
           barycentricCoord.z >= 0.0 && barycentricCoord.z <= 1.0;
 }
 
+
 //LOOK: for a given barycentric coordinate, return the corresponding z position on the triangle
 __host__ __device__ float getZAtCoordinate(glm::vec3 barycentricCoord, triangle tri){
   return -(barycentricCoord.x*tri.p0.z + barycentricCoord.y*tri.p1.z + barycentricCoord.z*tri.p2.z);
