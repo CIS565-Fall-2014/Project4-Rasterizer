@@ -13,11 +13,11 @@ Basic features:
 * Vertex Shading
 * Primitive Assembly with support for triangle VBOs/IBOs
 * Perspective Transformation
-* Rasterization through either a scanline or a tiled approach
-* Fragment Shading
+* Rasterization through a scanline approach
 * A depth buffer for storing and depth testing fragments
+* Fragment Shading
 * Fragment to framebuffer writing
-* A simple lighting/shading scheme, such as Lambert or Blinn-Phong, implemented in the fragment shader
+* Blinn-Phong lighting/shading scheme
 
 Extra features:
  * Correct color interpolation between points on a primitive
@@ -28,8 +28,23 @@ Extra features:
 
 ##Progress
 ###1.Basic Features:
-####(1) Vertex Shading,Primitive Assembly with support for triangle VBOs/IBOs,Perspective Transformation
-These three steps
+#####(1) Vertex Shading,Primitive Assembly with support for triangle VBOs/IBOs,Perspective Transformation
+   These three steps converts the vertices' position and normal from world coordinate system to the screen coordinate system. And then we save these new position and normal into primitives. (triangles in this projects)<br />
+   
+For vertices' position:<br />
+ * World to clip: Pclip = (Mprojection)(Mview)(Mmodel)(Pmodel)<br />
+ * Perspective division: Pndc = (Pclip).xyz / (Pclip).w<br />
+ * Viewport transform: Pwindow = (Mviewport-transform)(Pndc)<br />
+ 
+For vertices' normal:<br />
+ * World to window: Nwindow = transpose(inverse(Mview*Mmodel))(Nmodel)<br />
+ 
+#####(2) Rasterization through a scanline approach,A depth buffer for storing and depth testing fragments
+I use a per primitive method to rasterize the triangles. For each triangle, I firstly calculate the bounding box of the triangle to get its x and y range. Then, I implement triangle rasterization by barycenteric coordinates. That for each pixel in the bounding box range, we convert the view coordinates into barycentric coordinates for the triangle being drawn. Only if the barycentric coordinates are within the range of [0,1], we plot it. Then, we use the barycentric coordinates to interpolate the depth of triangle vertices. For each interpolated depth, we compare it with the depth we store in depth buffer. We only keep and show the points nearest to the eye position in z axis.<br />
+
+Here is a sketch map which shows how to do Barycentric Interpolation:
+
+
 
 -------------------------------------------------------------------------------
 PERFORMANCE EVALUATION
