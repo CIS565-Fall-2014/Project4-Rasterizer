@@ -101,22 +101,7 @@ void runCuda(){
 	nbosize = mesh->getNBOsize();
 
 
-	//theta = 180;
 
-
-	//eye.x = center.x + 0.51 * sin(phi * PI / 180.0) * cos(theta * PI / 180.0);
-	//eye.y = center.y + 0.51 * cos(phi * PI / 180.0);
-	//eye.z = center.z + 0.51 * sin(phi * PI / 180.0) * sin(theta * PI / 180.0);
-	//camera = glm::lookAt(eye, center, up);
-
-	//translationVec = glm::vec3(0,0,0);
-	//scaleVec = glm::vec3(100,100,100);
-	//rotateVec = glm::vec3(0,0,0);
-
-	//transformationMat = utilityCore::buildTransformationMatrix(translationVec, rotateVec,  scaleVec);
-
-	glm::mat4 integrateMatrix = perspective *  camera * transformationMat;
-	shaderMatrix = utilityCore::glmMat4ToCudaMat4(integrateMatrix);
 
 
 	//for(int i = 0; i < ibosize / 3; ++i){
@@ -218,7 +203,8 @@ bool init(int argc, char* argv[]) {
 	transformationMat = utilityCore::buildTransformationMatrix(translationVec, rotateVec,  scaleVec);
 
 	glm::mat4 integrateMatrix = perspective *  camera * transformationMat;
-	shaderMatrix = utilityCore::glmMat4ToCudaMat4(transformationMat);
+	shaderMatrix = utilityCore::glmMat4ToCudaMat4(integrateMatrix);
+
 
 	translateX = width / 2;
 	translateY = height / 2;

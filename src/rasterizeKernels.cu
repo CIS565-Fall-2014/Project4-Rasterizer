@@ -139,7 +139,7 @@ __global__ void vertexShadeKernel(float* vbo, int vbosize, cudaMat4 shaderMatrix
 	  glm::vec3 afterShader = multiplyMV(shaderMatrix, glm::vec4(vbo[3*index], vbo[3*index+1], vbo[3*index+2], 1.0f));
 	  vbo[3*index] = afterShader.x + translateX;
 	  vbo[3*index + 1] = afterShader.y + translateY;
-	  vbo[3*index + 2] = afterShader.z;
+	  vbo[3*index + 2] = afterShader.z + 1000;
 
 
   }
@@ -208,17 +208,17 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 
 
 
-			 glm::vec3 barycentricCoordSub;
-			 for(int x = -1; x < 2; x++){
-				for(int y = -1; y < 2; y++){ 
-					barycentricCoordSub += calculateBarycentricCoordinate(primitives[index], glm::vec2(i + x, j + y));
-				}
-			 }
+			// glm::vec3 barycentricCoordSub;
+			// for(int x = -1; x < 2; x++){
+			//	for(int y = -1; y < 2; y++){ 
+			//		barycentricCoordSub += calculateBarycentricCoordinate(primitives[index], glm::vec2(i + x, j + y));
+			//	}
+			// }
 
-			glm::vec3 barycentricCoord = barycentricCoordSub / (float)9.0;
+			//glm::vec3 barycentricCoord = barycentricCoordSub / (float)9.0;
 
 
-			
+			glm::vec3 barycentricCoord = calculateBarycentricCoordinate(primitives[index], glm::vec2(i, j));
 			 if(barycentricCoord.x < 0 || barycentricCoord.y < 0 || barycentricCoord.z < 0)
 				 continue;
 
@@ -233,29 +233,38 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 			//	(barycentricCoord4.x < 0 || barycentricCoord4.y < 0 || barycentricCoord4.z < 0))
 			//	continue;
 
-			 //if(edgeFlag[i + j * (int)resolution.x] == true)
-				// continue;
+			  //if(barycentricCoord1.x < 0 || barycentricCoord1.y < 0 || barycentricCoord1.z < 0)
+				 // barycentricCoord1 = glm::vec3(0,0,0);
+			  //if(barycentricCoord2.x < 0 || barycentricCoord2.y < 0 || barycentricCoord2.z < 0)
+				 // barycentricCoord2 = glm::vec3(0,0,0);
+  			//  if(barycentricCoord3.x < 0 || barycentricCoord3.y < 0 || barycentricCoord3.z < 0)
+				 // barycentricCoord3 = glm::vec3(0,0,0);
+  			//  if(barycentricCoord4.x < 0 || barycentricCoord4.y < 0 || barycentricCoord4.z < 0)
+				 // barycentricCoord4 = glm::vec3(0,0,0);
+
 
 			 float newDepth = -getZAtCoordinate(barycentricCoord, primitives[index]);
-			 glm::vec3 newNormal;
-			 newNormal.x = barycentricCoord.x * primitives[index].n0.x + barycentricCoord.y * primitives[index].n1.x + barycentricCoord.z * primitives[index].n2.x;
-			 newNormal.y = barycentricCoord.x * primitives[index].n0.y + barycentricCoord.y * primitives[index].n1.y + barycentricCoord.z * primitives[index].n2.y;
-			 newNormal.z = barycentricCoord.x * primitives[index].n0.z + barycentricCoord.y * primitives[index].n1.z + barycentricCoord.z * primitives[index].n2.z;
+			 //glm::vec3 newNormal;
+			 //newNormal.x = barycentricCoord.x * primitives[index].n0.x + barycentricCoord.y * primitives[index].n1.x + barycentricCoord.z * primitives[index].n2.x;
+			 //newNormal.y = barycentricCoord.x * primitives[index].n0.y + barycentricCoord.y * primitives[index].n1.y + barycentricCoord.z * primitives[index].n2.y;
+			 //newNormal.z = barycentricCoord.x * primitives[index].n0.z + barycentricCoord.y * primitives[index].n1.z + barycentricCoord.z * primitives[index].n2.z;
 
-			 //newNormal.x = (barycentricCoord1.x * primitives[index].n0.x + barycentricCoord1.y * primitives[index].n1.x + barycentricCoord1.z * primitives[index].n2.x +
-				//            barycentricCoord2.x * primitives[index].n0.x + barycentricCoord2.y * primitives[index].n1.x + barycentricCoord2.z * primitives[index].n2.x + 
-				//		    barycentricCoord3.x * primitives[index].n0.x + barycentricCoord3.y * primitives[index].n1.x + barycentricCoord3.z * primitives[index].n2.x +
-				//		    barycentricCoord4.x * primitives[index].n0.x + barycentricCoord4.y * primitives[index].n1.x + barycentricCoord4.z * primitives[index].n2.x) / 4;
+
+			 //glm::vec3 newColor;
+			 //newColor.x = (barycentricCoord1.x * normal.x + barycentricCoord1.y * normal.x + barycentricCoord1.z * normal.x +
+				//           barycentricCoord2.x * normal.x + barycentricCoord2.y * normal.x + barycentricCoord2.z * normal.x + 
+				//		   barycentricCoord3.x * normal.x + barycentricCoord3.y * normal.x + barycentricCoord3.z * normal.x +
+				//		   barycentricCoord4.x * normal.x + barycentricCoord4.y * normal.x + barycentricCoord4.z * normal.x) / 4;
 			 //
-			 //newNormal.y = (barycentricCoord1.x * primitives[index].n0.y + barycentricCoord1.y * primitives[index].n1.y + barycentricCoord1.z * primitives[index].n2.y +
-				//            barycentricCoord2.x * primitives[index].n0.y + barycentricCoord2.y * primitives[index].n1.y + barycentricCoord2.z * primitives[index].n2.y + 
-				//		    barycentricCoord3.x * primitives[index].n0.y + barycentricCoord3.y * primitives[index].n1.y + barycentricCoord3.z * primitives[index].n2.y +
-				//		    barycentricCoord4.x * primitives[index].n0.y + barycentricCoord4.y * primitives[index].n1.y + barycentricCoord4.z * primitives[index].n2.y) / 4;
+			 //newColor.y = (barycentricCoord1.x * normal.y + barycentricCoord1.y * normal.y + barycentricCoord1.z * normal.y +
+				//           barycentricCoord2.x * normal.y + barycentricCoord2.y * normal.y + barycentricCoord2.z * normal.y + 
+				//		   barycentricCoord3.x * normal.y + barycentricCoord3.y * normal.y + barycentricCoord3.z * normal.y +
+				//		   barycentricCoord4.x * normal.y + barycentricCoord4.y * normal.y + barycentricCoord4.z * normal.y) / 4;
 			
-			 //newNormal.z = (barycentricCoord1.x * primitives[index].n0.z + barycentricCoord1.y * primitives[index].n1.z + barycentricCoord1.z * primitives[index].n2.z +
-				//            barycentricCoord2.x * primitives[index].n0.z + barycentricCoord2.y * primitives[index].n1.z + barycentricCoord2.z * primitives[index].n2.z + 
-				//		    barycentricCoord3.x * primitives[index].n0.z + barycentricCoord3.y * primitives[index].n1.z + barycentricCoord3.z * primitives[index].n2.z +
-				//		    barycentricCoord4.x * primitives[index].n0.z + barycentricCoord4.y * primitives[index].n1.z + barycentricCoord4.z * primitives[index].n2.z) / 4;
+			 //newColor.z = (barycentricCoord1.x * normal.z + barycentricCoord1.y * normal.z + barycentricCoord1.z * normal.z +
+				//           barycentricCoord2.x * normal.z + barycentricCoord2.y * normal.z + barycentricCoord2.z * normal.z + 
+				//		   barycentricCoord3.x * normal.z + barycentricCoord3.y * normal.z + barycentricCoord3.z * normal.z +
+				//		   barycentricCoord4.x * normal.z + barycentricCoord4.y * normal.z + barycentricCoord4.z * normal.z) / 4;
 
 
 
@@ -267,10 +276,10 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 				if(assumed == depthbuffer[i + j * (int)resolution.x].position.z){
 					if(newDepth > depthbuffer[i + j * (int)resolution.x].position.z){
 						depthbuffer[i + j * (int)resolution.x].position.z = newDepth;
-						depthbuffer[i + j * (int)resolution.x].normal = newNormal;
-						depthbuffer[i + j * (int)resolution.x].color.x = abs(newNormal.x);
-						depthbuffer[i + j * (int)resolution.x].color.y = abs(newNormal.y);
-						depthbuffer[i + j * (int)resolution.x].color.z = abs(newNormal.z);
+						depthbuffer[i + j * (int)resolution.x].normal = normal;
+						depthbuffer[i + j * (int)resolution.x].color.x = abs(normal.x);
+						depthbuffer[i + j * (int)resolution.x].color.y = abs(normal.y);
+						depthbuffer[i + j * (int)resolution.x].color.z = abs(normal.z);
 					}
 				}
 				else{
@@ -279,32 +288,6 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 			 }
 			 while(assumed != old);
 
-			 //do{
-				// if(lockFlag[i + j * (int)resolution.x] == false){
-				//	 //lockFlag[i + j * (int)resolution.x] = true;
-				//	 if(newDepth > depthbuffer[i + j * (int)resolution.x].position.z){
-			 //			depthbuffer[i + j * (int)resolution.x].position.z = newDepth;
-			 //			depthbuffer[i + j * (int)resolution.x].normal = newNormal;
-			 //			depthbuffer[i + j * (int)resolution.x].color.x = abs(newNormal.x);
-			 //			depthbuffer[i + j * (int)resolution.x].color.y = abs(newNormal.y);
-			 //			depthbuffer[i + j * (int)resolution.x].color.z = abs(newNormal.z);
-				//	 }
-				//	 //lockFlag[i + j * (int)resolution.x] = false;
-				// }
-			 //}
-			 //while( lockFlag[i + j * (int)resolution.x] == true);
-
-
-			//if(abs(barycentricCoord.x) < 0.00001 || abs(barycentricCoord.y) < 0.00001 || abs(barycentricCoord.z) < 0.00001)
-			//	 edgeFlag[i + j * (int)resolution.x] = true;
-			 
-
-
-			 //if(newDepth > depthbuffer[i + j * (int)resolution.x].position.z 
-				// ){
-			 //depthbuffer[i + j * (int)resolution.x].position.z = newDepth;
-				//		depthbuffer[i + j * (int)resolution.x].normal = normal;
-				//	}
 
 		  }
 	  }
@@ -358,13 +341,13 @@ __global__ void fragmentShadeKernel(fragment* depthbuffer, glm::vec2 resolution,
 	  //depthbuffer[index].color.y = abs(depthbuffer[index].normal.y);
 	  //depthbuffer[index].color.z = abs(depthbuffer[index].normal.z);
 
-	  //depthbuffer[index].color.x = diffuseTerm * depthbuffer[index].color.x;
-	  //depthbuffer[index].color.y = diffuseTerm * depthbuffer[index].color.y;
-	  //depthbuffer[index].color.z = diffuseTerm * depthbuffer[index].color.z;
+	  depthbuffer[index].color.x = diffuseTerm * depthbuffer[index].color.x;
+	  depthbuffer[index].color.y = diffuseTerm * depthbuffer[index].color.y;
+	  depthbuffer[index].color.z = diffuseTerm * depthbuffer[index].color.z;
 
-	  depthbuffer[index].color.x = specularTerm + diffuseTerm;
-	  depthbuffer[index].color.y = specularTerm + diffuseTerm;
-	  depthbuffer[index].color.z = specularTerm + diffuseTerm;
+	  //depthbuffer[index].color.x = specularTerm + diffuseTerm;
+	  //depthbuffer[index].color.y = specularTerm + diffuseTerm;
+	  //depthbuffer[index].color.z = specularTerm + diffuseTerm;
   }
 }
 
