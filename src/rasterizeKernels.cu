@@ -10,6 +10,7 @@
 
 glm::vec3* framebuffer;
 fragment* depthbuffer;
+fragment* depthbufferPre;
 bool* cudaFlag;
 float* device_vbo;
 float* device_cbo;
@@ -93,6 +94,18 @@ __global__ void clearDepthBuffer(glm::vec2 resolution, fragment* buffer, fragmen
       f.position.x = x;
       f.position.y = y;
       buffer[index] = f;
+    }
+}
+
+__global__ void clearDepthBufferPre(glm::vec2 resolution, fragment* bufferPre, fragment frag){
+    int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+    int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+    int index = x + (y * 2*resolution.x);
+    if(x<=resolution.x * 2 && y<=resolution.y * 2){
+      fragment f = frag;
+      f.position.x = x;
+      f.position.y = y;
+      bufferPre[index] = f;
     }
 }
 
@@ -183,10 +196,8 @@ __global__ void primitiveAssemblyKernel(float* vbo, int vbosize, float* cbo, int
   }
 }
 
-
-
 //TODO: Implement a rasterization method, such as scanline.
-__global__ void rasterizationKernel(triangle* primitives, int primitivesCount, fragment* depthbuffer, glm::vec2 resolution, bool* lockFlag, glm::vec3 eye, bool backCulling){
+__global__ void rasterizationKernel(triangle* primitives, int primitivesCount, fragment* depthbufferPre, glm::vec2 resolution, bool* lockFlag, glm::vec3 eye, bool backCulling){
   int index = (blockIdx.x * blockDim.x) + threadIdx.x;
   if(index < primitivesCount){
 
@@ -203,8 +214,8 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 
 	  getAABBForTriangle(primitives[index], minPoint, maxPoint);
 
-	  for(int j = max( (int)floor(minPoint.y)-1, 0); j < min( (int)ceil(maxPoint.y)+1, (int)resolution.y ); ++j){
-		  for(int i = max( (int)floor(minPoint.x)-1, 0); i < min( (int)ceil(maxPoint.x)+1, (int)resolution.x); ++i){
+	  for(int j = 2*max( (int)floor(minPoint.y)-1, 0); j < 2*min( (int)ceil(maxPoint.y)+1, (int)resolution.y ); ++j){
+		  for(int i = 2*max( (int)floor(minPoint.x)-1, 0); i < 2*min( (int)ceil(maxPoint.x)+1, (int)resolution.x); ++i){
 
 
 
@@ -218,7 +229,7 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 			//glm::vec3 barycentricCoord = barycentricCoordSub / (float)9.0;
 
 
-			glm::vec3 barycentricCoord = calculateBarycentricCoordinate(primitives[index], glm::vec2(i, j));
+			glm::vec3 barycentricCoord = calculateBarycentricCoordinate(primitives[index], glm::vec2(i*0.5, j*0.5));
 			 if(barycentricCoord.x < 0 || barycentricCoord.y < 0 || barycentricCoord.z < 0)
 				 continue;
 
@@ -266,27 +277,33 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 				//		   barycentricCoord3.x * normal.z + barycentricCoord3.y * normal.z + barycentricCoord3.z * normal.z +
 				//		   barycentricCoord4.x * normal.z + barycentricCoord4.y * normal.z + barycentricCoord4.z * normal.z) / 4;
 
+			if(newDepth > depthbufferPre[i + j * 2 * (int)resolution.x].position.z){
+				depthbufferPre[i + j * 2 * (int)resolution.x].position.z = newDepth;
+				depthbufferPre[i + j * 2 * (int)resolution.x].normal = normal;
+				depthbufferPre[i + j * 2 * (int)resolution.x].color.x = abs(normal.x);
+				depthbufferPre[i + j * 2 * (int)resolution.x].color.y = abs(normal.y);
+				depthbufferPre[i + j * 2 * (int)resolution.x].color.z = abs(normal.z);
+			}
 
+			 //float old = depthbufferPre[i + j * 2 * (int)resolution.x].position.z;
+			 //float assumed;
+			 //do{
+				//assumed = old;
 
-			 float old = depthbuffer[i + j * (int)resolution.x].position.z;
-			 float assumed;
-			 do{
-				assumed = old;
-
-				if(assumed == depthbuffer[i + j * (int)resolution.x].position.z){
-					if(newDepth > depthbuffer[i + j * (int)resolution.x].position.z){
-						depthbuffer[i + j * (int)resolution.x].position.z = newDepth;
-						depthbuffer[i + j * (int)resolution.x].normal = normal;
-						depthbuffer[i + j * (int)resolution.x].color.x = abs(normal.x);
-						depthbuffer[i + j * (int)resolution.x].color.y = abs(normal.y);
-						depthbuffer[i + j * (int)resolution.x].color.z = abs(normal.z);
-					}
-				}
-				else{
-					old =depthbuffer[i + j * (int)resolution.x].position.z;
-				}
-			 }
-			 while(assumed != old);
+				//if(assumed == depthbufferPre[i + j * 2 * (int)resolution.x].position.z){
+				//	if(newDepth > depthbufferPre[i + j * 2 * (int)resolution.x].position.z){
+				//		depthbufferPre[i + j * 2 * (int)resolution.x].position.z = newDepth;
+				//		depthbufferPre[i + j * 2 * (int)resolution.x].normal = normal;
+				//		depthbufferPre[i + j * 2 * (int)resolution.x].color.x = abs(normal.x);
+				//		depthbufferPre[i + j * 2 * (int)resolution.x].color.y = abs(normal.y);
+				//		depthbufferPre[i + j * 2 * (int)resolution.x].color.z = abs(normal.z);
+				//	}
+				//}
+				//else{
+				//	old =depthbufferPre[i + j * 2 * (int)resolution.x].position.z;
+				//}
+			 //}
+			 //while(assumed != old);
 
 
 		  }
@@ -294,14 +311,23 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
   }
 }
 
+__global__ void antiAliasing(glm::vec2 resolution, fragment* depthbufferPre, fragment* depthbuffer){
+	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+	int index = x + (y * resolution.x);
 
+	int preX1 = 2 * x;
+	int preX2 = 2 * x + 1;
+	int preY1 = 2 * y;
+	int preY2 = 2 * y + 1;
+	int index1 = preX1 + preY1 * 2 * resolution.x;
+	int index2 = preX1 + preY2 * 2 * resolution.x;
+	int index3 = preX2 + preY1 * 2 * resolution.x;
+	int index4 = preX2 + preY2 * 2 * resolution.x;
 
-__global__ void stencilTest(fragment* depthbuffer, int startX, int startY, int endX, int endY){
-
-}
-
-__global__ void scissorTest(fragment* depthbuffer, int startX, int startY, int endX, int endY){
-
+	depthbuffer[index].color = (depthbufferPre[index1].color + depthbufferPre[index2].color + depthbufferPre[index3].color + depthbufferPre[index4].color) / (float)4;
+	depthbuffer[index].normal = (depthbufferPre[index1].normal + depthbufferPre[index2].normal + depthbufferPre[index3].normal + depthbufferPre[index4].normal) / (float)4;
+	depthbuffer[index].position = (depthbufferPre[index1].position + depthbufferPre[index2].position + depthbufferPre[index3].position + depthbufferPre[index4].position) / (float)4;
 }
 
 //TODO: Implement a fragment shader
@@ -351,8 +377,6 @@ __global__ void fragmentShadeKernel(fragment* depthbuffer, glm::vec2 resolution,
   }
 }
 
-
-
 //TODO:
 __global__ void colorAlphaBlendingKernel(fragment* depthbuffer, glm::vec2 resolution, float alphaValue){
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -374,10 +398,6 @@ __global__ void colorAlphaBlendingKernel(fragment* depthbuffer, glm::vec2 resolu
 			depthbuffer[index].color = depthbuffer[index].color * alphaValue + destinationColor * (1 - alphaValue);
 		}
 	}
-}
-
-__global__ void colorAdditiveBlendingKernel(fragment* depthbuffer, glm::vec2 resolution){
-
 }
 
 //Writes fragment colors to the framebuffer
@@ -416,6 +436,9 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
   depthbuffer = NULL;
   cudaMalloc((void**)&depthbuffer, (int)resolution.x*(int)resolution.y*sizeof(fragment));
 
+  depthbufferPre = NULL;
+  cudaMalloc((void**)&depthbufferPre, 2*2*(int)resolution.x*(int)resolution.y*sizeof(fragment));
+
   //kernel launches to black out accumulated/unaccumlated pixel buffers and clear our scattering states
   clearImage<<<fullBlocksPerGrid, threadsPerBlock>>>(resolution, framebuffer, glm::vec3(0,0,0));
   
@@ -425,6 +448,9 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
   frag.position = glm::vec3(0,0,-10000);
   clearDepthBuffer<<<fullBlocksPerGrid, threadsPerBlock>>>(resolution, depthbuffer,frag);
 
+  dim3 fullBlocksPerGrid2((int)ceil(2*float(resolution.x)/float(tileSize)), (int)ceil(2*float(resolution.y)/float(tileSize)));
+
+  clearDepthBufferPre<<<fullBlocksPerGrid2, threadsPerBlock>>>(resolution, depthbufferPre,frag);
   //------------------------------
   //memory stuff
   //------------------------------
@@ -468,9 +494,13 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
   //------------------------------
   //rasterization
   //------------------------------
-  rasterizationKernel<<<primitiveBlocks, tileSize>>>(primitives, ibosize/3, depthbuffer, resolution, cudaFlag, eye, backCulling);
+  rasterizationKernel<<<primitiveBlocks, tileSize>>>(primitives, ibosize/3, depthbufferPre, resolution, cudaFlag, eye, backCulling);
 
   cudaDeviceSynchronize();
+
+  antiAliasing<<<fullBlocksPerGrid, threadsPerBlock>>>(resolution, depthbufferPre, depthbuffer);
+  cudaDeviceSynchronize();
+
   //------------------------------
   //fragment shader
   //------------------------------
@@ -506,6 +536,7 @@ void kernelCleanup(){
   cudaFree( device_nbo );
   cudaFree( framebuffer );
   cudaFree( depthbuffer );
+    cudaFree( depthbufferPre );
   cudaFree( cudaFlag );
 }
 
