@@ -10,7 +10,7 @@
 
 glm::vec3* framebuffer;
 fragment* depthbuffer;
-bool* edgeFlag;
+bool* cudaFlag;
 float* device_vbo;
 float* device_cbo;
 int* device_ibo;
@@ -183,15 +183,10 @@ __global__ void primitiveAssemblyKernel(float* vbo, int vbosize, float* cbo, int
   }
 }
 
-//__host__ __device__ float atomic(glm::vec3 barycentricCoord, float newDepth){
-//  return -(barycentricCoord.x*tri.p0.z + barycentricCoord.y*tri.p1.z + barycentricCoord.z*tri.p2.z);
-//}
-__global__ void computeVertexNormal(triangle* primitives, int primitivesCount, fragment* depthbuffer, glm::vec2 resolution){
 
-}
 
 //TODO: Implement a rasterization method, such as scanline.
-__global__ void rasterizationKernel(triangle* primitives, int primitivesCount, fragment* depthbuffer, glm::vec2 resolution, bool* edgeFlag, glm::vec3 eye, bool backCulling){
+__global__ void rasterizationKernel(triangle* primitives, int primitivesCount, fragment* depthbuffer, glm::vec2 resolution, bool* lockFlag, glm::vec3 eye, bool backCulling){
   int index = (blockIdx.x * blockDim.x) + threadIdx.x;
   if(index < primitivesCount){
 
@@ -270,7 +265,6 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 				assumed = old;
 
 				if(assumed == depthbuffer[i + j * (int)resolution.x].position.z){
-					//old = depthbuffer[i + j * (int)resolution.x].position.z;
 					if(newDepth > depthbuffer[i + j * (int)resolution.x].position.z){
 						depthbuffer[i + j * (int)resolution.x].position.z = newDepth;
 						depthbuffer[i + j * (int)resolution.x].normal = newNormal;
@@ -284,6 +278,22 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 				}
 			 }
 			 while(assumed != old);
+
+			 //do{
+				// if(lockFlag[i + j * (int)resolution.x] == false){
+				//	 //lockFlag[i + j * (int)resolution.x] = true;
+				//	 if(newDepth > depthbuffer[i + j * (int)resolution.x].position.z){
+			 //			depthbuffer[i + j * (int)resolution.x].position.z = newDepth;
+			 //			depthbuffer[i + j * (int)resolution.x].normal = newNormal;
+			 //			depthbuffer[i + j * (int)resolution.x].color.x = abs(newNormal.x);
+			 //			depthbuffer[i + j * (int)resolution.x].color.y = abs(newNormal.y);
+			 //			depthbuffer[i + j * (int)resolution.x].color.z = abs(newNormal.z);
+				//	 }
+				//	 //lockFlag[i + j * (int)resolution.x] = false;
+				// }
+			 //}
+			 //while( lockFlag[i + j * (int)resolution.x] == true);
+
 
 			//if(abs(barycentricCoord.x) < 0.00001 || abs(barycentricCoord.y) < 0.00001 || abs(barycentricCoord.z) < 0.00001)
 			//	 edgeFlag[i + j * (int)resolution.x] = true;
@@ -352,9 +362,9 @@ __global__ void fragmentShadeKernel(fragment* depthbuffer, glm::vec2 resolution,
 	  //depthbuffer[index].color.y = diffuseTerm * depthbuffer[index].color.y;
 	  //depthbuffer[index].color.z = diffuseTerm * depthbuffer[index].color.z;
 
-	  depthbuffer[index].color.x = specularTerm;
-	  depthbuffer[index].color.y = specularTerm;
-	  depthbuffer[index].color.z = specularTerm;
+	  depthbuffer[index].color.x = specularTerm + diffuseTerm;
+	  depthbuffer[index].color.y = specularTerm + diffuseTerm;
+	  depthbuffer[index].color.z = specularTerm + diffuseTerm;
   }
 }
 
@@ -413,8 +423,11 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
   framebuffer = NULL;
   cudaMalloc((void**)&framebuffer, (int)resolution.x*(int)resolution.y*sizeof(glm::vec3));
   
-  edgeFlag = NULL;
-  cudaMalloc((void**)&edgeFlag, (int)resolution.x*(int)resolution.y*sizeof(bool));
+
+  bool* falg = new bool[ (int)resolution.x*(int)resolution.y];
+  cudaFlag = NULL;
+  cudaMalloc((void**)&cudaFlag, (int)resolution.x*(int)resolution.y*sizeof(bool));
+  cudaMemcpy( cudaFlag, falg, (int)resolution.x*(int)resolution.y*sizeof(bool), cudaMemcpyHostToDevice);
 
   //set up depthbuffer
   depthbuffer = NULL;
@@ -472,7 +485,7 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
   //------------------------------
   //rasterization
   //------------------------------
-  rasterizationKernel<<<primitiveBlocks, tileSize>>>(primitives, ibosize/3, depthbuffer, resolution, edgeFlag, eye, backCulling);
+  rasterizationKernel<<<primitiveBlocks, tileSize>>>(primitives, ibosize/3, depthbuffer, resolution, cudaFlag, eye, backCulling);
 
   cudaDeviceSynchronize();
   //------------------------------
@@ -510,6 +523,6 @@ void kernelCleanup(){
   cudaFree( device_nbo );
   cudaFree( framebuffer );
   cudaFree( depthbuffer );
-  cudaFree( edgeFlag );
+  cudaFree( cudaFlag );
 }
 
