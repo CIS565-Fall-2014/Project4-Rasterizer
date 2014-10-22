@@ -69,10 +69,10 @@ int main(int argc, char** argv);
 void runCuda();
 
 #ifdef __APPLE__
-	void display();
+void display();
 #else
-	void display();
-	void keyboard(unsigned char key, int x, int y);
+void display();
+void keyboard(unsigned char key, int x, int y);
 #endif
 
 //-------------------------------
