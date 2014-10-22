@@ -197,121 +197,115 @@ __global__ void primitiveAssemblyKernel(float* vbo, int vbosize, float* cbo, int
 }
 
 //TODO: Implement a rasterization method, such as scanline.
-__global__ void rasterizationKernel(triangle* primitives, int primitivesCount, fragment* depthbufferPre, glm::vec2 resolution, bool* lockFlag, glm::vec3 eye, bool backCulling){
-  int index = (blockIdx.x * blockDim.x) + threadIdx.x;
-  if(index < primitivesCount){
+__global__ void rasterizationKernel_Antialiasing(triangle* primitives, int primitivesCount, fragment* depthbufferPre, glm::vec2 resolution, bool* lockFlag, glm::vec3 eye, bool backCulling){
+	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+	if(index < primitivesCount){
 
-	  glm::vec3 normal =  primitives[index].n0;// glm::normalize(glm::cross(primitives[index].p1 - primitives[index].p0, primitives[index].p2 - primitives[index].p0));
+		glm::vec3 normal =  primitives[index].n0;// glm::normalize(glm::cross(primitives[index].p1 - primitives[index].p0, primitives[index].p2 - primitives[index].p0));
 
-	  //Back-face culling
-	  if(backCulling == true){
-		  if(glm::dot(eye, normal) > 0)
-			  return;
-	  }
-	  glm::vec3 minPoint;
-	  glm::vec3 maxPoint;
-
-
-	  getAABBForTriangle(primitives[index], minPoint, maxPoint);
-
-	  for(int j = 2*max( (int)floor(minPoint.y)-1, 0); j < 2*min( (int)ceil(maxPoint.y)+1, (int)resolution.y ); ++j){
-		  for(int i = 2*max( (int)floor(minPoint.x)-1, 0); i < 2*min( (int)ceil(maxPoint.x)+1, (int)resolution.x); ++i){
-
-
-
-			// glm::vec3 barycentricCoordSub;
-			// for(int x = -1; x < 2; x++){
-			//	for(int y = -1; y < 2; y++){ 
-			//		barycentricCoordSub += calculateBarycentricCoordinate(primitives[index], glm::vec2(i + x, j + y));
-			//	}
-			// }
-
-			//glm::vec3 barycentricCoord = barycentricCoordSub / (float)9.0;
+		//Back-face culling
+		if(backCulling == true){
+			if(glm::dot(eye, normal) > 0)
+				return;
+	    }
+	    glm::vec3 minPoint;
+	    glm::vec3 maxPoint;
+	    
+	    
+	    getAABBForTriangle(primitives[index], minPoint, maxPoint);
+	    
+	    for(int j = 2*max( (int)floor(minPoint.y)-1, 0); j < 2*min( (int)ceil(maxPoint.y)+1, (int)resolution.y ); ++j){
+		    for(int i = 2*max( (int)floor(minPoint.x)-1, 0); i < 2*min( (int)ceil(maxPoint.x)+1, (int)resolution.x); ++i){
 
 
-			glm::vec3 barycentricCoord = calculateBarycentricCoordinate(primitives[index], glm::vec2(i*0.5, j*0.5));
-			 if(barycentricCoord.x < 0 || barycentricCoord.y < 0 || barycentricCoord.z < 0)
-				 continue;
+				glm::vec3 barycentricCoord = calculateBarycentricCoordinate(primitives[index], glm::vec2(i * 0.5, j * 0.5));
+				if(barycentricCoord.x < 0 || barycentricCoord.y < 0 || barycentricCoord.z < 0)
+			  		continue;
 
-			//glm::vec3 barycentricCoord = calculateBarycentricCoordinate(primitives[index], glm::vec2(i, j));
-			//glm::vec3 barycentricCoord1 = calculateBarycentricCoordinate(primitives[index], glm::vec2(i, j));
-			//glm::vec3 barycentricCoord2 = calculateBarycentricCoordinate(primitives[index], glm::vec2(i, j + 1));
-			//glm::vec3 barycentricCoord3 = calculateBarycentricCoordinate(primitives[index], glm::vec2(i + 1, j));
-			//glm::vec3 barycentricCoord4 = calculateBarycentricCoordinate(primitives[index], glm::vec2(i + 1, j + 1));
-			// if((barycentricCoord1.x < 0 || barycentricCoord1.y < 0 || barycentricCoord1.z < 0) &&
-			//	(barycentricCoord2.x < 0 || barycentricCoord2.y < 0 || barycentricCoord2.z < 0) &&
-			//	(barycentricCoord3.x < 0 || barycentricCoord3.y < 0 || barycentricCoord3.z < 0) &&
-			//	(barycentricCoord4.x < 0 || barycentricCoord4.y < 0 || barycentricCoord4.z < 0))
-			//	continue;
-
-			  //if(barycentricCoord1.x < 0 || barycentricCoord1.y < 0 || barycentricCoord1.z < 0)
-				 // barycentricCoord1 = glm::vec3(0,0,0);
-			  //if(barycentricCoord2.x < 0 || barycentricCoord2.y < 0 || barycentricCoord2.z < 0)
-				 // barycentricCoord2 = glm::vec3(0,0,0);
-  			//  if(barycentricCoord3.x < 0 || barycentricCoord3.y < 0 || barycentricCoord3.z < 0)
-				 // barycentricCoord3 = glm::vec3(0,0,0);
-  			//  if(barycentricCoord4.x < 0 || barycentricCoord4.y < 0 || barycentricCoord4.z < 0)
-				 // barycentricCoord4 = glm::vec3(0,0,0);
+				float newDepth = -getZAtCoordinate(barycentricCoord, primitives[index]);
 
 
-			 float newDepth = -getZAtCoordinate(barycentricCoord, primitives[index]);
-			 //glm::vec3 newNormal;
-			 //newNormal.x = barycentricCoord.x * primitives[index].n0.x + barycentricCoord.y * primitives[index].n1.x + barycentricCoord.z * primitives[index].n2.x;
-			 //newNormal.y = barycentricCoord.x * primitives[index].n0.y + barycentricCoord.y * primitives[index].n1.y + barycentricCoord.z * primitives[index].n2.y;
-			 //newNormal.z = barycentricCoord.x * primitives[index].n0.z + barycentricCoord.y * primitives[index].n1.z + barycentricCoord.z * primitives[index].n2.z;
+				float old = depthbufferPre[i + j * 2 * (int)resolution.x].position.z;
+				float assumed;
+				do{
+					assumed = old;
+
+					if(assumed == depthbufferPre[i + j * 2 * (int)resolution.x].position.z){
+						if(newDepth > depthbufferPre[i + j * 2 * (int)resolution.x].position.z){
+							depthbufferPre[i + j * 2 * (int)resolution.x].position.z = newDepth;
+							depthbufferPre[i + j * 2 * (int)resolution.x].normal = normal;
+							depthbufferPre[i + j * 2 * (int)resolution.x].color.x = abs(normal.x);
+							depthbufferPre[i + j * 2 * (int)resolution.x].color.y = abs(normal.y);
+							depthbufferPre[i + j * 2 * (int)resolution.x].color.z = abs(normal.z);
+						}
+					}
+					else{
+						old =depthbufferPre[i + j * 2 * (int)resolution.x].position.z;
+					}
+				}
+				while(assumed != old);
 
 
-			 //glm::vec3 newColor;
-			 //newColor.x = (barycentricCoord1.x * normal.x + barycentricCoord1.y * normal.x + barycentricCoord1.z * normal.x +
-				//           barycentricCoord2.x * normal.x + barycentricCoord2.y * normal.x + barycentricCoord2.z * normal.x + 
-				//		   barycentricCoord3.x * normal.x + barycentricCoord3.y * normal.x + barycentricCoord3.z * normal.x +
-				//		   barycentricCoord4.x * normal.x + barycentricCoord4.y * normal.x + barycentricCoord4.z * normal.x) / 4;
-			 //
-			 //newColor.y = (barycentricCoord1.x * normal.y + barycentricCoord1.y * normal.y + barycentricCoord1.z * normal.y +
-				//           barycentricCoord2.x * normal.y + barycentricCoord2.y * normal.y + barycentricCoord2.z * normal.y + 
-				//		   barycentricCoord3.x * normal.y + barycentricCoord3.y * normal.y + barycentricCoord3.z * normal.y +
-				//		   barycentricCoord4.x * normal.y + barycentricCoord4.y * normal.y + barycentricCoord4.z * normal.y) / 4;
-			
-			 //newColor.z = (barycentricCoord1.x * normal.z + barycentricCoord1.y * normal.z + barycentricCoord1.z * normal.z +
-				//           barycentricCoord2.x * normal.z + barycentricCoord2.y * normal.z + barycentricCoord2.z * normal.z + 
-				//		   barycentricCoord3.x * normal.z + barycentricCoord3.y * normal.z + barycentricCoord3.z * normal.z +
-				//		   barycentricCoord4.x * normal.z + barycentricCoord4.y * normal.z + barycentricCoord4.z * normal.z) / 4;
-
-			if(newDepth > depthbufferPre[i + j * 2 * (int)resolution.x].position.z){
-				depthbufferPre[i + j * 2 * (int)resolution.x].position.z = newDepth;
-				depthbufferPre[i + j * 2 * (int)resolution.x].normal = normal;
-				depthbufferPre[i + j * 2 * (int)resolution.x].color.x = abs(normal.x);
-				depthbufferPre[i + j * 2 * (int)resolution.x].color.y = abs(normal.y);
-				depthbufferPre[i + j * 2 * (int)resolution.x].color.z = abs(normal.z);
 			}
-
-			 //float old = depthbufferPre[i + j * 2 * (int)resolution.x].position.z;
-			 //float assumed;
-			 //do{
-				//assumed = old;
-
-				//if(assumed == depthbufferPre[i + j * 2 * (int)resolution.x].position.z){
-				//	if(newDepth > depthbufferPre[i + j * 2 * (int)resolution.x].position.z){
-				//		depthbufferPre[i + j * 2 * (int)resolution.x].position.z = newDepth;
-				//		depthbufferPre[i + j * 2 * (int)resolution.x].normal = normal;
-				//		depthbufferPre[i + j * 2 * (int)resolution.x].color.x = abs(normal.x);
-				//		depthbufferPre[i + j * 2 * (int)resolution.x].color.y = abs(normal.y);
-				//		depthbufferPre[i + j * 2 * (int)resolution.x].color.z = abs(normal.z);
-				//	}
-				//}
-				//else{
-				//	old =depthbufferPre[i + j * 2 * (int)resolution.x].position.z;
-				//}
-			 //}
-			 //while(assumed != old);
-
-
-		  }
-	  }
-  }
+		}
+	}
 }
 
-__global__ void antiAliasing(glm::vec2 resolution, fragment* depthbufferPre, fragment* depthbuffer){
+__global__ void rasterizationKernel(triangle* primitives, int primitivesCount, fragment* depthbuffer, glm::vec2 resolution, bool* lockFlag, glm::vec3 eye, bool backCulling){
+	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+	if(index < primitivesCount){
+
+		glm::vec3 normal =  primitives[index].n0;// glm::normalize(glm::cross(primitives[index].p1 - primitives[index].p0, primitives[index].p2 - primitives[index].p0));
+
+		//Back-face culling
+		if(backCulling == true){
+			if(glm::dot(eye, normal) > 0)
+				return;
+	    }
+	    glm::vec3 minPoint;
+	    glm::vec3 maxPoint;
+	    
+	    
+	    getAABBForTriangle(primitives[index], minPoint, maxPoint);
+	    
+	    for(int j = max( (int)floor(minPoint.y)-1, 0); j < min( (int)ceil(maxPoint.y)+1, (int)resolution.y ); ++j){
+		    for(int i = max( (int)floor(minPoint.x)-1, 0); i < min( (int)ceil(maxPoint.x)+1, (int)resolution.x); ++i){
+
+
+				glm::vec3 barycentricCoord = calculateBarycentricCoordinate(primitives[index], glm::vec2(i, j));
+				if(barycentricCoord.x < 0 || barycentricCoord.y < 0 || barycentricCoord.z < 0)
+			  		continue;
+
+				float newDepth = -getZAtCoordinate(barycentricCoord, primitives[index]);
+
+
+				float old = depthbufferPre[i + j * (int)resolution.x].position.z;
+				float assumed;
+				do{
+					assumed = old;
+
+					if(assumed == depthbufferPre[i + j * (int)resolution.x].position.z){
+						if(newDepth > depthbufferPre[i + j * (int)resolution.x].position.z){
+							depthbufferPre[i + j * (int)resolution.x].position.z = newDepth;
+							depthbufferPre[i + j * (int)resolution.x].normal = normal;
+							depthbufferPre[i + j * (int)resolution.x].color.x = abs(normal.x);
+							depthbufferPre[i + j * (int)resolution.x].color.y = abs(normal.y);
+							depthbufferPre[i + j * (int)resolution.x].color.z = abs(normal.z);
+						}
+					}
+					else{
+						old =depthbufferPre[i + j * (int)resolution.x].position.z;
+					}
+				}
+				while(assumed != old);
+
+
+			}
+		}
+	}
+}
+
+__global__ void reAssemble(glm::vec2 resolution, fragment* depthbufferPre, fragment* depthbuffer){
 	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
 	int index = x + (y * resolution.x);
@@ -494,11 +488,11 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
   //------------------------------
   //rasterization
   //------------------------------
-  rasterizationKernel<<<primitiveBlocks, tileSize>>>(primitives, ibosize/3, depthbufferPre, resolution, cudaFlag, eye, backCulling);
+  rasterizationKernel_Antialiasing<<<primitiveBlocks, tileSize>>>(primitives, ibosize/3, depthbufferPre, resolution, cudaFlag, eye, backCulling);
 
   cudaDeviceSynchronize();
 
-  antiAliasing<<<fullBlocksPerGrid, threadsPerBlock>>>(resolution, depthbufferPre, depthbuffer);
+  reAssemble<<<fullBlocksPerGrid, threadsPerBlock>>>(resolution, depthbufferPre, depthbuffer);
   cudaDeviceSynchronize();
 
   //------------------------------
