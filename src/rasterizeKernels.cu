@@ -279,22 +279,22 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 				float newDepth = -getZAtCoordinate(barycentricCoord, primitives[index]);
 
 
-				float old = depthbufferPre[i + j * (int)resolution.x].position.z;
+				float old = depthbuffer[i + j * (int)resolution.x].position.z;
 				float assumed;
 				do{
 					assumed = old;
 
-					if(assumed == depthbufferPre[i + j * (int)resolution.x].position.z){
-						if(newDepth > depthbufferPre[i + j * (int)resolution.x].position.z){
-							depthbufferPre[i + j * (int)resolution.x].position.z = newDepth;
-							depthbufferPre[i + j * (int)resolution.x].normal = normal;
-							depthbufferPre[i + j * (int)resolution.x].color.x = abs(normal.x);
-							depthbufferPre[i + j * (int)resolution.x].color.y = abs(normal.y);
-							depthbufferPre[i + j * (int)resolution.x].color.z = abs(normal.z);
+					if(assumed == depthbuffer[i + j * (int)resolution.x].position.z){
+						if(newDepth > depthbuffer[i + j * (int)resolution.x].position.z){
+							depthbuffer[i + j * (int)resolution.x].position.z = newDepth;
+							depthbuffer[i + j * (int)resolution.x].normal = normal;
+							depthbuffer[i + j * (int)resolution.x].color.x = abs(normal.x);
+							depthbuffer[i + j * (int)resolution.x].color.y = abs(normal.y);
+							depthbuffer[i + j * (int)resolution.x].color.z = abs(normal.z);
 						}
 					}
 					else{
-						old =depthbufferPre[i + j * (int)resolution.x].position.z;
+						old =depthbuffer[i + j * (int)resolution.x].position.z;
 					}
 				}
 				while(assumed != old);
@@ -409,117 +409,125 @@ __global__ void render(glm::vec2 resolution, fragment* depthbuffer, glm::vec3* f
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float* vbo, int vbosize, float* cbo, int cbosize, int* ibo, int ibosize, 
 	float* nbo, int nbosize, cudaMat4 shaderMatrix, int translateX, int translateY, glm::vec3 eye, glm::vec3 light, bool alphaBlend, float alphaValue, 
-	bool backCulling, bool scissorTest){
+	bool backCulling, bool scissorTest, bool antialiasing){
 
-  // set up crucial magic
-  int tileSize = 8;
-  dim3 threadsPerBlock(tileSize, tileSize);
-  dim3 fullBlocksPerGrid((int)ceil(float(resolution.x)/float(tileSize)), (int)ceil(float(resolution.y)/float(tileSize)));
+	// set up crucial magic
+	int tileSize = 8;
+	dim3 threadsPerBlock(tileSize, tileSize);
+	dim3 fullBlocksPerGrid((int)ceil(float(resolution.x)/float(tileSize)), (int)ceil(float(resolution.y)/float(tileSize)));
 
-  //set up framebuffer
-  framebuffer = NULL;
-  cudaMalloc((void**)&framebuffer, (int)resolution.x*(int)resolution.y*sizeof(glm::vec3));
+	//set up framebuffer
+	framebuffer = NULL;
+	cudaMalloc((void**)&framebuffer, (int)resolution.x*(int)resolution.y*sizeof(glm::vec3));
   
 
-  bool* falg = new bool[ (int)resolution.x*(int)resolution.y];
-  cudaFlag = NULL;
-  cudaMalloc((void**)&cudaFlag, (int)resolution.x*(int)resolution.y*sizeof(bool));
-  cudaMemcpy( cudaFlag, falg, (int)resolution.x*(int)resolution.y*sizeof(bool), cudaMemcpyHostToDevice);
+	bool* falg = new bool[ (int)resolution.x*(int)resolution.y];
+	cudaFlag = NULL;
+	cudaMalloc((void**)&cudaFlag, (int)resolution.x*(int)resolution.y*sizeof(bool));
+	cudaMemcpy( cudaFlag, falg, (int)resolution.x*(int)resolution.y*sizeof(bool), cudaMemcpyHostToDevice);
 
-  //set up depthbuffer
-  depthbuffer = NULL;
-  cudaMalloc((void**)&depthbuffer, (int)resolution.x*(int)resolution.y*sizeof(fragment));
+	//set up depthbuffer
+	depthbuffer = NULL;
+	cudaMalloc((void**)&depthbuffer, (int)resolution.x*(int)resolution.y*sizeof(fragment));
 
-  depthbufferPre = NULL;
-  cudaMalloc((void**)&depthbufferPre, 2*2*(int)resolution.x*(int)resolution.y*sizeof(fragment));
 
-  //kernel launches to black out accumulated/unaccumlated pixel buffers and clear our scattering states
-  clearImage<<<fullBlocksPerGrid, threadsPerBlock>>>(resolution, framebuffer, glm::vec3(0,0,0));
+
+	//kernel launches to black out accumulated/unaccumlated pixel buffers and clear our scattering states
+	clearImage<<<fullBlocksPerGrid, threadsPerBlock>>>(resolution, framebuffer, glm::vec3(0,0,0));
   
-  fragment frag;
-  frag.color = glm::vec3(0,0,0);
-  frag.normal = glm::vec3(0,0,0);
-  frag.position = glm::vec3(0,0,-10000);
-  clearDepthBuffer<<<fullBlocksPerGrid, threadsPerBlock>>>(resolution, depthbuffer,frag);
+	fragment frag;
+	frag.color = glm::vec3(0,0,0);
+	frag.normal = glm::vec3(0,0,0);
+	frag.position = glm::vec3(0,0,-10000);
+	clearDepthBuffer<<<fullBlocksPerGrid, threadsPerBlock>>>(resolution, depthbuffer,frag);
 
-  dim3 fullBlocksPerGrid2((int)ceil(2*float(resolution.x)/float(tileSize)), (int)ceil(2*float(resolution.y)/float(tileSize)));
+			depthbufferPre = NULL;
+		cudaMalloc((void**)&depthbufferPre, 2*2*(int)resolution.x*(int)resolution.y*sizeof(fragment));
+	if(antialiasing == true){
 
-  clearDepthBufferPre<<<fullBlocksPerGrid2, threadsPerBlock>>>(resolution, depthbufferPre,frag);
-  //------------------------------
-  //memory stuff
-  //------------------------------
-  primitives = NULL;
-  cudaMalloc((void**)&primitives, (ibosize/3)*sizeof(triangle));
+	    dim3 fullBlocksPerGridForAntiAliasing((int)ceil(2*float(resolution.x)/float(tileSize)), (int)ceil(2*float(resolution.y)/float(tileSize)));
+	    clearDepthBufferPre<<<fullBlocksPerGridForAntiAliasing, threadsPerBlock>>>(resolution, depthbufferPre,frag);
+	}
+	//------------------------------
+	//memory stuff
+	//------------------------------
+	primitives = NULL;
+	cudaMalloc((void**)&primitives, (ibosize/3)*sizeof(triangle));
 
-  device_ibo = NULL;
-  cudaMalloc((void**)&device_ibo, ibosize*sizeof(int));
-  cudaMemcpy( device_ibo, ibo, ibosize*sizeof(int), cudaMemcpyHostToDevice);
+	device_ibo = NULL;
+	cudaMalloc((void**)&device_ibo, ibosize*sizeof(int));
+	cudaMemcpy( device_ibo, ibo, ibosize*sizeof(int), cudaMemcpyHostToDevice);
 
-  device_nbo = NULL;
-  cudaMalloc((void**)&device_nbo, nbosize*sizeof(float));
-  cudaMemcpy( device_nbo, nbo, nbosize*sizeof(float), cudaMemcpyHostToDevice);
+	device_nbo = NULL;
+	cudaMalloc((void**)&device_nbo, nbosize*sizeof(float));
+	cudaMemcpy( device_nbo, nbo, nbosize*sizeof(float), cudaMemcpyHostToDevice);
 
-  device_vbo = NULL;
-  cudaMalloc((void**)&device_vbo, vbosize*sizeof(float));
-  cudaMemcpy( device_vbo, vbo, vbosize*sizeof(float), cudaMemcpyHostToDevice);
+	device_vbo = NULL;
+	cudaMalloc((void**)&device_vbo, vbosize*sizeof(float));
+	cudaMemcpy( device_vbo, vbo, vbosize*sizeof(float), cudaMemcpyHostToDevice);
 
-  device_cbo = NULL;
-  cudaMalloc((void**)&device_cbo, cbosize*sizeof(float));
-  cudaMemcpy( device_cbo, cbo, cbosize*sizeof(float), cudaMemcpyHostToDevice);
+	device_cbo = NULL;
+	cudaMalloc((void**)&device_cbo, cbosize*sizeof(float));
+	cudaMemcpy( device_cbo, cbo, cbosize*sizeof(float), cudaMemcpyHostToDevice);
 
 
 
-  tileSize = 32;
-  int primitiveBlocks = ceil(((float)vbosize/3)/((float)tileSize));
+	tileSize = 32;
+	int primitiveBlocks = ceil(((float)vbosize/3)/((float)tileSize));
 
-  //------------------------------
-  //vertex shader
-  //------------------------------
-  vertexShadeKernel<<<primitiveBlocks, tileSize>>>(device_vbo, vbosize, shaderMatrix, translateX, translateY);
+	//------------------------------
+	//vertex shader
+	//------------------------------
+	vertexShadeKernel<<<primitiveBlocks, tileSize>>>(device_vbo, vbosize, shaderMatrix, translateX, translateY);
 
-  cudaDeviceSynchronize();
-  //------------------------------
-  //primitive assembly
-  //------------------------------
-  primitiveBlocks = ceil(((float)ibosize/3)/((float)tileSize));
-  primitiveAssemblyKernel<<<primitiveBlocks, tileSize>>>(device_vbo, vbosize, device_cbo, cbosize, device_ibo, ibosize, device_nbo, nbosize, primitives);
+	cudaDeviceSynchronize();
+	//------------------------------
+	//primitive assembly
+	//------------------------------
+	primitiveBlocks = ceil(((float)ibosize/3)/((float)tileSize));
+	primitiveAssemblyKernel<<<primitiveBlocks, tileSize>>>(device_vbo, vbosize, device_cbo, cbosize, device_ibo, ibosize, device_nbo, nbosize, primitives);
 
-  cudaDeviceSynchronize();
-  //------------------------------
-  //rasterization
-  //------------------------------
-  rasterizationKernel_Antialiasing<<<primitiveBlocks, tileSize>>>(primitives, ibosize/3, depthbufferPre, resolution, cudaFlag, eye, backCulling);
+	cudaDeviceSynchronize();
+	//------------------------------
+	//rasterization
+	//------------------------------
+	if(antialiasing == true){
+		rasterizationKernel_Antialiasing<<<primitiveBlocks, tileSize>>>(primitives, ibosize/3, depthbufferPre, resolution, cudaFlag, eye, backCulling);
+		cudaDeviceSynchronize();
 
-  cudaDeviceSynchronize();
+		reAssemble<<<fullBlocksPerGrid, threadsPerBlock>>>(resolution, depthbufferPre, depthbuffer);
+		cudaDeviceSynchronize();
+	}
+	else{
+		rasterizationKernel<<<primitiveBlocks, tileSize>>>(primitives, ibosize/3, depthbuffer, resolution, cudaFlag, eye, backCulling);
+		cudaDeviceSynchronize();
+	}
 
-  reAssemble<<<fullBlocksPerGrid, threadsPerBlock>>>(resolution, depthbufferPre, depthbuffer);
-  cudaDeviceSynchronize();
+	//------------------------------
+	//fragment shader
+	//------------------------------
+	fragmentShadeKernel<<<fullBlocksPerGrid, threadsPerBlock>>>(depthbuffer, resolution, light, scissorTest, eye);
 
-  //------------------------------
-  //fragment shader
-  //------------------------------
-  fragmentShadeKernel<<<fullBlocksPerGrid, threadsPerBlock>>>(depthbuffer, resolution, light, scissorTest, eye);
+	cudaDeviceSynchronize();
 
-  cudaDeviceSynchronize();
+	//------------------------------
+	//color blending
+	//------------------------------
+	if(alphaBlend){
+		colorAlphaBlendingKernel<<<fullBlocksPerGrid, threadsPerBlock>>>(depthbuffer, resolution, alphaValue);
+		cudaDeviceSynchronize();
+	}
+	//------------------------------
+	//write fragments to framebuffer
+	//------------------------------
+	render<<<fullBlocksPerGrid, threadsPerBlock>>>(resolution, depthbuffer, framebuffer);
+	sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, resolution, framebuffer);
 
-  //------------------------------
-  //color blending
-  //------------------------------
-  if(alphaBlend){
-	  colorAlphaBlendingKernel<<<fullBlocksPerGrid, threadsPerBlock>>>(depthbuffer, resolution, alphaValue);
-	  cudaDeviceSynchronize();
-  }
-  //------------------------------
-  //write fragments to framebuffer
-  //------------------------------
-  render<<<fullBlocksPerGrid, threadsPerBlock>>>(resolution, depthbuffer, framebuffer);
-  sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, resolution, framebuffer);
+	cudaDeviceSynchronize();
 
-  cudaDeviceSynchronize();
+	kernelCleanup();
 
-  kernelCleanup();
-
-  checkCUDAError("Kernel failed!");
+	checkCUDAError("Kernel failed!");
 }
 
 void kernelCleanup(){

@@ -116,7 +116,7 @@ void runCuda(){
 
 	cudaGLMapBufferObject((void**)&dptr, pbo);
 	cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize, 
-		nbo, nbosize, shaderMatrix, translateX, translateY, eye, light, alphaBlend, alphaValue, backCulling, scissorTest);
+		nbo, nbosize, shaderMatrix, translateX, translateY, eye, light, alphaBlend, alphaValue, backCulling, scissorTest, antialiasing);
 	cudaGLUnmapBufferObject(pbo);
 
 	vbo = NULL;
@@ -362,6 +362,9 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     }
 	if(key == GLFW_KEY_B && action == GLFW_PRESS){
 		backCulling = !backCulling;
+    }
+	if(key == GLFW_KEY_T && action == GLFW_PRESS){
+		antialiasing = !antialiasing;
     }
 }
 
