@@ -1,13 +1,10 @@
 
 #Mouse control:
 * Pressing the Alt key and dragging mouse with the left mouse button pressed to change the light direction.
-![ResultImage](change light position.bmp)
 * Scroll mouse middle button to change the view scale.
-![ResultImage](change scale.bmp)
 * Dragging mouse with the left mouse button pressed to change the view direction.
-![ResultImage](change view direction.bmp)
 * Pressing the Ctrl key and dragging mouse with the left mouse button pressed to change the view port position.
-![ResultImage](change view port position.bmp)
+![ResultImage](mouse control.bmp)
 
 #Back culling:
 
