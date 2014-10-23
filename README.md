@@ -1,7 +1,7 @@
--------------------------------------------------------------------------------
+=======================================
 CIS565: Project 4: CUDA Rasterizer
--------------------------------------------------------------------------------
-Fall 2014
+======================================
+Fall 2014 <br />
 Bo Zhang
 
 ##Overview
@@ -44,6 +44,55 @@ I use a per primitive method to rasterize the triangles. For each triangle, I fi
 
 Here is a sketch map which shows how to do Barycentric Interpolation:
 
+And here is the rasterized bunny.obj (No lights):
+
+
+#####(3) Fragment Shading, Fragment to framebuffer writing, Blinn-Phong lighting/shading scheme
+After rasterization, I add light into the scene and calculate diffuse and specular color based on Blinn-Phong model.(http://en.wikipedia.org/wiki/Blinn%E2%80%93Phong_shading_model) <br />
+Notice: The vertices' position should be transformed back to world coordinate system.
+
+Here is the result with diffuse color added:
+
+Here is the result with both diffuse color and specular color:
+
+
+
+###2.Extra Features:
+#####(1)Correct color interpolation between points on a primitive
+We can use the barycentric coordinates to interpolate other attributes of the triangle vertices in the same way we interpolate vertices' depth. 
+
+Here are the results with(right) and without(left) color interpolation(Three vertices on each triangle has the color red,blue and green):
+<br />The one without color interpolation all has the same color (1/3,1/3,1/3), while the other one is colorful.
+
+
+Here are the results with(right) and without(left) normal interpolation(The one with normal interpolation is smoother):
+
+
+#####(2)Back-face culling
+Before the scene is rendered, polygons (or parts of polygons) which will not be visible in the final scene will be removed.Back-face culling is that we remove backfaces (faces turned away from the camera). As the triangles in obj files usually are defined with counter-clockwise winding when viewed from the outside, we can use the signed triangle area method to judge which faces are backfaces. If we measure the area of such a triangle and find it to be <0, then we know we are looking at a backface which does not have to be drawn.
+
+Here are the details about how to compute signed triangle area:
+
+Here are the results with(right) and without(left) Back-face culling(The left one is without Back-face culling and we can see some artifacts, and the right one does not have these artifacts):
+
+
+#####(3)Anti-aliasing
+I use a simple anti-aliasing method that each pixel's color is averaged from the sum of its color and its eight neighbor pixels' color. This make the result smoother and here are the results with(right) and without(left) anti-aliasing:
+
+
+ * MOUSE BASED interactive camera support
+ I use   glfwSetMouseButtonCallback,  glfwSetCursorEnterCallback and glfwSetCursorPosCallback to implement MOUSE BASED interactive camera:
+Use left button to rotate, middle button to pan and right button to zoom in(move top right) or out(mvoe bottom left). See more details in personal video.
+ 
+ * Lines mode and points mode
+I change the rasterization function to support line mode and point mode to show the edges or points of the obj.<br />
+
+Lines mode:
+
+Points mode:
+
+
+
 
 
 -------------------------------------------------------------------------------
@@ -62,13 +111,6 @@ optimizations along with tables and or graphs to visually explain any
 performance differences.
 
 
--------------------------------------------------------------------------------
-SELF-GRADING
--------------------------------------------------------------------------------
-* On the submission date, email your grade, on a scale of 0 to 100, to Liam, harmoli+cis565@seas.upenn.edu, with a one paragraph explanation.  Be concise and realistic.  Recall that we reserve 30 points as a sanity check to adjust your grade.  Your actual grade will be (0.7 * your grade) + (0.3 * our grade).  We hope to only use this in extreme cases when your grade does not realistically reflect your work - it is either too high or too low.  In most cases, we plan to give you the exact grade you suggest.
-* Projects are not weighted evenly, e.g., Project 0 doesn't count as much as the path tracer.  We will determine the weighting at the end of the semester based on the size of each project.
-
----
 SUBMISSION
 ---
 As with the previous project, you should fork this project and work inside of
