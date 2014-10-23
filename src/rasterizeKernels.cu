@@ -289,8 +289,9 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 					if (isBarycentricCoordInBounds (baryCoord))
 					{
 						// Interpolation by Barycentric Coordinates	
-						frag.position = InterpolateBC(baryCoord,tri.p0,tri.p1,tri.p2);	
-						frag.position.z = -frag.position.z;
+						frag.position.x = i;
+						frag.position.y = j;
+						frag.position.z = getZAtCoordinate(baryCoord,tri);
 						if(BCInterp)
 						{
 							frag.color =  InterpolateBC(baryCoord,tri.c0,tri.c1,tri.c2);	
@@ -425,7 +426,7 @@ __global__ void fragmentShadeKernel(fragment* depthbuffer, glm::vec2 resolution,
 			glm::vec3 p = depthbuffer [index].position;
 			p = glm::vec3((glm::inverse(projection) * glm::inverse(model*view) * glm::vec4(p,1)));
 
-			glm::vec3 L =  GetNormal(lightpos-p);
+			glm::vec3 L = GetNormal(lightpos-p);
 			glm::vec3 N = GetNormal(depthbuffer[index].normal);
 			glm::vec3 E = GetNormal(eyepos - p);
 			glm::vec3 H = GetNormal(E + L); 

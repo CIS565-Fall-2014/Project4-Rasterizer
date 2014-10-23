@@ -137,7 +137,6 @@ bool init(int argc, char* argv[]) {
   glfwSetKeyCallback(window, keyCallback);
   glfwSetMouseButtonCallback(window,MouseClickCallback);
   glfwSetCursorEnterCallback(window,CursorEnterCallback);
-  
   glfwSetCursorPosCallback(window,CursorCallback);
   
   // Set up GL context
