@@ -39,6 +39,7 @@ int main(int argc, char** argv){
     mainLoop();
   }
 
+  system("pause");
   return 0;
 }
 
@@ -77,6 +78,8 @@ void mainLoop() {
 //-------------------------------
 
 void runCuda(){
+
+
   // Map OpenGL buffer object for writing from CUDA on a single GPU
   // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
   dptr=NULL;
@@ -84,17 +87,23 @@ void runCuda(){
   vbo = mesh->getVBO();
   vbosize = mesh->getVBOsize();
 
-  float newcbo[] = {0.0, 1.0, 0.0, 
-                    0.0, 0.0, 1.0, 
-                    1.0, 0.0, 0.0};
+  float newcbo[9]= {0};
+  newcbo[1] = 1.0f;
+  newcbo[5] = 1.0f;
+  newcbo[6] = 1.0f;
+
   cbo = newcbo;
   cbosize = 9;
 
   ibo = mesh->getIBO();
   ibosize = mesh->getIBOsize();
 
+  nbo = mesh->getNBO();
+  nbosize = mesh->getNBOsize();
+
   cudaGLMapBufferObject((void**)&dptr, pbo);
-  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize);
+  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, 
+	  cbosize, ibo, ibosize,nbo,nbosize);
   cudaGLUnmapBufferObject(pbo);
 
   vbo = NULL;
@@ -119,14 +128,17 @@ bool init(int argc, char* argv[]) {
 
   width = 800;
   height = 800;
-  window = glfwCreateWindow(width, height, "CIS 565 Pathtracer", NULL, NULL);
+  window = glfwCreateWindow(width, height, "CIS 565 Rasterizer", NULL, NULL);
   if (!window){
       glfwTerminate();
       return false;
   }
   glfwMakeContextCurrent(window);
   glfwSetKeyCallback(window, keyCallback);
-
+  glfwSetMouseButtonCallback(window,MouseClickCallback);
+  glfwSetCursorEnterCallback(window,CursorEnterCallback);
+  glfwSetCursorPosCallback(window,CursorCallback);
+  
   // Set up GL context
   glewExperimental = GL_TRUE;
   if(glewInit()!=GLEW_OK){
@@ -281,4 +293,136 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     if(key == GLFW_KEY_ESCAPE && action == GLFW_PRESS){
         glfwSetWindowShouldClose(window, GL_TRUE);
     }
+
+	if(key == GLFW_KEY_A && action == GLFW_PRESS)
+	{
+		AntiAliasing = !AntiAliasing;
+		if(AntiAliasing)
+			std::cout<<"Anti Aliasing Enabled!"<<std::endl;
+		else
+			std::cout<<"Anti Aliasing Disabled!"<<std::endl;
+	}
+
+	if(key == GLFW_KEY_B && action == GLFW_PRESS)
+	{
+		BackfaceCulling = !BackfaceCulling;
+		if(BackfaceCulling)
+			std::cout<<"BackfaceCulling Enabled!"<<std::endl;
+		else
+			std::cout<<"BackfaceCulling Disabled!"<<std::endl;
+	}
+
+	if(key == GLFW_KEY_I && action == GLFW_PRESS)
+	{
+		BCInterp = !BCInterp;
+		if(BCInterp)
+			std::cout<<"Interpolation Enabled!"<<std::endl;
+		else
+			std::cout<<"Interpolation Disabled!"<<std::endl;
+	}
+
+	if(key == GLFW_KEY_L && action == GLFW_PRESS)
+	{
+		LineMode = !LineMode;
+		if(LineMode)
+			std::cout<<"Show Lines!"<<std::endl;
+		else
+			std::cout<<"Hide Lines!"<<std::endl;
+	}
+
+	if(key == GLFW_KEY_P && action == GLFW_PRESS)
+	{
+		PointMode = !PointMode;
+		if(PointMode)
+			std::cout<<"Show Points!"<<std::endl;
+		else
+			std::cout<<"Hide Points!"<<std::endl;
+	}
+
+	if(key == GLFW_KEY_H && action == GLFW_PRESS)
+	{
+		ShowBody = !ShowBody;
+		if(ShowBody)
+			std::cout<<"Show Tris!"<<std::endl;
+		else
+			std::cout<<"Hide Tris!"<<std::endl;
+	}
+}
+
+//Added mouse functions
+
+void MouseClickCallback(GLFWwindow *window, int button, int action, int mods)
+{
+	if(action == GLFW_PRESS && button == GLFW_MOUSE_BUTTON_1)
+	{
+	    glfwGetCursorPos(window,&MouseX,&MouseY);
+		LB = true;
+	}
+
+	if(action == GLFW_PRESS && button == GLFW_MOUSE_BUTTON_2)
+	{
+		glfwGetCursorPos(window,&MouseX,&MouseY);
+		RB = true;
+	}
+
+	if(action == GLFW_PRESS && button == GLFW_MOUSE_BUTTON_3)
+	{
+		glfwGetCursorPos(window,&MouseX,&MouseY);
+		MB = true;
+	}
+
+	if(action == GLFW_RELEASE && button == GLFW_MOUSE_BUTTON_1)
+		LB = false;
+
+	if(action == GLFW_RELEASE && button == GLFW_MOUSE_BUTTON_2)
+		RB = false;
+
+	if(action == GLFW_RELEASE && button == GLFW_MOUSE_BUTTON_3)
+		MB = false;
+}
+
+void CursorEnterCallback(GLFWwindow *window,int entered)
+{
+    if(entered == GL_TRUE)
+		inwindow = true;
+	else
+		inwindow = false;
+}
+
+void CursorCallback(GLFWwindow *window, double x,double y)
+{
+	x = glm::max(0.0, x);
+	x = glm::min(x, (double)width);
+	y = glm::max(0.0, y);
+	y = glm::min(y, (double)height);
+
+	int changeX = x - MouseX;
+	int changeY = y - MouseY;
+
+	if(LB&&inwindow)
+	{
+		vPhi -= changeX * 0.0001f;
+		vTheta -= changeY * 0.0001f;
+		vTheta = glm::clamp(vTheta, float(1e-6), float(PI-(1e-6)));
+		eye = glm::vec3(R*sin(vTheta)*sin(vPhi), R*cos(vTheta) + center.y, R*sin(vTheta)*cos(vPhi));
+		view = glm::lookAt(eye, center, glm::vec3(0,1,0));
+	}
+
+	if(MB&&inwindow)
+	{
+		eye -= glm::vec3(0.00001, 0, 0) * (float)changeX;
+		eye += glm::vec3(0,0.00001, 0) * (float)changeY;
+		center -= glm::vec3(0.00001, 0, 0) * (float)changeX;
+		center += glm::vec3(0,0.00001, 0) * (float)changeY;
+		view = glm::lookAt(eye, center, glm::vec3(0,1,0));
+	}
+
+	if(RB&&inwindow)
+	{
+		float scale = -changeX/MouseX + changeY/MouseY;
+		R = (1.0f + 0.003f * scale) * R;
+		R = glm::clamp(R,nearfar.x,nearfar.y);
+		eye = glm::vec3(R*sin(vTheta)*sin(vPhi), R*cos(vTheta) + center.y, R*sin(vTheta)*cos(vPhi));
+		view = glm::lookAt(eye, center, glm::vec3(0,1,0));
+	}
 }
