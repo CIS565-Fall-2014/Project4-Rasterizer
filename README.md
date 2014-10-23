@@ -2,7 +2,7 @@
 CIS565: Project 4: CUDA Rasterizer
 ======================================
 Fall 2014 <br />
-Bo Zhang
+Bo Zhang<br />
 
 ![Alt text](https://github.com/wulinjiansheng/Project4-Rasterizer/blob/master/Pics/Running.bmp)
 
@@ -45,12 +45,12 @@ For vertices' normal:<br />
 #####(2) Rasterization through a scanline approach,A depth buffer for storing and depth testing fragments
 I use a per primitive method to rasterize the triangles. For each triangle, I firstly calculate the bounding box of the triangle to get its x and y range. Then, I implement triangle rasterization by barycenteric coordinates. That for each scan point in the bounding box range, we convert the it into barycentric coordinate. Only if the barycentric coordinate is within the range of [0,1], we retain the point. Then, we use the barycentric coordinates to interpolate the depth of triangle vertices. For each interpolated depth, we compare it with the corresponding depth we store in the depth buffer. And we only keep and show the points nearest to the eye position in z axis.<br />
 
-Here is a sketch map which shows how to do Barycentric Interpolation:
+Here is a sketch map which shows how to do Barycentric Interpolation:<br />
 ![Alt text](https://github.com/wulinjiansheng/Project4-Rasterizer/blob/master/Pics/Barycentric%20Coords%20and%20Interpolation.png)
 <br />
 <br />
 <br />
-And here is the rasterized bunny.obj (No lights):
+And here is the rasterized bunny.obj (No lights):<br />
 ![Alt text](https://github.com/wulinjiansheng/Project4-Rasterizer/blob/master/Pics/Nolight.bmp)
 <br />
 <br />
@@ -59,11 +59,11 @@ And here is the rasterized bunny.obj (No lights):
 After rasterization, I add light into the scene and calculate diffuse and specular color based on Blinn-Phong model.(http://en.wikipedia.org/wiki/Blinn%E2%80%93Phong_shading_model) <br />
 Notice: The vertices' position should be transformed back to world coordinate system.
 
-Here is the result with diffuse color added:
+Here is the result with diffuse color added:<br />
 ![Alt text](https://github.com/wulinjiansheng/Project4-Rasterizer/blob/master/Pics/Only%20Diffuse.bmp)
 <br />
 <br />
-Here is the result with both diffuse color and specular color:
+Here is the result with both diffuse color and specular color:<br />
 ![Alt text](https://github.com/wulinjiansheng/Project4-Rasterizer/blob/master/Pics/DIffuse%20and%20specular.bmp)
 <br />
 <br />
@@ -73,13 +73,13 @@ Here is the result with both diffuse color and specular color:
 We can use the barycentric coordinates to interpolate other attributes of the triangle vertices in the same way we interpolate vertices' depth. 
 
 Here are the results with(right) and without(left) color interpolation(Three vertices on each triangle has the color red,blue and green):
-<br />The one without color interpolation all has the same color (1/3,1/3,1/3), while the other one is colorful.
+<br />The one without color interpolation all has the same color (1/3,1/3,1/3), while the other one is colorful.<br />
 ![Alt text](https://github.com/wulinjiansheng/Project4-Rasterizer/blob/master/Pics/With%26Without%20CI.bmp)
 <br />
 <br />
 
 
-Here are the results with(right) and without(left) normal interpolation(The one with normal interpolation is smoother):
+Here are the results with(right) and without(left) normal interpolation(The one with normal interpolation is smoother):<br />
 ![Alt text](https://github.com/wulinjiansheng/Project4-Rasterizer/blob/master/Pics/With%26Without%20NI.bmp)
 <br />
 <br />
@@ -88,17 +88,17 @@ Here are the results with(right) and without(left) normal interpolation(The one 
 #####(2)Back-face culling
 Before the scene is rendered, polygons (or parts of polygons) which will not be visible in the final scene will be removed.Back-face culling is that we remove backfaces (faces turned away from the camera). As the triangles in obj files usually are defined with counter-clockwise winding when viewed from the outside, we can use the signed triangle area method to judge which faces are backfaces. If we measure the area of such a triangle and find it to be <0, then we know we are looking at a backface which does not have to be drawn. And after deciding which faces to discard, I use the thrust stream compaction to remove the dicarded faces, and send the rest faces to do rasterization.
 
-Here are the details about how to compute signed triangle area:
+Here are the details about how to compute signed triangle area:<br />
 ![Alt text](https://github.com/wulinjiansheng/Project4-Rasterizer/blob/master/Pics/Signed%20Triangle.bmp)
 <br />
 <br />
-Here are the results with(right) and without(left) Back-face culling(The left one is without Back-face culling and we can see some artifacts, and the right one does not have these artifacts):
+Here are the results with(right) and without(left) Back-face culling(The left one is without Back-face culling and we can see some artifacts, and the right one does not have these artifacts):<br />
 ![Alt text](https://github.com/wulinjiansheng/Project4-Rasterizer/blob/master/Pics/With%26Without%20BC.bmp)
 <br />
 <br />
 
 #####(3)Anti-aliasing
-I use a simple anti-aliasing method that each pixel's color is averaged from the sum of its color and its eight neighbor pixels' color. This make the result smoother and here are the results with(right) and without(left) anti-aliasing:
+I use a simple anti-aliasing method that each pixel's color is averaged from the sum of its color and its eight neighbor pixels' color. This make the result smoother and here are the results with(right) and without(left) anti-aliasing:<br />
 ![Alt text](https://github.com/wulinjiansheng/Project4-Rasterizer/blob/master/Pics/With%26Without%20AA.bmp)
 <br />
 <br />
@@ -121,8 +121,8 @@ Points mode:<br />
 
 
 
-## PERFORMANCE EVALUATION
-Here are the results of cow.obj and bunny.obj, mainly records their FPS under different settings:
+## Performance evaluation
+Here are the results of cow.obj and bunny.obj, mainly records their FPS under different settings:<br />
 ![Alt text](https://github.com/wulinjiansheng/Project4-Rasterizer/blob/master/Pics/Perform1.bmp)
 
 ![Alt text](https://github.com/wulinjiansheng/Project4-Rasterizer/blob/master/Pics/Perform2.bmp)
@@ -130,6 +130,15 @@ Here are the results of cow.obj and bunny.obj, mainly records their FPS under di
 <br />
 From the plots, we can see that the FPS drops down a bit when I set backface culling. It makes me confused and I think the only possible reason is that the stream compaction's part takes more time than rasterizing these culling faces. And I need to optimize the stream compaction to solve this problem. Besides, we can see the FPS drops greatly when I add anti-aliasing. It makes sense as we need to compute the averaged color for each pixel, which slows down the rendering progress. 
 
+## Scene Control
+|Key | Function
+|------|----------
+|A| `Enable/Disable anti-aliasing`
+|B|  `Enable/Disable backface culling`
+|I| `Enable/Disable barycentric interpolation`
+|L| `Show/Hide lines`
+|P| `Show/Hide points`
+|H| `Show/Hide faces`
 
 ##Video Link
 http://youtu.be/WiQ_etQEv6U
