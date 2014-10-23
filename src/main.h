@@ -83,7 +83,7 @@ bool altKeyPressed;
 bool scissorTest = false;
 bool backCulling = true;
 bool alphaBlend = false;
-bool antialiasing = false;
+bool antialiasing = true;
 int displayMode = 0;
 float alphaValue = 0.5;
 

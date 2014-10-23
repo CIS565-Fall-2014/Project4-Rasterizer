@@ -245,7 +245,7 @@ bool init(int argc, char* argv[]) {
 
 
 	translateX = width / 2;
-	translateY = height / 2;
+	translateY = height / 2-200;
 
 
   return true;
