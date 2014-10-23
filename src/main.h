@@ -84,6 +84,7 @@ bool scissorTest = false;
 bool backCulling = true;
 bool alphaBlend = false;
 bool antialiasing = false;
+int displayMode = 0;
 float alphaValue = 0.5;
 
 cudaMat4 shaderMatrix;

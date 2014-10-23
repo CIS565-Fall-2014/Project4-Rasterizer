@@ -63,6 +63,34 @@ __host__ __device__ void getAABBForLine(line ln, glm::vec3& minpoint, glm::vec3&
 					   max(ln.p0.z, ln.p1.z));
 }
 
+__host__ __device__ bool checkBoundaryForLine(float x, float y, glm::vec3 p0, glm::vec3 p1){
+	float minX = min(p0.x, p1.x);
+	float maxX = max(p0.x, p1.x);
+	float minY = min(p0.y, p1.y);
+	float maxY = max(p0.y, p1.y);
+
+	if(x >= minX-0.5 && x <= maxX+0.5 && y >= minY-0.5 && y <= maxY+0.5 )
+		return true;
+	else 
+		return false;
+}
+
+__host__ __device__ float getPtToLineDistance(float x, float y, glm::vec3 p0, glm::vec3 p1){
+
+	float dis;
+	if(p0.x - p1.x != 0){
+		float a1 = (p0.y - p1.y) / (p0.x - p1.x);
+		float b1 = p0.y - a1 * p0.x;
+		dis = abs((a1 * x - y + b1)) / sqrt(a1*a1 + 1);
+	}
+	else{
+		dis = abs(x - p0.x);
+	}
+	return dis;
+}
+
+
+
 //LOOK: calculates the signed area of a given triangle
 __host__ __device__ float calculateSignedArea(triangle tri){
   return 0.5*((tri.p2.x - tri.p0.x)*(tri.p1.y - tri.p0.y) - (tri.p1.x - tri.p0.x)*(tri.p2.y - tri.p0.y));

@@ -114,15 +114,21 @@ void runCuda(){
 	//	cout << "(" << nbo[9 * i + 6] << ", " << nbo[9 * i + 7] << ", " <<nbo[9 * i + 8] << ")" << endl;
 	//}
 
-	for(int i = 0; i < ibosize/3; i++){
-		cout << "(" << ibo[3*i] << ", " << ibo[3 * i + 1] << ", " <<ibo[3 * i + 2] << ")" << endl;
+	//for(int i = 0; i < ibosize/3; i++){
+	//	cout << "(" << ibo[3*i] << ", " << ibo[3 * i + 1] << ", " <<ibo[3 * i + 2] << ")" << endl;
 
-	}
+	//}
 
-	lineIboSize = 2;
-	lineIbo = new int[2];
-	lineIbo[0] =  0;
-	lineIbo[1] =  1;
+	//lineIboSize = 24;
+	//lineIbo = new int[24];
+	//lineIbo[0] =  0;
+	//lineIbo[1] =  1;
+	//lineIbo[2] =  1;
+	//lineIbo[3] =  2;
+	//lineIbo[4] =  0;
+	//lineIbo[5] =  2;
+	//lineIbo[0] =  0;
+	//lineIbo[1] =  1;
 	//lineIbo[2] =  1;
 	//lineIbo[3] =  2;
 	//lineIbo[4] =  2;
@@ -148,7 +154,7 @@ void runCuda(){
 
 	cudaGLMapBufferObject((void**)&dptr, pbo);
 	cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize, 
-		nbo, nbosize, shaderMatrix, translateX, translateY, eye, light, alphaBlend, alphaValue, backCulling, scissorTest, antialiasing, lineIbo, lineIboSize);
+		nbo, nbosize, shaderMatrix, translateX, translateY, eye, light, alphaBlend, alphaValue, backCulling, scissorTest, antialiasing, displayMode);
 	cudaGLUnmapBufferObject(pbo);
 
 	vbo = NULL;
@@ -398,6 +404,12 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 	if(key == GLFW_KEY_T && action == GLFW_PRESS){
 		antialiasing = !antialiasing;
     }
+	if(key == GLFW_KEY_D && action == GLFW_PRESS){
+		displayMode++;
+		if(displayMode > 3)
+			displayMode = 0;
+	}
+
 }
 
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods){

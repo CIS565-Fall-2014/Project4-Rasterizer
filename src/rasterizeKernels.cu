@@ -290,7 +290,7 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 	if(index < primitivesCount){
 
-		glm::vec3 normal =  primitives[index].n0;// glm::normalize(glm::cross(primitives[index].p1 - primitives[index].p0, primitives[index].p2 - primitives[index].p0));
+		glm::vec3 normal =  primitives[index].n0;
 
 		//Back-face culling
 		if(backCulling == true){
@@ -299,7 +299,6 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 	    }
 	    glm::vec3 minPoint;
 	    glm::vec3 maxPoint;
-	    
 	    
 	    getAABBForTriangle(primitives[index], minPoint, maxPoint);
 	    
@@ -340,14 +339,175 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 	}
 }
 
+__global__ void rasterizationKernelWireFrameSolid(triangle* primitives, int primitivesCount, fragment* depthbuffer, glm::vec2 resolution, bool* lockFlag, glm::vec3 eye){
+	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+	if(index < primitivesCount){
 
-__global__ void lineFragmentShadeKernel(fragment* depthbuffer, glm::vec2 resolution, glm::vec3 lightDir){
-	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
-	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
-	int index = x + (y * resolution.x);
+		glm::vec3 normal =  primitives[index].n0;
 
-	if(x<=resolution.x && y<=resolution.y){
-	
+		//Back-face culling
+		if(glm::dot(eye, normal) > 0)
+			return;
+	    
+
+		glm::vec3 p0 = primitives[index].p0;
+		glm::vec3 p1 = primitives[index].p1;
+		glm::vec3 p2 = primitives[index].p2;
+
+		glm::vec3 minPoint;
+	    glm::vec3 maxPoint;
+
+	    getAABBForTriangle(primitives[index], minPoint, maxPoint);
+	    for(int j = max( (int)floor(minPoint.y)-1, 0); j < min( (int)ceil(maxPoint.y)+1, (int)resolution.y ); ++j){
+		    for(int i = max( (int)floor(minPoint.x)-1, 0); i < min( (int)ceil(maxPoint.x)+1, (int)resolution.x); ++i){
+
+
+
+				float dis1 = getPtToLineDistance(i, j, p0, p1);
+				float dis2 = getPtToLineDistance(i, j, p0, p2);
+				float dis3 = getPtToLineDistance(i, j, p1, p2);
+
+
+				if(dis1 < 0.5 && checkBoundaryForLine(i,j,p0,p1) ){
+					depthbuffer[i + j * (int)resolution.x].color = glm::vec3(1,1,1);
+					continue;
+				}
+
+				if(dis2 < 0.5 && checkBoundaryForLine(i,j,p0,p2) ){
+					depthbuffer[i + j * (int)resolution.x].color = glm::vec3(1,1,1);
+					continue;
+				}
+
+				if(dis3 < 0.5 && checkBoundaryForLine(i,j,p1,p2) ){
+					depthbuffer[i + j * (int)resolution.x].color = glm::vec3(1,1,1);
+					continue;
+				}
+			}
+		}
+	}
+}
+
+__global__ void rasterizationKernelWireFrameDashLine(triangle* primitives, int primitivesCount, fragment* depthbuffer, glm::vec2 resolution, bool* lockFlag, glm::vec3 eye){
+	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+	if(index < primitivesCount){
+
+		glm::vec3 normal =  primitives[index].n0;
+
+		glm::vec3 p0 = primitives[index].p0;
+		glm::vec3 p1 = primitives[index].p1;
+		glm::vec3 p2 = primitives[index].p2;
+
+		glm::vec3 minPoint;
+	    glm::vec3 maxPoint;
+
+	    getAABBForTriangle(primitives[index], minPoint, maxPoint);
+
+		//Back-face culling
+		if(glm::dot(eye, normal) > 0){
+			for(int j = max( (int)floor(minPoint.y)-1, 0); j < min( (int)ceil(maxPoint.y)+1, (int)resolution.y ); ++j){
+				for(int i = max( (int)floor(minPoint.x)-1, 0); i < min( (int)ceil(maxPoint.x)+1, (int)resolution.x); ++i){
+
+					float dis1 = getPtToLineDistance(i, j, p0, p1);
+					float dis2 = getPtToLineDistance(i, j, p0, p2);
+					float dis3 = getPtToLineDistance(i, j, p1, p2);
+
+
+					if(dis1 < 0.5 && checkBoundaryForLine(i,j,p0,p1) ){
+
+						float disToStart = sqrt(pow(i - p0.x, 2) + pow(j - p0.y, 2));
+						if((int)(disToStart / 5) % 2 == 0 )
+							depthbuffer[i + j * (int)resolution.x].color = glm::vec3(1,1,1);
+						continue;
+					}
+
+					if(dis2 < 0.5 && checkBoundaryForLine(i,j,p0,p2) ){
+
+						float disToStart = sqrt(pow(i - p0.x, 2) + pow(j - p0.y, 2));
+						if((int)(disToStart / 5) % 2 == 0 )
+							depthbuffer[i + j * (int)resolution.x].color = glm::vec3(1,1,1);
+
+						continue;
+					}
+
+					if(dis3 < 0.5 && checkBoundaryForLine(i,j,p1,p2) ){
+
+						float disToStart = sqrt(pow(i - p1.x, 2) + pow(j - p1.y, 2));
+						if((int)(disToStart / 5) % 2 == 0 )
+							depthbuffer[i + j * (int)resolution.x].color = glm::vec3(1,1,1);
+
+						continue;
+					}
+				}
+			}
+		}
+		else{
+			for(int j = max( (int)floor(minPoint.y)-1, 0); j < min( (int)ceil(maxPoint.y)+1, (int)resolution.y ); ++j){
+				for(int i = max( (int)floor(minPoint.x)-1, 0); i < min( (int)ceil(maxPoint.x)+1, (int)resolution.x); ++i){
+
+					float dis1 = getPtToLineDistance(i, j, p0, p1);
+					float dis2 = getPtToLineDistance(i, j, p0, p2);
+					float dis3 = getPtToLineDistance(i, j, p1, p2);
+
+
+					if(dis1 < 0.5 && checkBoundaryForLine(i,j,p0,p1) ){
+						depthbuffer[i + j * (int)resolution.x].color = glm::vec3(1,1,1);
+						continue;
+					}
+
+					if(dis2 < 0.5 && checkBoundaryForLine(i,j,p0,p2) ){
+						depthbuffer[i + j * (int)resolution.x].color = glm::vec3(1,1,1);
+						continue;
+					}
+
+					if(dis3 < 0.5 && checkBoundaryForLine(i,j,p1,p2) ){
+						depthbuffer[i + j * (int)resolution.x].color = glm::vec3(1,1,1);
+						continue;
+					}
+				}
+			}
+		}
+	}
+}
+
+__global__ void rasterizationKernelWireFrameRealLine(triangle* primitives, int primitivesCount, fragment* depthbuffer, glm::vec2 resolution, bool* lockFlag, glm::vec3 eye){
+	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+	if(index < primitivesCount){
+
+		glm::vec3 normal =  primitives[index].n0;
+
+		glm::vec3 p0 = primitives[index].p0;
+		glm::vec3 p1 = primitives[index].p1;
+		glm::vec3 p2 = primitives[index].p2;
+
+		glm::vec3 minPoint;
+	    glm::vec3 maxPoint;
+
+	    getAABBForTriangle(primitives[index], minPoint, maxPoint);
+	    for(int j = max( (int)floor(minPoint.y)-1, 0); j < min( (int)ceil(maxPoint.y)+1, (int)resolution.y ); ++j){
+		    for(int i = max( (int)floor(minPoint.x)-1, 0); i < min( (int)ceil(maxPoint.x)+1, (int)resolution.x); ++i){
+
+
+				float dis1 = getPtToLineDistance(i, j, p0, p1);
+				float dis2 = getPtToLineDistance(i, j, p0, p2);
+				float dis3 = getPtToLineDistance(i, j, p1, p2);
+
+
+				if(dis1 < 0.5 && checkBoundaryForLine(i,j,p0,p1) ){
+					depthbuffer[i + j * (int)resolution.x].color = glm::vec3(1,1,1);
+					continue;
+				}
+
+				if(dis2 < 0.5 && checkBoundaryForLine(i,j,p0,p2) ){
+					depthbuffer[i + j * (int)resolution.x].color = glm::vec3(1,1,1);
+					continue;
+				}
+
+				if(dis3 < 0.5 && checkBoundaryForLine(i,j,p1,p2) ){
+					depthbuffer[i + j * (int)resolution.x].color = glm::vec3(1,1,1);
+					continue;
+				}
+			}
+		}
 	}
 }
 
@@ -398,61 +558,6 @@ __global__ void fragmentShadeKernel(fragment* depthbuffer, glm::vec2 resolution,
   }
 }
 
-__global__ void rasterizationLineKernel(line* lineCollection, int lineCount, fragment* depthbuffer, glm::vec2 resolution){
-	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
-	if(index < lineCount){
-
-	    
-		glm::vec3 p0 = lineCollection[index].p0;
-		glm::vec3 p1 = lineCollection[index].p1;
-
-		//glm::vec3 p0 = glm::vec3(100,100,100);
-		//glm::vec3 p1 = glm::vec3(400,400,400);
-
-	    float a = (p0.y - p1.y) / (p0.x - p1.x);
-		float b = p1.y * p0.x - p0.y * p1.x;
-
-		glm::vec3 minPoint;
-	    glm::vec3 maxPoint;
-		getAABBForLine(lineCollection[index], minPoint, maxPoint);
-
-		//for(int j = max( (int)floor(minPoint.y)-1, 0); j < min( (int)ceil(maxPoint.y)+1, (int)resolution.y ); ++j){
-		//	for(int i = max( (int)floor(minPoint.x)-1, 0); i < min( (int)ceil(maxPoint.x)+1, (int)resolution.x); ++i){
-		for(int j = 0; j < (int)resolution.y ; ++j){
-			for(int i =  0; i < (int)resolution.x; ++i){
-
-
-				float P0_P1 = sqrt( pow(p0.x - p1.x, 2) + pow(p0.y - p1.y, 2));
-				float PT_P0 = sqrt( pow(p0.x - i, 2) + pow(p0.y - j, 2));
-				float newDepth = p0.z + PT_P0 / P0_P1 * (p1.z - p0.z);
-
-				float dis = abs((a * i - j + b)) / sqrt(a*a + 1);
-
-				if(dis > 1)
-					continue;
-
-				float old = depthbuffer[i + j * (int)resolution.x].position.z;
-				float assumed;
-				do{
-					assumed = old;
-
-					if(assumed == depthbuffer[i + j * (int)resolution.x].position.z){
-						if(newDepth > depthbuffer[i + j * (int)resolution.x].position.z){
-							depthbuffer[i + j * (int)resolution.x].position.z = newDepth;
-							depthbuffer[i + j * (int)resolution.x].color = glm::vec3(1,0,0);
-						}
-					}
-					else{
-						old =depthbuffer[i + j * (int)resolution.x].position.z;
-					}
-				}
-				while(assumed != old);
-
-			}
-		}
-
-	}
-}
 
 //TODO:
 __global__ void colorAlphaBlendingKernel(fragment* depthbuffer, glm::vec2 resolution, float alphaValue){
@@ -492,7 +597,7 @@ __global__ void render(glm::vec2 resolution, fragment* depthbuffer, glm::vec3* f
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float* vbo, int vbosize, float* cbo, int cbosize, int* ibo, int ibosize, 
 	float* nbo, int nbosize, cudaMat4 shaderMatrix, int translateX, int translateY, glm::vec3 eye, glm::vec3 light, bool alphaBlend, float alphaValue, 
-	bool backCulling, bool scissorTest, bool antialiasing, int* lineIbo, int lineIbosize){
+	bool backCulling, bool scissorTest, bool antialiasing, int displayMode){
 
 	// set up crucial magic
 	int tileSize = 8;
@@ -526,12 +631,7 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
 
 	depthbufferPre = NULL;
 	cudaMalloc((void**)&depthbufferPre, 2*2*(int)resolution.x*(int)resolution.y*sizeof(fragment));
-	if(antialiasing == true){
-
-	    dim3 fullBlocksPerGridForAntiAliasing((int)ceil(2*float(resolution.x)/float(tileSize)), (int)ceil(2*float(resolution.y)/float(tileSize)));
-	    clearDepthBufferPre<<<fullBlocksPerGridForAntiAliasing, threadsPerBlock>>>(resolution, depthbufferPre,frag);
-	}
-
+	dim3 fullBlocksPerGridForAntiAliasing((int)ceil(2*float(resolution.x)/float(tileSize)), (int)ceil(2*float(resolution.y)/float(tileSize)));
 
 
 
@@ -540,9 +640,6 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
 	//------------------------------
 	primitives = NULL;
 	cudaMalloc((void**)&primitives, (ibosize/3)*sizeof(triangle));
-
-	lineCollection = NULL;
-	cudaMalloc((void**)&lineCollection, (lineIbosize/2)*sizeof(line));
 
 	device_ibo = NULL;
 	cudaMalloc((void**)&device_ibo, ibosize*sizeof(int));
@@ -560,11 +657,6 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
 	cudaMalloc((void**)&device_cbo, cbosize*sizeof(float));
 	cudaMemcpy( device_cbo, cbo, cbosize*sizeof(float), cudaMemcpyHostToDevice);
 
-	device_lineibo = NULL;
-	cudaMalloc((void**)&device_lineibo, lineIbosize*sizeof(int));
-	cudaMemcpy( device_lineibo, lineIbo, lineIbosize*sizeof(int), cudaMemcpyHostToDevice);
-
-
 	tileSize = 32;
 	int primitiveBlocks = ceil(((float)vbosize/3)/((float)tileSize));
 
@@ -576,44 +668,55 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
 	//------------------------------
 	//primitive assembly
 	//------------------------------
-	//primitiveBlocks = ceil(((float)ibosize/3)/((float)tileSize));
+	primitiveBlocks = ceil(((float)ibosize/3)/((float)tileSize));
 	
-	//primitiveAssemblyKernel<<<primitiveBlocks, tileSize>>>(device_vbo, vbosize, device_cbo, cbosize, device_ibo, ibosize, device_nbo, nbosize, primitives);
-	//cudaDeviceSynchronize();
-	////------------------------------
-	////rasterization
-	////------------------------------
-	//if(antialiasing == true){
-	//	rasterizationKernel_Antialiasing<<<primitiveBlocks, tileSize>>>(primitives, ibosize/3, depthbufferPre, resolution, cudaFlag, eye, backCulling);
-	//	cudaDeviceSynchronize();
-
-	//	reAssemble<<<fullBlocksPerGrid, threadsPerBlock>>>(resolution, depthbufferPre, depthbuffer);
-	//	cudaDeviceSynchronize();
-	//}
-	//else{
-	//	rasterizationKernel<<<primitiveBlocks, tileSize>>>(primitives, ibosize/3, depthbuffer, resolution, cudaFlag, eye, backCulling);
-	//	cudaDeviceSynchronize();
-	//}
-	primitiveBlocks = ceil(((float)lineIbosize/2)/((float)tileSize));
-	lineAssemblyKernel<<<primitiveBlocks, tileSize>>>(device_vbo, vbosize, device_lineibo, lineIbosize, lineCollection);
-	cudaDeviceSynchronize();
-	rasterizationLineKernel<<<primitiveBlocks, tileSize>>>(lineCollection, lineIbosize/2, depthbuffer, resolution);
-
-
-	////------------------------------
-	////fragment shader
-	////------------------------------
-	//fragmentShadeKernel<<<fullBlocksPerGrid, threadsPerBlock>>>(depthbuffer, resolution, light, scissorTest, eye);
-
+	primitiveAssemblyKernel<<<primitiveBlocks, tileSize>>>(device_vbo, vbosize, device_cbo, cbosize, device_ibo, ibosize, device_nbo, nbosize, primitives);
 	cudaDeviceSynchronize();
 
-	////------------------------------
-	////color blending
-	////------------------------------
-	//if(alphaBlend){
-	//	colorAlphaBlendingKernel<<<fullBlocksPerGrid, threadsPerBlock>>>(depthbuffer, resolution, alphaValue);
-	//	cudaDeviceSynchronize();
-	//}
+	if(displayMode == 0){
+		//------------------------------
+		//rasterization
+		//------------------------------
+		if(antialiasing == true){
+			clearDepthBufferPre<<<fullBlocksPerGridForAntiAliasing, threadsPerBlock>>>(resolution, depthbufferPre,frag);
+
+			rasterizationKernel_Antialiasing<<<primitiveBlocks, tileSize>>>(primitives, ibosize/3, depthbufferPre, resolution, cudaFlag, eye, backCulling);
+			cudaDeviceSynchronize();
+
+			reAssemble<<<fullBlocksPerGrid, threadsPerBlock>>>(resolution, depthbufferPre, depthbuffer);
+			cudaDeviceSynchronize();
+		}
+		else{
+			rasterizationKernel<<<primitiveBlocks, tileSize>>>(primitives, ibosize/3, depthbuffer, resolution, cudaFlag, eye, backCulling);
+			cudaDeviceSynchronize();
+		}
+
+		//------------------------------
+		//fragment shader
+		//------------------------------
+		fragmentShadeKernel<<<fullBlocksPerGrid, threadsPerBlock>>>(depthbuffer, resolution, light, scissorTest, eye);
+		cudaDeviceSynchronize();
+	}
+	//------------------------------
+	//wireframe shader
+	//------------------------------
+	if(displayMode == 1)
+		rasterizationKernelWireFrameSolid<<<primitiveBlocks, tileSize>>>(primitives, ibosize/3, depthbuffer, resolution, cudaFlag, eye);
+	else if(displayMode == 2)
+		rasterizationKernelWireFrameDashLine<<<primitiveBlocks, tileSize>>>(primitives, ibosize/3, depthbuffer, resolution, cudaFlag, eye);
+	else if(displayMode == 3)
+		rasterizationKernelWireFrameRealLine<<<primitiveBlocks, tileSize>>>(primitives, ibosize/3, depthbuffer, resolution, cudaFlag, eye);
+	
+	cudaDeviceSynchronize();
+
+
+	//------------------------------
+	//color blending
+	//------------------------------
+	if(alphaBlend){
+		colorAlphaBlendingKernel<<<fullBlocksPerGrid, threadsPerBlock>>>(depthbuffer, resolution, alphaValue);
+		cudaDeviceSynchronize();
+	}
 	//------------------------------
 	//write fragments to framebuffer
 	//------------------------------
@@ -637,7 +740,7 @@ void kernelCleanup(){
   cudaFree( depthbuffer );
   cudaFree( depthbufferPre );
   cudaFree( cudaFlag );
-  cudaFree( device_lineibo );
-  cudaFree( lineCollection );
+  //cudaFree( device_lineibo );
+  //cudaFree( lineCollection );
 }
 
