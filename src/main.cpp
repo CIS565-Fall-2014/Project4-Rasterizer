@@ -114,9 +114,41 @@ void runCuda(){
 	//	cout << "(" << nbo[9 * i + 6] << ", " << nbo[9 * i + 7] << ", " <<nbo[9 * i + 8] << ")" << endl;
 	//}
 
+	for(int i = 0; i < ibosize/3; i++){
+		cout << "(" << ibo[3*i] << ", " << ibo[3 * i + 1] << ", " <<ibo[3 * i + 2] << ")" << endl;
+
+	}
+
+	lineIboSize = 2;
+	lineIbo = new int[2];
+	lineIbo[0] =  0;
+	lineIbo[1] =  1;
+	//lineIbo[2] =  1;
+	//lineIbo[3] =  2;
+	//lineIbo[4] =  2;
+	//lineIbo[5] =  3;
+	//lineIbo[6] =  0;
+	//lineIbo[7] =  3;
+	//lineIbo[8] =  3;
+	//lineIbo[9] =  4;
+	//lineIbo[10] = 4;
+	//lineIbo[11] = 7;
+	//lineIbo[12] = 7;
+	//lineIbo[13] = 0;
+	//lineIbo[14] = 4;
+	//lineIbo[15] = 5;
+	//lineIbo[16] = 5;
+	//lineIbo[17] = 6;
+	//lineIbo[18] = 6;
+	//lineIbo[19] = 7;
+	//lineIbo[20] = 2;
+	//lineIbo[21] = 5;
+	//lineIbo[22] = 1;
+	//lineIbo[23] = 6;
+
 	cudaGLMapBufferObject((void**)&dptr, pbo);
 	cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize, 
-		nbo, nbosize, shaderMatrix, translateX, translateY, eye, light, alphaBlend, alphaValue, backCulling, scissorTest, antialiasing);
+		nbo, nbosize, shaderMatrix, translateX, translateY, eye, light, alphaBlend, alphaValue, backCulling, scissorTest, antialiasing, lineIbo, lineIboSize);
 	cudaGLUnmapBufferObject(pbo);
 
 	vbo = NULL;

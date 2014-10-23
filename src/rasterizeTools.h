@@ -21,6 +21,11 @@ struct triangle {
   glm::vec3 n2;
 };
 
+struct line{
+  glm::vec3 p0;
+  glm::vec3 p1;
+};
+
 struct fragment{
   glm::vec3 color;
   glm::vec3 normal;
@@ -47,6 +52,15 @@ __host__ __device__ void getAABBForTriangle(triangle tri, glm::vec3& minpoint, g
   maxpoint = glm::vec3(max(max(tri.p0.x, tri.p1.x),tri.p2.x), 
         max(max(tri.p0.y, tri.p1.y),tri.p2.y),
         max(max(tri.p0.z, tri.p1.z),tri.p2.z));
+}
+
+__host__ __device__ void getAABBForLine(line ln, glm::vec3& minpoint, glm::vec3& maxpoint){
+  minpoint = glm::vec3(min(ln.p0.x, ln.p1.x), 
+					   min(ln.p0.y, ln.p1.y),
+					   min(ln.p0.z, ln.p1.z));
+  maxpoint = glm::vec3(max(ln.p0.x, ln.p1.x), 
+					   max(ln.p0.y, ln.p1.y),
+					   max(ln.p0.z, ln.p1.z));
 }
 
 //LOOK: calculates the signed area of a given triangle

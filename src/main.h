@@ -101,6 +101,10 @@ int ibosize;
 float* nbo;
 int nbosize;
 
+int* lineIbo;
+int lineIboSize;
+
+
 //-------------------------------
 //----------CUDA STUFF-----------
 //-------------------------------
