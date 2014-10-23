@@ -40,24 +40,82 @@ int main(int argc, char** argv){
   return 0;
 }
 
+
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
+{
+	mouseScrollOffset += yoffset;
+}
 void mainLoop() {
-  
-  float fov_rad = FOV_DEG * PI / 180.0f;
-  float AR = width / height;
+ 
 
-  glm::mat4 glmModelTransform =glm::mat4();
-  glm::mat4 glmViewTransform =utilityCore::buildTransformationMatrix(glm::vec3(0.0f,-.25f,2.0f),glm::vec3(0.0f,0.0f,0.0f),glm::vec3(1.0f));
-	
-  //projection matrix assuming Near:1 Far: 100
-  glmProjectionTransform =glm::mat4(glm::vec4(1/AR/tan(fov_rad * 0.5f),0.0f,0.0f,0.0f),glm::vec4(0.0f,1/tan(fov_rad * 0.5f),0.0f,0.0f),glm::vec4(0.0f,0.0f,-1.02f,-2.02f),glm::vec4(0.0f,0.0f,-1.0f,0.0f));
-  glmMVtransform = glmViewTransform * glmModelTransform;
+ while(!glfwWindowShouldClose(window)){
+
+	 //mouse interaction stuff
+	double * mouseX = new double;
+	double * mouseY = new double;
+
+	if(glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)
+	{
+		glfwGetCursorPos(window,mouseX,mouseY);
+		if(mouseButtonIsDown == false)
+		{
+			mouseButtonIsDown = true;
+			mouseClickedX = *mouseX;
+			mouseClickedY = *mouseY;
+		}
+		mouseDeltaX = *mouseX - mouseClickedX;
+		mouseDeltaY = *mouseY - mouseClickedY;
+
+	}
+
+	else
+	{
+		if(mouseButtonIsDown == true)
+		{
+			rotationX += mouseDeltaX;
+			rotationY += mouseDeltaY;
+			mouseButtonIsDown = false;
+			mouseDeltaX = 0.0f;
+			mouseDeltaY = 0.0f;
+		cout<<"mouse adjusted"<<endl;
+		}
+
+	}
+	delete mouseX,mouseY;
+
+	if(glfwGetKey(window,GLFW_KEY_W) == GLFW_PRESS)
+	{
+		deltaZ -= cameraMovementIncrement;
+	}
+	if(glfwGetKey(window,GLFW_KEY_S) == GLFW_PRESS)
+	{
+		deltaZ += cameraMovementIncrement;
+	}
+	if(glfwGetKey(window,GLFW_KEY_A) == GLFW_PRESS)
+	{
+		deltaX -= cameraMovementIncrement;
+	}
+	if(glfwGetKey(window,GLFW_KEY_D) == GLFW_PRESS)
+	{
+		deltaX += cameraMovementIncrement;
+	}
 
 
-  //construct light
-  Light.position = lightPos;
-  Light.color = lightCol;
 
-  while(!glfwWindowShouldClose(window)){
+	//set up transformations
+	float fov_rad = FOV_DEG * PI / 180.0f;
+	float AR = width / height;
+
+	glm::mat4 glmModelTransform =glm::mat4();
+	glm::mat4 glmViewTransform =utilityCore::buildTransformationMatrix(glm::vec3(0.0f + deltaX,-.25f,2.0f + deltaZ),glm::vec3(-(rotationY + mouseDeltaY),- (rotationX + mouseDeltaX),0.0f),glm::vec3(0.2f + 0.01f*mouseScrollOffset));
+
+	glmProjectionTransform = glm::perspective((float)45.0f,AR, 1.0f,20.0f);
+	glmMVtransform = glmViewTransform * glmModelTransform;
+
+	//construct light
+	Light.position = lightPos;
+	Light.color = lightCol;
+
     glfwPollEvents();
 
     runCuda();
@@ -157,6 +215,8 @@ bool init(int argc, char* argv[]) {
 
   glUseProgram(passthroughProgram);
   glActiveTexture(GL_TEXTURE0);
+
+  glfwSetScrollCallback(window, scroll_callback);
 
   return true;
 }

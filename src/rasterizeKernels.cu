@@ -30,6 +30,7 @@ void checkCUDAError(const char *msg) {
   }
 } 
 
+__device__ 
 //Handy dandy little hashing function that provides seeds for random number generation
 __host__ __device__ unsigned int hash(unsigned int a){
     a = (a+0x7ed55d16) + (a<<12);
@@ -211,13 +212,14 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 					pixelIndex = x + y * resolution.x;
 
 					float pixelDepth = getZAtCoordinate(pixelBaryPos, primitives[index]);
+					fragment frag;
+					frag.position = glm::vec3(pixelPos.x,pixelPos.y,pixelDepth);
+					frag.normal = normal;
+					frag.color = pixelBaryPos.x * primitives[index].c0 + pixelBaryPos.y * primitives[index].c1 + pixelBaryPos.z * primitives[index].c2;
 
-					if(pixelIndex < totalPixel && pixelIndex >= 0)// && pixelDepth < depthbuffer[pixelIndex].position.z)
+					if(pixelIndex < totalPixel && pixelIndex >= 0 && pixelDepth > depthbuffer[pixelIndex].position.z) //TODO change to atomic compare
 					{
-						depthbuffer[pixelIndex].position = glm::vec3(pixelPos.x,pixelPos.y,pixelDepth);
-						depthbuffer[pixelIndex].normal = normal;
-						//depthbuffer[pixelIndex].color = pixelBaryPos.x * primitives[index].c0 + pixelBaryPos.y * primitives[index].c1 + pixelBaryPos.z * primitives[index].c2;
-						depthbuffer[pixelIndex].color = glm::vec3(0.0f,1.0f,0.0f);
+						depthbuffer[pixelIndex] = frag;
 					}
 
 				}
@@ -258,14 +260,14 @@ __global__ void fragmentShadeKernel(fragment* depthbuffer, light Light, glm::vec
   int index = x + (y * resolution.x);
   if(x<=resolution.x && y<=resolution.y){
 
-	//  glm::vec3 L = glm::normalize(Light.position - depthbuffer[index].position);
+	  glm::vec3 L = glm::normalize(Light.position - depthbuffer[index].position);
 
-	//  float coe = glm::dot(L,depthbuffer[index].normal);
-	//  coe = (coe<0.0f) ? 0.0f:coe;
-	 // coe = (coe>1.0f) ? 1.0f:coe;
+	  float coe = glm::dot(L,depthbuffer[index].normal);
+	  coe = (coe<0.0f) ? 0.0f:coe;
+	  coe = (coe>1.0f) ? 1.0f:coe;
 
-	 // coe = abs(depthbuffer[index].position.z/2.0f);
-	//  depthbuffer[index].color *= coe * Light.color;
+	  depthbuffer[index].color *= coe * Light.color;
+	 // depthbuffer[index].color = depthbuffer[index].normal;
   }
 }
 
