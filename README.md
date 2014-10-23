@@ -121,7 +121,7 @@ Points mode:<br />
 
 
 
-## Performance evaluation
+## Performance Evaluation
 Here are the results of cow.obj and bunny.obj, mainly records their FPS under different settings:<br />
 ![Alt text](https://github.com/wulinjiansheng/Project4-Rasterizer/blob/master/Pics/Perform1.bmp)
 
