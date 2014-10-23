@@ -16,6 +16,7 @@ struct triangle {
   glm::vec3 c0;
   glm::vec3 c1;
   glm::vec3 c2;
+  glm::vec3 n;
 };
 
 struct fragment{
@@ -75,4 +76,36 @@ __host__ __device__ float getZAtCoordinate(glm::vec3 barycentricCoord, triangle 
   return -(barycentricCoord.x*tri.p0.z + barycentricCoord.y*tri.p1.z + barycentricCoord.z*tri.p2.z);
 }
 
+__host__ __device__ glm::vec3 interpolateColor(glm::vec3 barycentricCoord, triangle tri){
+	//glm::vec3 tmp;
+	//tmp.x = barycentricCoord.x * tri.c0.x + barycentricCoord.y * tri.c1.x + barycentricCoord.z * tri.c2.x;
+	//tmp.y = barycentricCoord.x * tri.c0.y + barycentricCoord.y * tri.c1.y + barycentricCoord.z * tri.c2.y;
+	//tmp.x = barycentricCoord.x * tri.c0.z + barycentricCoord.y * tri.c1.z + barycentricCoord.z * tri.c2.z;
+  return barycentricCoord.x * tri.c0 + barycentricCoord.y * tri.c1 + barycentricCoord.z * tri.c2;
+}
+
+__host__ __device__ glm::vec3 interpolatePosition(glm::vec3 barycentricCoord, triangle tri){
+	//glm::vec3 tmp;
+	//tmp.x = barycentricCoord.x * tri.p0.x + barycentricCoord.y * tri.p1.x + barycentricCoord.z * tri.p2.x;
+	//tmp.y = barycentricCoord.x * tri.p0.y + barycentricCoord.y * tri.p1.y + barycentricCoord.z * tri.p2.y;
+	//tmp.x = barycentricCoord.x * tri.p0.z + barycentricCoord.y * tri.p1.z + barycentricCoord.z * tri.p2.z;
+  return barycentricCoord.x * tri.p0 + barycentricCoord.y * tri.p1 + barycentricCoord.z * tri.p2;
+}
+
+
+// convert imgae coordinates to screen coordinates
+__host__ __device__ glm::vec2 imageToScreen(glm::vec2 pixel, glm::vec2 reso){
+	glm::vec2 tmp;
+	tmp.x = (pixel.x - (reso.x-1.0f)/2.0f) / (reso.x/2.0f);
+	tmp.y = -(pixel.y - (reso.y-1.0f)/2.0f) / (reso.y/2.0f);
+	 return tmp; 
+}
+
+// convert screen coordinates to image coordinates
+__host__ __device__ glm::vec2 screenToImage(glm::vec2 screen, glm::vec2 reso){
+	glm::vec2 tmp;
+	tmp.x = (int)glm::round( (screen.x + 1.0f) * reso.x / 2.0f);
+	tmp.y = (int)glm::round( (- screen.y + 1.0f) * reso.y / 2.0f);
+	return tmp;
+}
 #endif
