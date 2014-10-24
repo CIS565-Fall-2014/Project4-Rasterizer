@@ -145,12 +145,22 @@ __global__ void vertexShadeKernel(float* vbo, int vbosize)
     }
 }
 
-//TODO: Implement primative assembly
 __global__ void primitiveAssemblyKernel(float* vbo, int vbosize, float* cbo, int cbosize, int* ibo, int ibosize, triangle* primitives)
 {
     int index = (blockIdx.x * blockDim.x) + threadIdx.x;
     int primitivesCount = ibosize / 3;
     if (index < primitivesCount) {
+        int i0 = ibo[3 * index + 0];
+        int i1 = ibo[3 * index + 1];
+        int i2 = ibo[3 * index + 1];
+        triangle prim;
+        prim.p0 = glm::vec3(vbo[3 * i0], vbo[3 * i0 + 1], vbo[3 * i0 + 2]);
+        prim.p1 = glm::vec3(vbo[3 * i1], vbo[3 * i1 + 1], vbo[3 * i1 + 2]);
+        prim.p2 = glm::vec3(vbo[3 * i2], vbo[3 * i2 + 1], vbo[3 * i2 + 2]);
+        prim.c0 = glm::vec3(cbo[3 * i0], cbo[3 * i0 + 1], cbo[3 * i0 + 2]);
+        prim.c1 = glm::vec3(cbo[3 * i1], cbo[3 * i1 + 1], cbo[3 * i1 + 2]);
+        prim.c2 = glm::vec3(cbo[3 * i2], cbo[3 * i2 + 1], cbo[3 * i2 + 2]);
+        primitives[index] = prim;
     }
 }
 
