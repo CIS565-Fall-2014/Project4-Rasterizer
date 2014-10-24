@@ -47,6 +47,8 @@ float* vbo;
 int vbosize;
 float* cbo;
 int cbosize;
+float* nbo;
+int nbosize;
 int* ibo;
 int ibosize;
 
@@ -55,7 +57,8 @@ int ibosize;
 //-------------------------------
 
 int width = 800; int height = 800;
-
+glm::vec3 eye(0, 0.25, 2);
+glm::vec3 center(0, 0.25, 0);
 //-------------------------------
 //-------------MAIN--------------
 //-------------------------------

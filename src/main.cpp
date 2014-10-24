@@ -41,7 +41,36 @@ int main(int argc, char** argv){
 
   return 0;
 }
+//void display(){
+ //   runCuda();
+	//time_t seconds2 = time (NULL);
 
+ //   if(seconds2-seconds >= 1){
+
+ //     fps = fpstracker/(seconds2-seconds);
+ //     fpstracker = 0;
+ //     seconds = seconds2;
+
+	//  //printf("seconds:%d", seconds2);
+
+ //   }
+
+ //   string title = "CIS565 Rasterizer | "+ utilityCore::convertIntToString((int)fps) + "FPS";
+ //   glutSetWindowTitle(title.c_str());
+
+ //   glBindBuffer( GL_PIXEL_UNPACK_BUFFER, pbo);
+ //   glBindTexture(GL_TEXTURE_2D, displayImage);
+ //   glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, 
+ //       GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+
+ //   glClear(GL_COLOR_BUFFER_BIT);   
+
+ //   // VAO, shader program, and texture already bound
+ //   glDrawElements(GL_TRIANGLES, 6,  GL_UNSIGNED_SHORT, 0);
+
+ //   glutPostRedisplay();
+ //   glutSwapBuffers();
+ // }
 void mainLoop() {
   while(!glfwWindowShouldClose(window)){
     glfwPollEvents();
@@ -80,7 +109,7 @@ void runCuda(){
   // Map OpenGL buffer object for writing from CUDA on a single GPU
   // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
   dptr=NULL;
-
+  glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), 20.0f-0.5f*frame, glm::vec3(0.0f, 1.0f, 0.0f));
   vbo = mesh->getVBO();
   vbosize = mesh->getVBOsize();
 
@@ -92,9 +121,10 @@ void runCuda(){
 
   ibo = mesh->getIBO();
   ibosize = mesh->getIBOsize();
-
+  nbo = mesh->getNBO();
+  nbosize = mesh->getNBOsize();
   cudaGLMapBufferObject((void**)&dptr, pbo);
-  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize);
+  cudaRasterizeCore(dptr, glm::vec2(width, height), rotation, frame, vbo, vbosize, cbo, cbosize, ibo, ibosize, nbo, nbosize,eye, center);
   cudaGLUnmapBufferObject(pbo);
 
   vbo = NULL;
@@ -105,6 +135,7 @@ void runCuda(){
   fpstracker++;
 
 }
+ 
   
 //-------------------------------
 //----------SETUP STUFF----------
