@@ -129,9 +129,33 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 }
 
 //TODO: Implement a vertex shader
-__global__ void vertexShadeKernel(float* vbo, int vbosize){
+__global__ void vertexShadeKernel(float* vbo, int vbosize, glm::mat4 MVP, glm::vec2 resolution, float zNear, float zFar){
   int index = (blockIdx.x * blockDim.x) + threadIdx.x;
   if(index<vbosize/3){
+	  int vertexIndex = index/3;
+
+	  //world to clip
+	  glm::vec4 worldSpace(vbo[vertexIndex], vbo[vertexIndex+1], vbo[vertexIndex+2], 1.0f);
+	  glm::vec4 clipSpace = MVP*worldSpace;
+
+	  //clip to ndc
+	  glm::vec3 deviceSpace;
+	  deviceSpace.x = clipSpace.x / clipSpace.w;
+	  deviceSpace.y = clipSpace.y / clipSpace.w;
+	  deviceSpace.z = clipSpace.z / clipSpace.w;
+
+	  //perform clipping here
+
+	  //ndc to window
+	  glm::vec3 windowSpace;
+	  windowSpace.x = (clipSpace.x+1)*resolution.x/2.0f;
+	  windowSpace.y = (-clipSpace.y+1)*resolution.y/2.0f;
+	  windowSpace.z = (zFar - zNear)/2.0f*clipSpace.z + (zNear + zFar)/2.0f;
+	  
+	  //Store for primitive assembly
+	  vbo[vertexIndex] = windowSpace.x;
+	  vbo[vertexIndex+1] = windowSpace.y;
+	  vbo[vertexIndex+2] = windowSpace.z;
   }
 }
 
@@ -140,6 +164,21 @@ __global__ void primitiveAssemblyKernel(float* vbo, int vbosize, float* cbo, int
   int index = (blockIdx.x * blockDim.x) + threadIdx.x;
   int primitivesCount = ibosize/3;
   if(index<primitivesCount){
+
+	  triangle tri;
+	  int vIndex = ibo[index*3];
+	  tri.p0 = glm::vec3(vbo[vIndex], vbo[vIndex+1], vbo[vIndex+2]);
+	  tri.c0 = glm::vec3(cbo[0], cbo[1], cbo[2]);
+
+	  vIndex += 1;
+	  tri.p1 = glm::vec3(vbo[vIndex], vbo[vIndex+1], vbo[vIndex+2]);
+	  tri.c1 = glm::vec3(cbo[3], cbo[4], cbo[5]);
+
+	  vIndex += 1;
+	  tri.p2 = glm::vec3(vbo[vIndex], vbo[vIndex+1], vbo[vIndex+2]);
+	  tri.c2 = glm::vec3(cbo[6], cbo[7], cbo[8]);
+
+	  primitives[index] = tri;
   }
 }
 
@@ -147,6 +186,40 @@ __global__ void primitiveAssemblyKernel(float* vbo, int vbosize, float* cbo, int
 __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, fragment* depthbuffer, glm::vec2 resolution){
   int index = (blockIdx.x * blockDim.x) + threadIdx.x;
   if(index<primitivesCount){
+	  
+	  glm::vec3 min, max;
+	  getAABBForTriangle(primitives[index], min, max);
+
+	  int minX = floor(min.x);
+	  int minY = floor(min.y);
+
+	  int maxX = ceil(max.x);
+	  int maxY = ceil(max.y);
+
+	  for (int j=0; j<maxY && j<resolution.y; j+=1){
+		  for (int i=0; i<maxX && i<resolution.x; i+=1){
+
+			  triangle prim = primitives[index];
+			  glm::vec3 baryCoords = calculateBarycentricCoordinate(prim, glm::vec2(i,j));
+
+			  if (!isBarycentricCoordInBounds(baryCoords)){
+				  continue;
+			  }
+
+			  float z = getZAtCoordinate(baryCoords, prim);
+
+			  int fragmentIndex = j*resolution.x + i;
+			  fragment frag = depthbuffer[fragmentIndex];
+
+			  if (z > frag.position.z){
+				  frag.position = glm::vec3(i,j,z);
+				  frag.color = glm::vec3(0,0,1);
+				  frag.normal = glm::vec3(0,0,1);
+				  depthbuffer[fragmentIndex] = frag;
+			  }
+		  }
+	  }
+
   }
 }
 
@@ -217,10 +290,24 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
   tileSize = 32;
   int primitiveBlocks = ceil(((float)vbosize/3)/((float)tileSize));
 
+  //We need the MVP matrix first of all
+  float aspectRatio = resolution.x/resolution.y;
+  float fovy = 45;
+  float zNear = 0.1;
+  float zFar = 1000;
+  glm::vec3 eye(0,0,10);
+  glm::vec3 center(0,0,0);
+  glm::vec3 up(0,1,0);
+  glm::mat4 persp = glm::perspective(fovy, aspectRatio, zNear, zFar);
+  glm::mat4 view = glm::lookAt(eye, center, up);
+  glm::mat4 model(1.0f);
+
+  glm::mat4 MVP = persp*view*model;
+
   //------------------------------
   //vertex shader
   //------------------------------
-  vertexShadeKernel<<<primitiveBlocks, tileSize>>>(device_vbo, vbosize);
+  vertexShadeKernel<<<primitiveBlocks, tileSize>>>(device_vbo, vbosize, MVP, resolution, zNear, zFar);
 
   cudaDeviceSynchronize();
   //------------------------------
@@ -236,10 +323,12 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
   rasterizationKernel<<<primitiveBlocks, tileSize>>>(primitives, ibosize/3, depthbuffer, resolution);
 
   cudaDeviceSynchronize();
+  checkCUDAError("Kernel failed!");
+
   //------------------------------
   //fragment shader
   //------------------------------
-  fragmentShadeKernel<<<fullBlocksPerGrid, threadsPerBlock>>>(depthbuffer, resolution);
+  //fragmentShadeKernel<<<fullBlocksPerGrid, threadsPerBlock>>>(depthbuffer, resolution);
 
   cudaDeviceSynchronize();
   //------------------------------
