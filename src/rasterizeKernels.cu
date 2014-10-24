@@ -775,7 +775,7 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
 	sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, resolution, framebuffer);
 
 	cudaDeviceSynchronize();
-
+	delete [] falg;
 	kernelCleanup();
 
 	checkCUDAError("Kernel failed!");
