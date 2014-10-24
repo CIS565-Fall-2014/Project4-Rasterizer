@@ -707,7 +707,7 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
 	cudaMalloc((void**)&device_cbo, cbosize*sizeof(float));
 	cudaMemcpy( device_cbo, cbo, cbosize*sizeof(float), cudaMemcpyHostToDevice);
 
-	tileSize = 32;
+	tileSize = 256;
 	int primitiveBlocks = ceil(((float)vbosize/3)/((float)tileSize));
 
 	//------------------------------

@@ -8,13 +8,14 @@
 ![ResultImage](mouse control.bmp)
 
 #Back culling:
+![ResultImage](back culling.bmp)
 
 #Scissor test:
 *Using "S" to switch On/Off the scissor test. The scissor area is a 200x200 size window in the center of the screen.
 In the scissor test screen, the fragment shader will be skipped. With the scissor test, the FPS should be higher than which without the scissor test. 
 The save time depends on the scissor test screen size. 
 ![ResultImage](scissortest.bmp)
-
+![ResultImage](scissor test chart.bmp)
 
 #Anti-Aliasing:
 * Super sampling antialiasing:
@@ -39,3 +40,11 @@ I create a white & black grid background to do the alpha blending with my object
 ![ResultImage](realline.bmp)
 *Point
 ![ResultImage](point.bmp)
+
+#Performance:
+![ResultImage](tilesize1.bmp)
+![ResultImage](tilesize2.bmp)
+
+
+http://youtu.be/22JkxHzivGE
+
