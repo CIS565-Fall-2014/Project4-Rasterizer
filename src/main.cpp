@@ -50,7 +50,7 @@ void mainLoop() {
 
  while(!glfwWindowShouldClose(window)){
 
-	 //mouse interaction stuff
+	//camera rotation, zoom control using mouse
 	double * mouseX = new double;
 	double * mouseY = new double;
 
@@ -83,6 +83,7 @@ void mainLoop() {
 	}
 	delete mouseX,mouseY;
 
+	//camera movement control using keyboard
 	if(glfwGetKey(window,GLFW_KEY_W) == GLFW_PRESS)
 	{
 		deltaZ -= cameraMovementIncrement;
@@ -101,21 +102,29 @@ void mainLoop() {
 	}
 
 
-
 	//set up transformations
 	float fov_rad = FOV_DEG * PI / 180.0f;
 	float AR = width / height;
 
-	glm::mat4 glmModelTransform =glm::mat4();
-	glm::mat4 glmViewTransform =utilityCore::buildTransformationMatrix(glm::vec3(0.0f + deltaX,-.25f,2.0f + deltaZ),glm::vec3(-(rotationY + mouseDeltaY),- (rotationX + mouseDeltaX),0.0f),glm::vec3(0.2f + 0.01f*mouseScrollOffset));
+	//glm::mat4 ModelTransform =utilityCore::buildTransformationMatrix(glm::vec3(0.0f),glm::vec3(0.0f,0.0f,0.0f),glm::vec3(1.0f));
+	glm::mat4 ModelTransform =utilityCore::buildTransformationMatrix(glm::vec3(0.0f),glm::vec3(-(rotationY + mouseDeltaY),- (rotationX + mouseDeltaX + 10.0f),0.0f),glm::vec3(1.0f));
 
-	glmProjectionTransform = glm::perspective((float)45.0f,AR, 1.0f,20.0f);
-	glmMVtransform = glmViewTransform * glmModelTransform;
+	glm::mat4 cameraAimTransform = utilityCore::buildTransformationMatrix(glm::vec3(0.0f),glm::vec3(0.0f),glm::vec3(1.0f));
+	//glm::mat4 cameraAimTransform = utilityCore::buildTransformationMatrix(glm::vec3(0.0f),glm::vec3(-(rotationY + mouseDeltaY),- (rotationX + mouseDeltaX + 10.0f),0.0f),glm::vec3(1.0f));
+	glm::mat4 cameraPosTransform = utilityCore::buildTransformationMatrix(glm::vec3(0.0f + deltaX,-.25f,(2.0f + deltaZ + MOUSE_SCROLL_SPEED * mouseScrollOffset)),glm::vec3(0.0f),glm::vec3(1.0f));
+	glm::mat4 ViewTransform = cameraAimTransform *cameraPosTransform;
+	//glm::mat4 ViewTransform =utilityCore::buildTransformationMatrix(glm::vec3(0.0f + deltaX,-.25f,2.0f + deltaZ + MOUSE_SCROLL_SPEED * mouseScrollOffset),glm::vec3(-(rotationY + mouseDeltaY),- (rotationX + mouseDeltaX),0.0f),glm::vec3(1.0f));
+	
+	glmViewTransform = ViewTransform;
+	glmProjectionTransform = glm::perspective((float)45.0f,AR, 1.0f,50.0f);
+	glmMVtransform = ViewTransform * ModelTransform;
 
 	//construct light
-	Light.position = lightPos;
-	Light.color = lightCol;
-
+	Light.position = glm::vec3(-5.0f,0.0f,5.0f);
+	Light.diffColor = glm::vec3(1.0f);
+	Light.specColor = glm::vec3(1.0f);
+	Light.specExp = 20;
+	Light.ambColor = glm::vec3(0.0f,0.0f,1.0f);
     glfwPollEvents();
 
     runCuda();
@@ -165,7 +174,7 @@ void runCuda(){
   ibosize = mesh->getIBOsize();
 
   cudaGLMapBufferObject((void**)&dptr, pbo);
-  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize, glmProjectionTransform,glmMVtransform,Light);
+  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize, glmViewTransform, glmProjectionTransform,glmMVtransform,Light);
   cudaGLUnmapBufferObject(pbo);
 
   vbo = NULL;

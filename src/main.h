@@ -27,12 +27,12 @@
 using namespace std;
 
 #define FOV_DEG 30
-glm::vec3 lightPos = glm::vec3(0.5f,3.0f,5.0f);
-glm::vec3 lightCol = glm::vec3(1.0f,1.0f,1.0f);
+#define MOUSE_SCROLL_SPEED 0.01f
 
 light Light;
 
 //transformations
+glm::mat4 glmViewTransform;
 glm::mat4 glmProjectionTransform;
 glm::mat4 glmMVtransform;
 

@@ -21,6 +21,9 @@ cudaMat4 * MVPtransform;
 
 
 #define BLOCK_SIZE 16
+#define DEBUG_VERTICES 0
+#define DEBUG_NORMALS 0
+#define SPECULAR_EXP 3
 
 void checkCUDAError(const char *msg) {
   cudaError_t err = cudaGetLastError();
@@ -96,8 +99,6 @@ __global__ void clearDepthBuffer(glm::vec2 resolution, fragment* buffer, fragmen
     int index = x + (y * resolution.x);
     if(x<=resolution.x && y<=resolution.y){
       fragment f = frag;
-      f.position.x = x;
-      f.position.y = y;
       buffer[index] = f;
     }
 }
@@ -137,15 +138,23 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 }
 
 //vertex shader
-__global__ void vertexShadeKernel(float* vbo, int vbosize, cudaMat4 * MVP){
+__global__ void vertexShadeKernel(float* vbo, int vbosize, cudaMat4 * MV){
   int index = (blockIdx.x * blockDim.x) + threadIdx.x;
   if(index<vbosize/3){
 
 	  glm::vec4 oldP = glm::vec4(vbo[3*index],vbo[3*index + 1],vbo[3*index +2], 1.0f);
-	  glm::vec4 newP = multiplyMV4(*MVP,oldP); 
+	  glm::vec4 newP = multiplyMV4(*MV,oldP); 
+
+	  //to NDC space
+	  /*
 	  vbo[3*index] = newP.x/newP.w;
 	  vbo[3*index+1] = newP.y/newP.w;
-	  vbo[3*index+2] = newP.z/newP.w;
+	  vbo[3*index+2] = newP.z/newP.w;*/
+
+	  
+	  vbo[3*index] = newP.x;
+	  vbo[3*index+1] = newP.y;
+	  vbo[3*index+2] = newP.z;
 
   }
 }
@@ -174,19 +183,55 @@ __global__ void primitiveAssemblyKernel(float* vbo, int vbosize, float* cbo, int
 }
 
 //TODO: Implement a rasterization method, such as scanline.
-__global__ void rasterizationKernel(triangle* primitives, int primitivesCount, fragment* depthbuffer, glm::vec2 resolution){
+__global__ void rasterizationKernel(triangle* primitives, int primitivesCount, fragment* depthbuffer, glm::vec2 resolution, cudaMat4 * Ptransform){
 	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 	if(index<primitivesCount){
+		triangle originalTri =  primitives[index];
+		triangle tri = primitives[index];
 		
+		//to clip coordinates
+		glm::vec4 clipP0 = multiplyMV4(*Ptransform,glm::vec4(tri.p0,1.0f));
+		glm::vec4 clipP1 = multiplyMV4(*Ptransform,glm::vec4(tri.p1,1.0f));
+		glm::vec4 clipP2 = multiplyMV4(*Ptransform,glm::vec4(tri.p2,1.0f));
+		//to NDC
+		tri.p0 = glm::vec3(clipP0.x / clipP0.w,clipP0.y / clipP0.w,clipP0.z / clipP0.w);
+		tri.p1 = glm::vec3(clipP1.x / clipP1.w,clipP1.y / clipP1.w,clipP1.z / clipP1.w);
+		tri.p2 = glm::vec3(clipP2.x / clipP2.w,clipP2.y / clipP2.w,clipP2.z / clipP2.w);
+
+
+#if(DEBUG_VERTICES)
+		//Only display vertices
+		int x0,y0,x1,y1,x2,y2, P0,P1,P2;
+		x0 = tri.p0.x * 0.5f * resolution.x + 0.5f * resolution.x;
+		x1 = tri.p1.x * 0.5f * resolution.x + 0.5f * resolution.x;
+		x2 = tri.p2.x * 0.5f * resolution.x + 0.5f * resolution.x;
+
+		y0 = tri.p0.y * 0.5f * resolution.y + 0.5f * resolution.y;
+		y1 = tri.p1.y * 0.5f * resolution.y + 0.5f * resolution.y;
+		y2 = tri.p2.y * 0.5f * resolution.y + 0.5f * resolution.y;
+
+		//reversed y 
+		P0 = x0 + (y0) * resolution.x;
+		P1 = x1 + (y1) * resolution.x;
+		P2 = x2 + (y2) * resolution.x;
+
+		int totalPixel = resolution.x * resolution.y;
+		  
+		if(P0 < totalPixel && P0 >=0) depthbuffer[P0].color = tri.c0;
+		if(P1 < totalPixel && P1 >=0) depthbuffer[P1].color = tri.c1;
+		if(P2 < totalPixel && P2 >=0) depthbuffer[P2].color = tri.c2;
+
+#else
+		//full rasterization
+
 		int totalPixel = resolution.x * resolution.y;
 		float halfResoX =  0.5f * (float) resolution.x;
 		float halfResoY =  0.5f * (float) resolution.y;
-		glm::vec3 normal = glm::normalize(glm::cross(primitives[index].p1 - primitives[index].p0, primitives[index].p2 - primitives[index].p1));
-
-		if(normal.z >= 0.0f) return;
+		//glm::vec3 normal = glm::normalize(glm::cross(tri.p1 - tri.p0, tri.p2 - tri.p1));
+		glm::vec3 normal = glm::normalize(glm::cross(originalTri.p1 - originalTri.p0, originalTri.p2 - originalTri.p1));
 
 		glm::vec3 Min,Max;
-		getAABBForTriangle(primitives[index],Min,Max);
+		getAABBForTriangle(tri,Min,Max);
 		float pixelWidth = 1.0f/(float) resolution.x;
 		float pixelHeight = 1.0f/(float) resolution.y;
 
@@ -196,7 +241,7 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 			for(int j = 0;j <(Max.y - Min.y)/pixelHeight + 1; j++)
 			{
 				glm::vec2 pixelPos = glm::vec2(Min.x + (float)i * pixelWidth, Min.y + (float)j * pixelHeight);
-				glm::vec3 pixelBaryPos = calculateBarycentricCoordinate(primitives[index], pixelPos);
+				glm::vec3 pixelBaryPos = calculateBarycentricCoordinate(tri, pixelPos);
 				
 				//not in triangle
 				if(!isBarycentricCoordInBounds(pixelBaryPos))
@@ -204,70 +249,85 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 					continue;
 				}
 
+
 				else
 				{
 					int x,y, pixelIndex;
+					//viewport transformation
 					x = pixelPos.x * halfResoX + halfResoX;
 					y = pixelPos.y  * halfResoY+ halfResoY;
+
 					pixelIndex = x + y * resolution.x;
 
-					float pixelDepth = getZAtCoordinate(pixelBaryPos, primitives[index]);
 					fragment frag;
-					frag.position = glm::vec3(pixelPos.x,pixelPos.y,pixelDepth);
+					frag.position = pixelBaryPos.x * tri.p0 + pixelBaryPos.y * tri.p1 + pixelBaryPos.z * tri.p2;
+					frag.cameraSpacePosition = pixelBaryPos.x * originalTri.p0 + pixelBaryPos.y * originalTri.p1 + pixelBaryPos.z * originalTri.p2;
 					frag.normal = normal;
-					frag.color = pixelBaryPos.x * primitives[index].c0 + pixelBaryPos.y * primitives[index].c1 + pixelBaryPos.z * primitives[index].c2;
+					frag.color = pixelBaryPos.x * tri.c0 + pixelBaryPos.y * tri.c1 + pixelBaryPos.z * tri.c2;
+					frag.isEmpty = false;
 
-					if(pixelIndex < totalPixel && pixelIndex >= 0 && pixelDepth > depthbuffer[pixelIndex].position.z) //TODO change to atomic compare
+					if(x < 0 || y < 0 || x > resolution.x || y > resolution.y) continue;
+
+					if(frag.position.z > depthbuffer[pixelIndex].position.z) //TODO change to atomic compare
 					{
 						depthbuffer[pixelIndex] = frag;
 					}
-
 				}
-
 			}
 		}
-		
-
-		//Only display vertices
-		/*
-		  int x0,y0,x1,y1,x2,y2, P0,P1,P2;
-		  x0 = primitives[index].p0.x * 0.5f * resolution.x + 0.5f * resolution.x;
-		  x1 = primitives[index].p1.x * 0.5f * resolution.x + 0.5f * resolution.x;
-		  x2 = primitives[index].p2.x * 0.5f * resolution.x + 0.5f * resolution.x;
-
-		  y0 = primitives[index].p0.y * 0.5f * resolution.y + 0.5f * resolution.y;
-		  y1 = primitives[index].p1.y * 0.5f * resolution.y + 0.5f * resolution.y;
-		  y2 = primitives[index].p2.y * 0.5f * resolution.y + 0.5f * resolution.y;
-
-		  //reversed y 
-		  P0 = x0 + (y0) * resolution.x;
-		  P1 = x1 + (y1) * resolution.x;
-		  P2 = x2 + (y2) * resolution.x;
-
-		  int totalPixel = resolution.x * resolution.y;
-		  
-		  if(P0 < totalPixel && P0 >=0) depthbuffer[P0].color = primitives[index].c0;
-		  if(P1 < totalPixel && P1 >=0)depthbuffer[P1].color = primitives[index].c1;
-		  if(P2 < totalPixel && P2 >=0)depthbuffer[P2].color = primitives[index].c2;
-		*/
+#endif
 	}
 }
 
-//TODO: Implement a fragment shader
-__global__ void fragmentShadeKernel(fragment* depthbuffer, light Light, glm::vec2 resolution){
+
+//fragment shader
+__global__ void fragmentShadeKernel(fragment* depthbuffer, light rawLight, glm::vec2 resolution,cudaMat4 inverseViewTransform,cudaMat4 inverseMV){
   int x = (blockIdx.x * blockDim.x) + threadIdx.x;
   int y = (blockIdx.y * blockDim.y) + threadIdx.y;
   int index = x + (y * resolution.x);
   if(x<=resolution.x && y<=resolution.y){
 
-	  glm::vec3 L = glm::normalize(Light.position - depthbuffer[index].position);
+//debug views
+#if(DEBUG_VERTICES) 
+	  return;
+#endif
+#if(DEBUG_NORMALS)
+	  depthbuffer[index].color = depthbuffer[index].normal;
+	  return;
+#endif
 
-	  float coe = glm::dot(L,depthbuffer[index].normal);
-	  coe = (coe<0.0f) ? 0.0f:coe;
-	  coe = (coe>1.0f) ? 1.0f:coe;
+	  float diffCoe = 0.5f;
+	  float specCoe = 0.5f;
+	  float ambCoe = glm::clamp(1.0f - diffCoe - specCoe,0.0f,1.0f);
 
-	  depthbuffer[index].color *= coe * Light.color;
-	 // depthbuffer[index].color = depthbuffer[index].normal;
+	  light Light = rawLight;
+	  Light.position = multiplyMV(inverseViewTransform, glm::vec4(Light.position,1.0f)); //TODO WRONG, USE INVERSE
+	  fragment f = depthbuffer[index];
+
+	  if(f.isEmpty) return;
+
+	  //glm::vec3 surfacePos = multiplyMV(inverseMV,glm::vec4(f.cameraSpacePosition,1.0f));
+	  //glm::vec3 surfaceNormal = glm::normalize(multiplyMV(inverseMV,glm::vec4(f.normal,0.0f)));
+
+	  glm::vec3 surfacePos = f.cameraSpacePosition;
+	  glm::vec3 surfaceNormal = f.normal;
+
+	  glm::vec3 L = glm::normalize(Light.position - surfacePos);
+
+	  //diffuse shading
+	  float diffCom = glm::dot(L,surfaceNormal);
+	  diffCom = glm::clamp(diffCom,0.0f,1.0f);
+
+	  //specular
+	  glm::vec3 R = glm::normalize(glm::reflect(-L,surfaceNormal));
+	  //glm::vec3 V = - glm::normalize(multiplyMV(viewTransform, glm::vec4(0.0f,0.0f,-1.0f,0.0f)));
+	  glm::vec3 V = - glm::vec3(0.0f,0.0f,-1.0f);
+	  float specCom;
+	  if(glm::dot(L,surfaceNormal) <0.0f) specCom = 0.0f; 
+	  else specCom = pow( glm::dot( V, R), Light.specExp);
+	  specCom = glm::clamp(specCom,0.0f,1.0f);
+
+	  depthbuffer[index].color = diffCoe * diffCom * Light.diffColor * f.color  +  specCoe * specCom * Light.specColor + ambCoe * Light.ambColor;
   }
 }
 
@@ -284,7 +344,7 @@ __global__ void render(glm::vec2 resolution, fragment* depthbuffer, glm::vec3* f
 }
 
 // Wrapper for the __global__ call that sets up the kernel calls and memory management
-void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float* vbo, int vbosize, float* cbo, int cbosize, int* ibo, int ibosize, glm::mat4 glmProjectionTransform, glm::mat4 glmMVtransform,light Light){
+void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float* vbo, int vbosize, float* cbo, int cbosize, int* ibo, int ibosize, glm::mat4 glmViewTransform,glm::mat4 glmProjectionTransform, glm::mat4 glmMVtransform,light Light){
 	
 	projectionTransform = new cudaMat4;
 	MVtransform = new cudaMat4;
@@ -306,8 +366,12 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
 	cudaMemcpy(dev_MVtransform,MVtransform,sizeof(cudaMat4),cudaMemcpyHostToDevice);
 	cudaMemcpy(dev_MVPtransform,MVPtransform,sizeof(cudaMat4),cudaMemcpyHostToDevice);
 
-	light transformedLight = Light;
-	transformedLight.position = multiplyMV(*MVPtransform,glm::vec4(Light.position,1.0f));
+	cudaMat4 inverseMV = utilityCore::glmMat4ToCudaMat4(glm::inverse(glmMVtransform));
+	cudaMat4 inverseViewTransform = utilityCore::glmMat4ToCudaMat4(glm::inverse(glmViewTransform));
+
+	//glm::vec4 clipCoordinates = multiplyMV4(*MVtransform,glm::vec4(transformedLight.position,1.0f));
+	//to NDC
+	//transformedLight.position = glm::vec3(clipCoordinates.x/clipCoordinates.w,clipCoordinates.y/clipCoordinates.w,clipCoordinates.z/clipCoordinates.w);
 
 	// set up crucial magic
 	int tileSize = 8;
@@ -329,6 +393,8 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
 	frag.color = glm::vec3(0,0,0);
 	frag.normal = glm::vec3(0,0,0);
 	frag.position = glm::vec3(0,0,-10000);
+	frag.cameraSpacePosition = glm::vec3(0,0,0);
+	frag.isEmpty = true;
 	clearDepthBuffer<<<fullBlocksPerGrid, threadsPerBlock>>>(resolution, depthbuffer,frag);
 
 	//------------------------------
@@ -355,7 +421,7 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
 	//------------------------------
 	//vertex shader
 	//------------------------------
-	vertexShadeKernel<<<primitiveBlocks, tileSize>>>(device_vbo, vbosize,dev_MVPtransform);
+	vertexShadeKernel<<<primitiveBlocks, tileSize>>>(device_vbo, vbosize,dev_MVtransform);
 
 	cudaDeviceSynchronize();
 	//------------------------------
@@ -368,13 +434,13 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
 	//------------------------------
 	//rasterization
 	//------------------------------
-	rasterizationKernel<<<primitiveBlocks, tileSize>>>(primitives, ibosize/3, depthbuffer, resolution);
+	rasterizationKernel<<<primitiveBlocks, tileSize>>>(primitives, ibosize/3, depthbuffer, resolution,dev_projectionTransform);
 
 	cudaDeviceSynchronize();
 	//------------------------------
 	//fragment shader
 	//------------------------------
-	fragmentShadeKernel<<<fullBlocksPerGrid, threadsPerBlock>>>(depthbuffer, transformedLight, resolution);
+	fragmentShadeKernel<<<fullBlocksPerGrid, threadsPerBlock>>>(depthbuffer, Light, resolution,inverseViewTransform, inverseMV);
 
 	cudaDeviceSynchronize();
 	//------------------------------
