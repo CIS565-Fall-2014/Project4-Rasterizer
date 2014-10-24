@@ -2,6 +2,7 @@
 // Written by Yining Karl Li, Copyright (c) 2012 University of Pennsylvania
 
 #include "main.h"
+#include <cstring>
 
 //-------------------------------
 //-------------MAIN--------------
