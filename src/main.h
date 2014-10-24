@@ -49,6 +49,8 @@ float* cbo;
 int cbosize;
 int* ibo;
 int ibosize;
+float* nbo;
+int nbosize;
 
 //-------------------------------
 //----------CUDA STUFF-----------
@@ -99,5 +101,7 @@ void deleteTexture(GLuint* tex);
 void mainLoop();
 void errorCallback(int error, const char *description);
 void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods);
+void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
+void mouseMotionCallback(GLFWwindow* window, double x, double y);
 
 #endif

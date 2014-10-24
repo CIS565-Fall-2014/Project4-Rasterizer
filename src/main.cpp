@@ -7,6 +7,10 @@
 //-------------MAIN--------------
 //-------------------------------
 
+camera cam;
+int mouse_old_x, mouse_old_y;
+int pressed = -1;
+
 int main(int argc, char** argv){
 
   bool loadedScene = false;
@@ -28,6 +32,14 @@ int main(int argc, char** argv){
     cout << "Usage: mesh=[obj file]" << endl;
     return 0;
   }
+
+  cam.aspectRatio = (float)width/(float)height;
+  cam.fovy = 60;
+  cam.zNear = 0.1;
+  cam.zFar = 1000;
+  cam.eye = glm::vec3(0,0.5,1);
+  cam.center = glm::vec3(0,0.5,0);
+  cam.up = glm::vec3(0,-1,0);
 
   frame = 0;
   seconds = time (NULL);
@@ -93,13 +105,17 @@ void runCuda(){
   ibo = mesh->getIBO();
   ibosize = mesh->getIBOsize();
 
+  nbo = mesh->getNBO();
+  nbosize = mesh->getNBOsize();
+
   cudaGLMapBufferObject((void**)&dptr, pbo);
-  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize);
+  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize, nbo, nbosize, cam);
   cudaGLUnmapBufferObject(pbo);
 
   vbo = NULL;
   cbo = NULL;
   ibo = NULL;
+  nbo = NULL;
 
   frame++;
   fpstracker++;
@@ -126,6 +142,8 @@ bool init(int argc, char* argv[]) {
   }
   glfwMakeContextCurrent(window);
   glfwSetKeyCallback(window, keyCallback);
+  glfwSetMouseButtonCallback(window, mouseButtonCallback);
+  glfwSetCursorPosCallback(window, mouseMotionCallback);
 
   // Set up GL context
   glewExperimental = GL_TRUE;
@@ -281,4 +299,36 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     if(key == GLFW_KEY_ESCAPE && action == GLFW_PRESS){
         glfwSetWindowShouldClose(window, GL_TRUE);
     }
+}
+
+void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
+{// left: 0. right: 1. middle: 2.
+    if(action == GLFW_PRESS)
+    {
+		pressed = button;
+    }
+    else if(action == GLFW_RELEASE)
+    {
+		pressed = -1;
+    }
+}
+
+void mouseMotionCallback(GLFWwindow* window, double x, double y)
+{
+	if (pressed == 0){
+		float dx = x-mouse_old_x;
+		float dy = x-mouse_old_y;
+
+
+	}
+	else if (pressed == 1){
+		glm::vec3 dir = cam.center - cam.eye;
+		if (y>mouse_old_y) cam.eye += 0.05f*dir;
+		else cam.eye -= 0.05f*dir;
+	}
+	else if (pressed = 2){
+	}
+
+    mouse_old_x = x;
+    mouse_old_y = y;
 }
