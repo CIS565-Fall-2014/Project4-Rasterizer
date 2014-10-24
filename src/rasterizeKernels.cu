@@ -361,6 +361,18 @@ __global__ void rasterizationKernelWireFrameSolid(triangle* primitives, int prim
 	    for(int j = max( (int)floor(minPoint.y)-1, 0); j < min( (int)ceil(maxPoint.y)+1, (int)resolution.y ); ++j){
 		    for(int i = max( (int)floor(minPoint.x)-1, 0); i < min( (int)ceil(maxPoint.x)+1, (int)resolution.x); ++i){
 
+				glm::vec3 barycentricCoord = calculateBarycentricCoordinate(primitives[index], glm::vec2(i, j));
+				if(barycentricCoord.x < 0 || barycentricCoord.y < 0 || barycentricCoord.z < 0)
+			  		continue;
+
+				float newDepth = -getZAtCoordinate(barycentricCoord, primitives[index]);
+				if(newDepth > depthbuffer[i + j * (int)resolution.x].position.z){
+					depthbuffer[i + j * (int)resolution.x].position.z = newDepth;
+				}
+				else{
+					continue;
+				}
+
 
 
 				float dis1 = getPtToLineDistance(i, j, p0, p1);
@@ -382,6 +394,7 @@ __global__ void rasterizationKernelWireFrameSolid(triangle* primitives, int prim
 					depthbuffer[i + j * (int)resolution.x].color = glm::vec3(1,1,1);
 					continue;
 				}
+				depthbuffer[i + j * (int)resolution.x].color = glm::vec3(0,0,0);
 			}
 		}
 	}
@@ -444,6 +457,9 @@ __global__ void rasterizationKernelWireFrameDashLine(triangle* primitives, int p
 			for(int j = max( (int)floor(minPoint.y)-1, 0); j < min( (int)ceil(maxPoint.y)+1, (int)resolution.y ); ++j){
 				for(int i = max( (int)floor(minPoint.x)-1, 0); i < min( (int)ceil(maxPoint.x)+1, (int)resolution.x); ++i){
 
+
+
+
 					float dis1 = getPtToLineDistance(i, j, p0, p1);
 					float dis2 = getPtToLineDistance(i, j, p0, p2);
 					float dis3 = getPtToLineDistance(i, j, p1, p2);
@@ -486,7 +502,6 @@ __global__ void rasterizationKernelWireFrameRealLine(triangle* primitives, int p
 	    for(int j = max( (int)floor(minPoint.y)-1, 0); j < min( (int)ceil(maxPoint.y)+1, (int)resolution.y ); ++j){
 		    for(int i = max( (int)floor(minPoint.x)-1, 0); i < min( (int)ceil(maxPoint.x)+1, (int)resolution.x); ++i){
 
-
 				float dis1 = getPtToLineDistance(i, j, p0, p1);
 				float dis2 = getPtToLineDistance(i, j, p0, p2);
 				float dis3 = getPtToLineDistance(i, j, p1, p2);
@@ -506,6 +521,12 @@ __global__ void rasterizationKernelWireFrameRealLine(triangle* primitives, int p
 					depthbuffer[i + j * (int)resolution.x].color = glm::vec3(1,1,1);
 					continue;
 				}
+
+
+
+
+
+
 			}
 		}
 	}
