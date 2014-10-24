@@ -511,6 +511,35 @@ __global__ void rasterizationKernelWireFrameRealLine(triangle* primitives, int p
 	}
 }
 
+__global__ void rasterizationKernelWireFramePoint(triangle* primitives, int primitivesCount, fragment* depthbuffer, glm::vec2 resolution, bool* lockFlag, glm::vec3 eye){
+	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+	if(index < primitivesCount){
+
+		glm::vec3 normal =  primitives[index].n0;
+
+		glm::vec3 p0 = primitives[index].p0;
+		glm::vec3 p1 = primitives[index].p1;
+		glm::vec3 p2 = primitives[index].p2;
+
+		glm::vec3 minPoint;
+	    glm::vec3 maxPoint;
+
+	    getAABBForTriangle(primitives[index], minPoint, maxPoint);
+	    for(int j = max( (int)floor(minPoint.y)-1, 0); j < min( (int)ceil(maxPoint.y)+1, (int)resolution.y ); ++j){
+		    for(int i = max( (int)floor(minPoint.x)-1, 0); i < min( (int)ceil(maxPoint.x)+1, (int)resolution.x); ++i){
+
+
+				if( (abs(i - p0.x) < 0.5 && abs(j - p0.y) < 0.5) || (abs(i - p1.x) < 0.5 && abs(j - p1.y) < 0.5) || (abs(i - p2.x) < 0.5 && abs(j - p2.y) < 0.5) ){
+					depthbuffer[i + j * (int)resolution.x].color = glm::vec3(1,1,1);
+					continue;
+				}
+
+
+			}
+		}
+	}
+}
+
 //TODO: Implement a fragment shader
 __global__ void fragmentShadeKernel(fragment* depthbuffer, glm::vec2 resolution, glm::vec3 lightDir, bool scissorTest, glm::vec3 eye){
   int x = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -706,7 +735,8 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
 		rasterizationKernelWireFrameDashLine<<<primitiveBlocks, tileSize>>>(primitives, ibosize/3, depthbuffer, resolution, cudaFlag, eye);
 	else if(displayMode == 3)
 		rasterizationKernelWireFrameRealLine<<<primitiveBlocks, tileSize>>>(primitives, ibosize/3, depthbuffer, resolution, cudaFlag, eye);
-	
+	else if(displayMode == 4)	
+		rasterizationKernelWireFramePoint<<<primitiveBlocks, tileSize>>>(primitives, ibosize/3, depthbuffer, resolution, cudaFlag, eye);
 	cudaDeviceSynchronize();
 
 
