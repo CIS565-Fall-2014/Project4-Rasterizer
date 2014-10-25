@@ -134,7 +134,7 @@ void mainLoop() {
 	float AR = width / height;
 
 	//glm::mat4 ModelTransform =utilityCore::buildTransformationMatrix(glm::vec3(0.0f),glm::vec3(0.0f,0.0f,0.0f),glm::vec3(1.0f));
-	glm::mat4 ModelTransform =utilityCore::buildTransformationMatrix(glm::vec3(0.0f),glm::vec3(-(rotationY + mouseDeltaY),- (rotationX + mouseDeltaX + 10.0f),0.0f),glm::vec3(1.0f));
+	glm::mat4 ModelTransform =utilityCore::buildTransformationMatrix(glm::vec3(0.0f),glm::vec3(-(rotationY + mouseDeltaY),- (rotationX + mouseDeltaX + 10.0f),0.0f),glm::vec3(0.6f));
 
 	glm::mat4 cameraAimTransform = utilityCore::buildTransformationMatrix(glm::vec3(0.0f),glm::vec3(0.0f),glm::vec3(1.0f));
 	//glm::mat4 cameraAimTransform = utilityCore::buildTransformationMatrix(glm::vec3(0.0f),glm::vec3(-(rotationY + mouseDeltaY),- (rotationX + mouseDeltaX + 10.0f),0.0f),glm::vec3(1.0f));

@@ -6,18 +6,16 @@ Software Rasterizer implemented using CUDA
 This is a simplified CUDA based implementation of a standard rasterized graphics pipeline, very similar to the OpenGL pipeline.
 Implemented features: vertex shading, primitive assembly, perspective transformation, rasterization, fragment shading, and write the resulting fragments to a framebuffer. 
 
-Features:
+###Pipe-line stages:
 
 * Vertex Shading
-* Primitive Assembly with support for triangle VBOs/IBOs
-* Perspective Transformation
-* Rasterization through either a scanline or a tiled approach
+* Primitive Assembly
+* Back-Face Culling
+* Scanline rasterization
 * Fragment Shading
-* A depth buffer for storing and depth testing fragments
-* Fragment to framebuffer writing
-* A simple lighting/shading scheme, such as Lambert or Blinn-Phong, implemented in the fragment shader
+* Render
 
-Extra features:
+###Other features:
 
 *MOUSE BASED interactive camera support.
 
@@ -26,9 +24,15 @@ W,A,S,D to move camera position.
 
 Used GLFW glfwGetMouseButton,glfwGetCursorPos for getting necessary inputs for setting up the camera according to mouse movement.
 
-Mesh View
+*Mesh View
 
-Point View
+*Point View
+
+*Color interpolation
+
+###Performance Analysis
+Graphics Card: NVIDIA GeForce GTX 660
+
 
 
 

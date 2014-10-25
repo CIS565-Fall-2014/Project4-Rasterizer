@@ -27,7 +27,7 @@
 using namespace std;
 
 #define FOV_DEG 30
-#define MOUSE_SCROLL_SPEED 0.01f
+#define MOUSE_SCROLL_SPEED 0.1f
 
 light Light;
 

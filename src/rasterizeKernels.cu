@@ -8,15 +8,22 @@
 #include "rasterizeKernels.h"
 #include "rasterizeTools.h"
 
+#include <thrust/remove.h>
+#include <thrust/count.h>
+#include <thrust/device_ptr.h>
+
 #define BLOCK_SIZE 16
 #define DEBUG_VERTICES 0
 #define DEBUG_NORMALS 0
 #define SPECULAR_EXP 3
 #define COLOR_INTERPOLATION_MODE 0
+#define BACKFACE_CULLING 1
+#define SHADING_RATE 0.75f
 
 
 glm::vec3* framebuffer;
 fragment* depthbuffer;
+int * depthBufferLock;
 float* device_vbo;
 float* device_cbo;
 int* device_ibo;
@@ -35,7 +42,15 @@ void checkCUDAError(const char *msg) {
   }
 } 
 
-__device__ 
+//fast initializor for int array
+__global__ void initiateArray(int * array, int val, int num)
+{
+    int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+	if(index < num)
+	{
+		array[index] = val;
+	}
+}
 //Handy dandy little hashing function that provides seeds for random number generation
 __host__ __device__ unsigned int hash(unsigned int a){
     a = (a+0x7ed55d16) + (a<<12);
@@ -185,13 +200,32 @@ __global__ void primitiveAssemblyKernel(float* vbo, int vbosize, float* cbo, int
 	  primitives[index].n0 = glm::vec3(nbo[i0],nbo[i0+1],nbo[i0+2]);
 	  primitives[index].n1 = glm::vec3(nbo[i1],nbo[i1+1],nbo[i1+2]);
 	  primitives[index].n2 = glm::vec3(nbo[i2],nbo[i2+1],nbo[i2+2]);
+
+	  primitives[index].flatNormal = glm::normalize(glm::cross(primitives[index].p1 - primitives[index].p0, primitives[index].p2 - primitives[index].p1));
 	  
 
   }
 }
 
+struct isBackFace
+{
+	__host__ __device__ bool operator()(const triangle tri)
+	{
+		if(tri.flatNormal.z > 0.001f) return true;
+		return false;
+	}
+};
+
+//back-face cull
+int backFaceCull(triangle * primitives, int num)
+{
+	thrust::device_ptr<triangle> dev_primitives(primitives);
+	int ret = thrust::remove_if(dev_primitives,dev_primitives + num, isBackFace()) - dev_primitives;
+	return ret;
+}
+
 //rasterization
-__global__ void rasterizationKernel(triangle* primitives, int primitivesCount, fragment* depthbuffer, glm::vec2 resolution, cudaMat4 * Ptransform, int isFlatShading, int isMeshView){
+__global__ void rasterizationKernel(triangle* primitives, int primitivesCount, fragment* depthbuffer, int * depthBufferLock, glm::vec2 resolution, cudaMat4 * Ptransform, int isFlatShading, int isMeshView){
 	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 	if(index<primitivesCount){
 		triangle originalTri =  primitives[index];
@@ -243,11 +277,11 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 
 
 		//loop thru all pixels in the bounding box
-		for(int i = 0;i < (Max.x - Min.x)/pixelWidth + 1; i++)
+		for(float i = 0;i < (Max.x - Min.x)/pixelWidth + 1.0f; i+=SHADING_RATE)
 		{
-			for(int j = 0;j <(Max.y - Min.y)/pixelHeight + 1; j++)
+			for(float j = 0;j <(Max.y - Min.y)/pixelHeight + 1.0f; j+=SHADING_RATE)
 			{
-				glm::vec2 pixelPos = glm::vec2(Min.x + (float)i * pixelWidth, Min.y + (float)j * pixelHeight);
+				glm::vec2 pixelPos = glm::vec2(Min.x + i * pixelWidth, Min.y + j * pixelHeight);
 				glm::vec3 pixelBaryPos = calculateBarycentricCoordinate(tri, pixelPos);
 				
 				//not in triangle
@@ -271,7 +305,7 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 					frag.position = pixelBaryPos.x * tri.p0 + pixelBaryPos.y * tri.p1 + pixelBaryPos.z * tri.p2;
 					frag.cameraSpacePosition = pixelBaryPos.x * originalTri.p0 + pixelBaryPos.y * originalTri.p1 + pixelBaryPos.z * originalTri.p2;
 
-					if(isFlatShading) frag.normal = glm::normalize(glm::cross(originalTri.p1 - originalTri.p0, originalTri.p2 - originalTri.p1)); 
+					if(isFlatShading) frag.normal = originalTri.flatNormal; 
 					else frag.normal = pixelBaryPos.x * originalTri.n0 + pixelBaryPos.y * originalTri.n1 + pixelBaryPos.z * originalTri.n2;
 
 					frag.color = pixelBaryPos.x * tri.c0 + pixelBaryPos.y * tri.c1 + pixelBaryPos.z * tri.c2;
@@ -294,10 +328,25 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 						}
 					}
 
-					if(frag.position.z > depthbuffer[pixelIndex].position.z) //TODO change to atomic compare
+
+					//test depth in the buffer and swap if greater, have to lock when testing
+
+					bool shouldWait = true;
+					while(shouldWait)
 					{
-						depthbuffer[pixelIndex] = frag;
+						if( atomicExch(&depthBufferLock[pixelIndex],1) == 0)
+						{
+
+							if(frag.position.z > depthbuffer[pixelIndex].position.z) //TODO change to atomic compare
+							{
+								depthbuffer[pixelIndex] = frag;
+							}
+							shouldWait = false;
+							depthBufferLock[pixelIndex] = 0;
+						}
 					}
+
+
 				}
 			}
 		}
@@ -454,8 +503,14 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
 	cudaMalloc((void**)&device_nbo, nbosize*sizeof(float));
 	cudaMemcpy( device_nbo, nbo, nbosize*sizeof(float), cudaMemcpyHostToDevice);
 
+	int depthBufferLockSize = resolution.x * resolution.y;
+	depthBufferLock = NULL;
+	cudaMalloc((void**)&depthBufferLock, depthBufferLockSize * sizeof(int));
+	initiateArray<<<dim3(ceil((float)depthBufferLockSize/((float)512))),dim3(512)>>>(depthBufferLock,0,depthBufferLockSize);
+
+	int primitiveNum(ibosize/3);
 	tileSize = 32;
-	int primitiveBlocks = ceil(((float)vbosize/3)/((float)tileSize));
+	int primitiveBlocks = ceil(((float)vbosize/((float)3))/((float)tileSize));
 
 	//------------------------------
 	//vertex shader
@@ -472,10 +527,19 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
 	checkCUDAError("primitive assembly failed!");
 
 	cudaDeviceSynchronize();
+
+#if(BACKFACE_CULLING)
+	//------------------------------
+	//Back Face Cull
+	//------------------------------
+	primitiveNum = backFaceCull(primitives,ibosize/3);
+	primitiveBlocks = ceil(((float)primitiveNum)/((float)tileSize));
+#endif
+
 	//------------------------------
 	//rasterization
 	//------------------------------
-	rasterizationKernel<<<primitiveBlocks, tileSize>>>(primitives, ibosize/3, depthbuffer, resolution,dev_projectionTransform, isFlatShading, isMeshView);
+	rasterizationKernel<<<primitiveBlocks, tileSize>>>(primitives, primitiveNum, depthbuffer, depthBufferLock, resolution,dev_projectionTransform, isFlatShading, isMeshView);
 	checkCUDAError("rasterization failed!");
 
 	cudaDeviceSynchronize();
@@ -514,6 +578,6 @@ void kernelCleanup(){
   cudaFree( device_nbo );
   cudaFree( framebuffer );
   cudaFree( depthbuffer );
-
+  cudaFree( depthBufferLock );
 }
 
