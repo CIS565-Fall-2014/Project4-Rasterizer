@@ -8,7 +8,7 @@
 ![ResultImage](mouse control.bmp)
 
 #Back culling:
-![ResultImage](back culling.bmp)
+![ResultImage](back culling_resize.bmp)
 
 #Scissor test:
 *Using "S" to switch On/Off the scissor test. The scissor area is a 200x200 size window in the center of the screen.
@@ -31,6 +31,9 @@ Because of the super sampling, the cost time on this pipe line is 4 times more t
 I create a white & black grid background to do the alpha blending with my object image. 
 ![ResultImage](color blending1.bmp)
 ![ResultImage](color blending2.bmp)
+
+#Correct color
+![ResultImage](correct color.bmp)
 
 #Draw line:
 *Using "D" to switch the different display mode. 

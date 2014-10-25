@@ -176,6 +176,16 @@ __global__ void primitiveAssemblyKernel(float* vbo, int vbosize, float* cbo, int
 	  //primitives[index].c2.y = cbo[3 * ibo[3 * index + 2] + 1];//cbo[7]
 	  //primitives[index].c2.z = cbo[3 * ibo[3 * index + 2] + 2];//cbo[8]
 
+	  primitives[index].c0.x = cbo[0];
+	  primitives[index].c0.y = cbo[1];
+	  primitives[index].c0.z = cbo[2];
+	  primitives[index].c1.x = cbo[3];
+	  primitives[index].c1.y = cbo[4];
+	  primitives[index].c1.z = cbo[5];
+	  primitives[index].c2.x = cbo[6];
+	  primitives[index].c2.y = cbo[7];
+	  primitives[index].c2.z = cbo[8];
+
 	  primitives[index].p0.x = vbo[3 * ibo[3 * index + 0] + 0];
 	  primitives[index].p0.y = vbo[3 * ibo[3 * index + 0] + 1];
 	  primitives[index].p0.z = vbo[3 * ibo[3 * index + 0] + 2];
@@ -322,9 +332,12 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 						if(newDepth > depthbuffer[i + j * (int)resolution.x].position.z){
 							depthbuffer[i + j * (int)resolution.x].position.z = newDepth;
 							depthbuffer[i + j * (int)resolution.x].normal = normal;
-							depthbuffer[i + j * (int)resolution.x].color.x = abs(normal.x);
-							depthbuffer[i + j * (int)resolution.x].color.y = abs(normal.y);
-							depthbuffer[i + j * (int)resolution.x].color.z = abs(normal.z);
+							//depthbuffer[i + j * (int)resolution.x].color.x = abs(normal.x);
+							//depthbuffer[i + j * (int)resolution.x].color.y = abs(normal.y);
+							//depthbuffer[i + j * (int)resolution.x].color.z = abs(normal.z);
+							depthbuffer[i + j * (int)resolution.x].color.x = barycentricCoord.x * primitives[index].c0.x + barycentricCoord.y * primitives[index].c1.x + barycentricCoord.z * primitives[index].c2.x;
+							depthbuffer[i + j * (int)resolution.x].color.y = barycentricCoord.x * primitives[index].c0.y + barycentricCoord.y * primitives[index].c1.y + barycentricCoord.z * primitives[index].c2.y;
+							depthbuffer[i + j * (int)resolution.x].color.z = barycentricCoord.x * primitives[index].c0.z + barycentricCoord.y * primitives[index].c1.z + barycentricCoord.z * primitives[index].c2.z;
 						}
 					}
 					else{
@@ -602,9 +615,9 @@ __global__ void fragmentShadeKernel(fragment* depthbuffer, glm::vec2 resolution,
 	  //depthbuffer[index].color.y = diffuseTerm * depthbuffer[index].color.y;
 	  //depthbuffer[index].color.z = diffuseTerm * depthbuffer[index].color.z;
 
-	  depthbuffer[index].color.x = specularTerm + diffuseTerm;
-	  depthbuffer[index].color.y = specularTerm + diffuseTerm;
-	  depthbuffer[index].color.z = specularTerm + diffuseTerm;
+	  //depthbuffer[index].color.x = specularTerm + diffuseTerm;
+	  //depthbuffer[index].color.y = specularTerm + diffuseTerm;
+	  //depthbuffer[index].color.z = specularTerm + diffuseTerm;
   }
 }
 
