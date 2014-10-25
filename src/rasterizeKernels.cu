@@ -20,12 +20,12 @@ cudaMat4 * projectionTransform;
 cudaMat4 * MVtransform;
 cudaMat4 * MVPtransform;
 
-
 #define BLOCK_SIZE 16
 #define DEBUG_VERTICES 0
 #define DEBUG_NORMALS 0
 #define SPECULAR_EXP 3
 #define FLAT_SHADING 0
+#define COLOR_INTERPOLATION_MODE 0
 
 
 void checkCUDAError(const char *msg) {
@@ -145,11 +145,8 @@ __global__ void vertexShadeKernel(float* vbo, int vbosize, float * nbo, int nbos
   int index = (blockIdx.x * blockDim.x) + threadIdx.x;
   if(index<vbosize/3){
 
-	  glm::vec4 oldP = glm::vec4(vbo[3*index],vbo[3*index + 1],vbo[3*index +2], 1.0f);
-	  glm::vec4 newP = multiplyMV4(*MV,oldP); 
-
-	  glm::vec4 oldN = glm::vec4(nbo[3*index],nbo[3*index + 1],nbo[3*index +2], 0.0f);
-	  glm::vec4 newN = glm::normalize(multiplyMV4(*MV,oldN)); 
+	  glm::vec4 newP = multiplyMV4(*MV,glm::vec4(vbo[3*index],vbo[3*index + 1],vbo[3*index +2], 1.0f)); 
+	  glm::vec4 newN = glm::normalize(multiplyMV4(*MV,glm::vec4(nbo[3*index],nbo[3*index + 1],nbo[3*index +2], 0.0f))); 
 	  
 	  vbo[3*index] = newP.x;
 	  vbo[3*index+1] = newP.y;
@@ -176,10 +173,15 @@ __global__ void primitiveAssemblyKernel(float* vbo, int vbosize, float* cbo, int
 	  primitives[index].p0 = glm::vec3(vbo[i0],vbo[i0+1],vbo[i0+2]);
 	  primitives[index].p1 = glm::vec3(vbo[i1],vbo[i1+1],vbo[i1+2]);
 	  primitives[index].p2 = glm::vec3(vbo[i2],vbo[i2+1],vbo[i2+2]);
-
+#if(COLOR_INTERPOLATION_MODE)
+	  primitives[index].c0 = glm::vec3(1.0f,0.0f,0.0f);
+	  primitives[index].c1 = glm::vec3(0.0f,1.0f,0.0f);
+	  primitives[index].c2 = glm::vec3(0.0f,0.0f,1.0f);
+#else
 	  primitives[index].c0 = glm::vec3(cbo[i0],cbo[i0+1],cbo[i0+2]);
 	  primitives[index].c1 = glm::vec3(cbo[i1],cbo[i1+1],cbo[i1+2]);
 	  primitives[index].c2 = glm::vec3(cbo[i2],cbo[i2+1],cbo[i2+2]);
+#endif
 
 	  primitives[index].n0 = glm::vec3(nbo[i0],nbo[i0+1],nbo[i0+2]);
 	  primitives[index].n1 = glm::vec3(nbo[i1],nbo[i1+1],nbo[i1+2]);

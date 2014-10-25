@@ -77,7 +77,6 @@ void mainLoop() {
 			mouseButtonIsDown = false;
 			mouseDeltaX = 0.0f;
 			mouseDeltaY = 0.0f;
-		cout<<"mouse adjusted"<<endl;
 		}
 
 	}
@@ -111,7 +110,7 @@ void mainLoop() {
 
 	glm::mat4 cameraAimTransform = utilityCore::buildTransformationMatrix(glm::vec3(0.0f),glm::vec3(0.0f),glm::vec3(1.0f));
 	//glm::mat4 cameraAimTransform = utilityCore::buildTransformationMatrix(glm::vec3(0.0f),glm::vec3(-(rotationY + mouseDeltaY),- (rotationX + mouseDeltaX + 10.0f),0.0f),glm::vec3(1.0f));
-	glm::mat4 cameraPosTransform = utilityCore::buildTransformationMatrix(glm::vec3(0.0f + deltaX,-.25f,(2.0f + deltaZ + MOUSE_SCROLL_SPEED * mouseScrollOffset)),glm::vec3(0.0f),glm::vec3(1.0f));
+	glm::mat4 cameraPosTransform = utilityCore::buildTransformationMatrix(glm::vec3(0.0f + deltaX,-.25f+ deltaZ,(2.0f  + MOUSE_SCROLL_SPEED * mouseScrollOffset)),glm::vec3(0.0f),glm::vec3(1.0f));
 	glm::mat4 ViewTransform = cameraAimTransform *cameraPosTransform;
 	//glm::mat4 ViewTransform =utilityCore::buildTransformationMatrix(glm::vec3(0.0f + deltaX,-.25f,2.0f + deltaZ + MOUSE_SCROLL_SPEED * mouseScrollOffset),glm::vec3(-(rotationY + mouseDeltaY),- (rotationX + mouseDeltaX),0.0f),glm::vec3(1.0f));
 	
