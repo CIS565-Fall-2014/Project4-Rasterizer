@@ -191,7 +191,7 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
                         (y * 2 - resolution.y) / resolution.y);
                 glm::vec3 bary = calculateBarycentricCoordinate(tri, ndc);
                 if (isBarycentricCoordInBounds(bary)) {
-                    int i = (int) (y * resolution.x + x);
+                    int i = (int) ((resolution.y - y) * resolution.x + x);
                     fragment frag = depthbuffer[i];
                     float depthold = frag.position.z;
                     float depthnew = getZAtCoordinate(bary, tri);
