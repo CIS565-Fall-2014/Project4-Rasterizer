@@ -8,6 +8,9 @@
 #include "rasterizeKernels.h"
 #include "rasterizeTools.h"
 
+#define GLM_FORCE_RADIANS
+#include <glm/gtx/rotate_vector.hpp>
+
 glm::vec3* framebuffer;
 fragment* depthbuffer;
 float* device_vbo;
@@ -142,6 +145,12 @@ __global__ void vertexShadeKernel(float* vbo, int vbosize)
 {
     int index = (blockIdx.x * blockDim.x) + threadIdx.x;
     if (index < vbosize / 3) {
+        glm::vec3 p(vbo[index * 3], vbo[index * 3 + 1], vbo[index * 3 + 2]);
+        //p = glm::rotate(p, 1.f, glm::vec3(0, 1, 0));
+        //p = glm::rotate(p, 1.f, glm::vec3(1, 0, 0));
+        vbo[index * 3 + 0] = p.x;
+        vbo[index * 3 + 1] = p.y;
+        vbo[index * 3 + 2] = p.z;
     }
 }
 
@@ -152,7 +161,7 @@ __global__ void primitiveAssemblyKernel(float* vbo, int vbosize, float* cbo, int
     if (index < primitivesCount) {
         int i0 = ibo[3 * index + 0];
         int i1 = ibo[3 * index + 1];
-        int i2 = ibo[3 * index + 1];
+        int i2 = ibo[3 * index + 2];
         triangle prim;
         prim.p0 = glm::vec3(vbo[3 * i0], vbo[3 * i0 + 1], vbo[3 * i0 + 2]);
         prim.p1 = glm::vec3(vbo[3 * i1], vbo[3 * i1 + 1], vbo[3 * i1 + 2]);
@@ -164,11 +173,38 @@ __global__ void primitiveAssemblyKernel(float* vbo, int vbosize, float* cbo, int
     }
 }
 
-//TODO: Implement a rasterization method, such as scanline.
+//TODO: Implement a better rasterization method, such as scanline.
 __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, fragment* depthbuffer, glm::vec2 resolution)
 {
     int index = (blockIdx.x * blockDim.x) + threadIdx.x;
     if (index < primitivesCount) {
+        triangle tri = primitives[index];
+        glm::vec3 minp, maxp;
+        getAABBForTriangle(tri, minp, maxp);
+        glm::vec2 minc = (glm::vec2(minp) + 1.f) * 0.5f * resolution;
+        glm::vec2 maxc = (glm::vec2(maxp) + 1.f) * 0.5f * resolution;
+
+        for (int x = minc.x; x < maxc.x; ++x) {
+            for (int y = minc.y; y < maxc.y; ++y) {
+                glm::vec2 ndc = glm::vec2(
+                        (x * 2 - resolution.x) / resolution.x,
+                        (y * 2 - resolution.y) / resolution.y);
+                glm::vec3 bary = calculateBarycentricCoordinate(tri, ndc);
+                if (isBarycentricCoordInBounds(bary)) {
+                    int i = (int) (y * resolution.x + x);
+                    fragment frag = depthbuffer[i];
+                    float depthold = frag.position.z;
+                    float depthnew = getZAtCoordinate(bary, tri);
+                    if (depthnew < 1 && depthnew > depthold) {
+                        //frag.color = glm::vec3((depthnew + 1) * 0.5f);
+                        frag.color = bary.x * tri.c0 + bary.y * tri.c1 + bary.z * tri.c2;
+                        frag.normal = glm::vec3(0, 0, 0);
+                        frag.position = glm::vec3(ndc, depthnew);
+                        depthbuffer[i] = frag;
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -191,14 +227,16 @@ __global__ void render(glm::vec2 resolution, fragment* depthbuffer, glm::vec3* f
     int index = x + (y * resolution.x);
 
     if (x <= resolution.x && y <= resolution.y) {
-        framebuffer[index] = depthbuffer[index].color;
+        fragment frag = depthbuffer[index];
+        if (frag.position.z > -2.f) { // min should be -1
+            framebuffer[index] = depthbuffer[index].color;
+        }
     }
 }
 
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float* vbo, int vbosize, float* cbo, int cbosize, int* ibo, int ibosize)
 {
-
     // set up crucial magic
     int tileSize = 8;
     dim3 threadsPerBlock(tileSize, tileSize);
@@ -213,10 +251,10 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
     cudaMalloc((void**)&depthbuffer, (int)resolution.x * (int)resolution.y * sizeof(fragment));
 
     //kernel launches to black out accumulated/unaccumlated pixel buffers and clear our scattering states
-    clearImage<<<fullBlocksPerGrid, threadsPerBlock>>>(resolution, framebuffer, glm::vec3(0, 0, 0));
+    clearImage<<<fullBlocksPerGrid, threadsPerBlock>>>(resolution, framebuffer, glm::vec3(0.2f, 0.2f, 0.2f));
 
     fragment frag;
-    frag.color = glm::vec3(0, 0, 0);
+    frag.color = glm::vec3(1, 0, 1);
     frag.normal = glm::vec3(0, 0, 0);
     frag.position = glm::vec3(0, 0, -10000);
     clearDepthBuffer<<<fullBlocksPerGrid, threadsPerBlock>>>(resolution, depthbuffer, frag);

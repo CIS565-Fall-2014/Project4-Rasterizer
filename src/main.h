@@ -10,7 +10,6 @@
 #include <cuda_runtime.h>
 #include <cuda_gl_interop.h>
 #include <fstream>
-#define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
 #include <glslUtil/glslUtility.hpp>
 #include <iostream>

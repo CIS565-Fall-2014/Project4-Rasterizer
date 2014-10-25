@@ -48,6 +48,7 @@ endif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 #Linux specific hacks/fixes
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lX11 -lXxf86vm -lXrandr -lpthread -lXi")
+    #set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS}-G;")
 endif()
 
 #Compiler flag magic
