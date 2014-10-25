@@ -102,15 +102,16 @@ void runCuda(){
   ibo = mesh->getIBO();
   ibosize = mesh->getIBOsize();
 
+  nbo = mesh->getNBO();
+  nbosize = mesh->getNBOsize();
+
   cudaGLMapBufferObject((void**)&dptr, pbo);
   cudaRasterizeCore( dptr,
 					 frame,
-					 vbo,
-					 vbosize,
-					 cbo,
-					 cbosize,
-					 ibo,
-					 ibosize,
+					 vbo, vbosize,
+					 cbo, cbosize,
+					 ibo, ibosize,
+					 nbo, nbosize,
 					 camera );
   cudaGLUnmapBufferObject(pbo);
 

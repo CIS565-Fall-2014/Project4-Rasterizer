@@ -50,12 +50,15 @@ GLFWwindow *window;
 
 obj* mesh;
 
-float* vbo;
+float *vbo;
 int vbosize;
-float* cbo;
+float *cbo;
 int cbosize;
-int* ibo;
+int *ibo;
 int ibosize;
+
+float *nbo;
+int nbosize;
 
 //-------------------------------
 //----------CUDA STUFF-----------

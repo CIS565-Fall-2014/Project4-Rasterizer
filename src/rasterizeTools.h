@@ -10,12 +10,35 @@
 #include "cudaMat4.h"
 
 struct triangle {
-  glm::vec3 p0;
-  glm::vec3 p1;
-  glm::vec3 p2;
-  glm::vec3 c0;
-  glm::vec3 c1;
-  glm::vec3 c2;
+	// Default constructor.
+	__host__
+	__device__
+	triangle() {}
+
+	// Constructor.
+	__host__
+	__device__
+	triangle( glm::vec3 p0, glm::vec3 p1, glm::vec3 p2,
+			  glm::vec3 c0, glm::vec3 c1, glm::vec3 c2,
+			  glm::vec3 n0, glm::vec3 n1, glm::vec3 n2 ) :
+				p0( p0 ), p1( p1 ), p2( p2 ),
+				c0( c0 ), c1( 1 ), c2( c2 ),
+				n0( n0 ), n1( n1 ), n2( n2 ) {}
+
+	// Vertex positions.
+	glm::vec3 p0;
+	glm::vec3 p1;
+	glm::vec3 p2;
+
+	// Vertex colors.
+	glm::vec3 c0;
+	glm::vec3 c1;
+	glm::vec3 c2;
+
+	// Vertex normals.
+	glm::vec3 n0;
+	glm::vec3 n1;
+	glm::vec3 n2;
 };
 
 struct fragment{

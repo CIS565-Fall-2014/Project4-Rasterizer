@@ -16,12 +16,10 @@
 void kernelCleanup();
 void cudaRasterizeCore( uchar4 *pos,
 						float frame,
-						float *vbo,
-						int vbosize,
-						float *cbo,
-						int cbosize,
-						int *ibo,
-						int ibosize,
+						float *vbo, int vbosize,
+						float *cbo, int cbosize,
+						int *ibo, int ibosize,
+						float *nbo, int nbosize,
 						simpleCamera camera );
 
 #endif //RASTERIZEKERNEL_H

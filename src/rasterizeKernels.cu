@@ -13,6 +13,7 @@ fragment *depthbuffer;
 float *device_vbo;
 float *device_cbo;
 int *device_ibo;
+float *device_nbo;
 triangle* primitives;
 float *device_vbo_window_coords;
 
@@ -132,8 +133,7 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 
 /*********** DANNY'S PRIMARY CONTRIBUTION - START ***********/
 
-// TODO: Implement a vertex shader.
-// Convert vertices from model-space to clip-space.
+// Convert vertices from object-space coordinates to window coordinates.
 __global__
 void vertexShadeKernel( float *vbo,
 						int vbosize,
@@ -145,8 +145,9 @@ void vertexShadeKernel( float *vbo,
 
 	// Divide by 3 because each vertex has 3 components (x, y, and z).
 	if ( index < vbosize / 3 ) {
-		// Create point to transform.
 		int vbo_index = index * 3;
+
+		// Create point to transform.
 		glm::vec4 v( vbo[vbo_index + 0], vbo[vbo_index + 1], vbo[vbo_index + 2], 1.0f );
 
 		// Transform point from object-space to clip-space by multiplying by the composite model, view, projection matrices.
@@ -170,23 +171,50 @@ void vertexShadeKernel( float *vbo,
 }
 
 
-// TODO: Implement primative assembly.
+// Construct primitives from vertices.
 __global__
-void primitiveAssemblyKernel( float *vbo,
-							  int vbosize,
-							  float *cbo,
-							  int cbosize,
-							  int *ibo,
-							  int ibosize,
+void primitiveAssemblyKernel( float *vbo, int vbosize,
+							  float *cbo, int cbosize,
+							  int *ibo, int ibosize,
+							  float *nbo, int nbosize,
 							  triangle *primitives )
 {
-
-	// TODO: Convert vertices to primitives (triangles or fragments).
+	// TODO: Backface culling.
 
 	int index = ( blockIdx.x * blockDim.x ) + threadIdx.x;
 	int primitivesCount = ibosize / 3;
 	if ( index < primitivesCount ) {
+		// Get indices of triangle vertices.
+		int ibo_index = index * 3;
+		int i0 = ibo[ibo_index + 0];
+		int i1 = ibo[ibo_index + 1];
+		int i2 = ibo[ibo_index + 2];
 
+		// Get positions of triangle vertices.
+		int v0_index = i0 * 3;
+		int v1_index = i1 * 3;
+		int v2_index = i2 * 3;
+		glm::vec3 p0( vbo[v0_index + 0], vbo[v0_index + 1], vbo[v0_index + 2] );
+		glm::vec3 p1( vbo[v1_index + 0], vbo[v1_index + 1], vbo[v1_index + 2] );
+		glm::vec3 p2( vbo[v2_index + 0], vbo[v2_index + 1], vbo[v2_index + 2] );
+
+		// Get colors of triangle vertices.
+		int c0_index = ( i0 % 3 ) * 3;
+		int c1_index = ( i1 % 3 ) * 3;
+		int c2_index = ( i2 % 3 ) * 3;
+		glm::vec3 c0( cbo[c0_index + 0], cbo[c0_index + 1], cbo[c0_index + 2] );
+		glm::vec3 c1( cbo[c1_index + 0], cbo[c1_index + 1], cbo[c1_index + 2] );
+		glm::vec3 c2( cbo[c2_index + 0], cbo[c2_index + 1], cbo[c2_index + 2] );
+
+		// Get normals of triangle vertices.
+		glm::vec3 n0( nbo[v0_index + 0], nbo[v0_index + 1], nbo[v0_index + 2] );
+		glm::vec3 n1( nbo[v1_index + 0], nbo[v1_index + 1], nbo[v1_index + 2] );
+		glm::vec3 n2( nbo[v2_index + 0], nbo[v2_index + 1], nbo[v2_index + 2] );
+
+		// Set triangle.
+		primitives[index] = triangle( p0, p1, p2,
+									  c0, c1, c2,
+									  n0, n1, n2 );
 	}
 }
 
@@ -243,12 +271,10 @@ __global__ void render(glm::vec2 resolution, fragment* depthbuffer, glm::vec3* f
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRasterizeCore( uchar4 *PBOpos,
 						float frame,
-						float *vbo,
-						int vbosize,
-						float *cbo,
-						int cbosize,
-						int *ibo,
-						int ibosize,
+						float *vbo, int vbosize,
+						float *cbo, int cbosize,
+						int *ibo, int ibosize,
+						float *nbo, int nbosize,
 						simpleCamera camera )
 {
 	// set up crucial magic
@@ -316,6 +342,14 @@ void cudaRasterizeCore( uchar4 *PBOpos,
 				cbosize * sizeof( float ),
 				cudaMemcpyHostToDevice );
 
+	device_nbo = NULL;
+	cudaMalloc( ( void** )&device_nbo,
+				nbosize * sizeof( float ) );
+	cudaMemcpy( device_nbo,
+				nbo,
+				nbosize * sizeof( float ),
+				cudaMemcpyHostToDevice );
+
 	tileSize = 32;
 	int primitiveBlocks = ceil( ( ( float )vbosize / 3 ) / ( ( float )tileSize ) );
 
@@ -340,8 +374,7 @@ void cudaRasterizeCore( uchar4 *PBOpos,
 													camera.near_clip,
 													camera.far_clip );
 
-	vertexShadeKernel<<< primitiveBlocks, tileSize >>>( device_vbo,
-														vbosize,
+	vertexShadeKernel<<< primitiveBlocks, tileSize >>>( device_vbo, vbosize,
 														projection_matrix * view_matrix * model_matrix,
 														camera.resolution,
 														device_vbo_window_coords );
@@ -351,12 +384,10 @@ void cudaRasterizeCore( uchar4 *PBOpos,
 	// primitive assembly
 	//------------------------------
 	primitiveBlocks = ceil( ( ( float )ibosize / 3 ) / ( ( float )tileSize ) );
-	primitiveAssemblyKernel<<< primitiveBlocks, tileSize >>>( device_vbo,
-															  vbosize,
-															  device_cbo,
-															  cbosize,
-															  device_ibo,
-															  ibosize,
+	primitiveAssemblyKernel<<< primitiveBlocks, tileSize >>>( device_vbo, vbosize,
+															  device_cbo, cbosize,
+															  device_ibo, ibosize,
+															  device_nbo, nbosize,
 															  primitives );
 	cudaDeviceSynchronize();
 
@@ -396,6 +427,7 @@ void kernelCleanup(){
   cudaFree( device_vbo );
   cudaFree( device_cbo );
   cudaFree( device_ibo );
+  cudaFree( device_nbo );
   cudaFree( framebuffer );
   cudaFree( depthbuffer );
   cudaFree( device_vbo_window_coords );
