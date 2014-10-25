@@ -46,8 +46,9 @@ I create a white & black grid background to do the alpha blending with my object
 
 #Performance:
 ![ResultImage](tilesize1.bmp)
+![ResultImage](tilesize1_chart.bmp)
 ![ResultImage](tilesize2.bmp)
-
+![ResultImage](tilesize2_chart.bmp)
 
 http://youtu.be/22JkxHzivGE
 
