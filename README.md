@@ -1,11 +1,11 @@
 #Implement feature:
-*Mouse control
-*Back-face culling
-*Anti-aliasing
-*Blending
-*Correct color interpolation
-*Scissor test
-*Draw line and point
+* Mouse control
+* Back-face culling
+* Anti-aliasing
+* Blending
+* Correct color interpolation
+* Scissor test
+* Draw line and point
 
 #Mouse control:
 * Dragging mouse with the left mouse button pressed to change the view direction.
