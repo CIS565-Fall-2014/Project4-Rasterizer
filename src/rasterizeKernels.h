@@ -14,7 +14,7 @@
 #include "utilities.h"
 
 
-#define SHADING_MODE 2  //0-shading based on normal, 1-shade based on depth, 2-diffuse
+#define SHADING_MODE 3  //0-shading based on normal, 1-shade based on depth, 2-diffuse, 3-blinn
 
 void kernelCleanup();
 void cudaRasterizeCore(uchar4* pos, glm::vec2 resolution, float frame, float* vbo, int vbosize, float* cbo, int cbosize, 
@@ -28,8 +28,17 @@ public:
 	glm::vec3 up;     //camera up vector
 	glm::vec3 center;   //where camera is looking at
 
+	float theta;
+	float phi;
+	float r;
+
+	glm::mat4 M_model, M_view, M_projection;
+	//glm::mat4 M_camera;
 	cudaMat4 M_mvp;   //model-view-projection matrix
-	cudaMat4 M_mvp_prime;  // transpose(inverse(M_mvp))
+	cudaMat4 M_mv_prime;  // transpose(inverse(modelView))
+
+	cam(){}
+
 	//constructor
 	cam(float fovyi, float aspecti, glm::vec3 eyei, glm::vec3 upi, glm::vec3 centeri){
 		fovy = fovyi;
@@ -37,29 +46,63 @@ public:
 		up = glm::normalize(upi);
 		center = centeri;
 		aspect = aspecti;
-
-		//establish model matrix
-		glm::mat4 M_model( glm::vec4(1.0f, 0.0f, 0.0f, 0.0f),
-						glm::vec4(0.0f, 1.0f, 0.0f, 0.0f),
-						glm::vec4(0.0f, 0.0f, 1.0f, 0.0f),
-						glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
 		
-
-		//establish view matrix =  inverse of camera transform matrix
-		glm::mat4 M_view = glm::lookAt(eye,center,up);
-		
-		//establish projection matrix
-		float near = 1.0f;
-		float far = 10000.0f;
-		glm::mat4 M_projection = glm::perspective(fovy,aspect,near,far);
-
-		M_mvp =  utilityCore::glmMat4ToCudaMat4( M_projection * M_view * M_model );
-		M_mvp_prime = utilityCore::glmMat4ToCudaMat4(glm::transpose(glm::inverse(utilityCore::cudaMat4ToGlmMat4(M_mvp))));
+		theta = 90.0f;
+		phi = 0.0f;
+		r = glm::length (eye - center);
+		calculateMVP();
 	}
 
+	//copy assignment operator
+	cam& operator= ( const cam& other ){
+		fovy = other.fovy;
+		eye = other.eye;
+		up = glm::normalize(other.up);
+		center = other.center;
+		aspect = other.aspect;
+		r = other.r;
+		theta = other.theta;
+		phi = other.phi;
+
+		//M_camera = other.M_camera;
+		M_mvp = other.M_mvp;
+		M_mv_prime = other.M_mv_prime;
+		return *this;
+	}
+
+	void calculateCamPos(){
+		eye.x = r * sin( theta * PI /180.0f ) * sin( phi * PI /180.0f ) + center.x;
+		eye.y = r * cos( theta * PI /180.0f ) + center.y;
+		eye.z = r * sin( theta * PI /180.0f ) * cos( phi * PI /180.0f ) + center.z;
+		calculateMVP();
+	}
+
+	void calculateMVP(){
+
+		//establish model matrix
+		//M_model = glm::mat4( glm::vec4(1.0f, 0.0f, 0.0f, 0.0f), glm::vec4(0.0f, 1.0f, 0.0f, 0.0f),glm::vec4(0.0f, 0.0f, 1.0f, 0.0f), glm::vec4(0.0f, 0.0f, 0.0f, 1.0f));
+		M_model = utilityCore::buildTransformationMatrix(glm::vec3(0.0f, -0.3f, 0.0f), glm::vec3(0.0f), glm::vec3(0.8f));
+		
+		//establish view matrix =  inverse of camera transform matrix
+		M_view = glm::lookAt(eye,center,up);
+		
+		//establish projection matrix
+		//make things closer appear bigger
+		float near = 0.1f;
+		float far = 1000.0f;
+		M_projection = glm::perspective(fovy,aspect,near,far);
+		
+		M_mvp =  utilityCore::glmMat4ToCudaMat4( M_projection * M_view * M_model );
+		//M_mvp_prime = utilityCore::glmMat4ToCudaMat4(glm::transpose(glm::inverse(M_projection * M_view * M_model )));
+		M_mv_prime = utilityCore::glmMat4ToCudaMat4(glm::transpose(glm::inverse(M_view * M_model)));
+
+		//printf("the mvp matrix:\n");
+		//utilityCore::printCudaMat4(M_mvp);
+
+	}
 };
 
-//fovy, aspect, eye, up, lookat
+extern cam mouseCam;   //used for mouse events
 
 
 #endif //RASTERIZEKERNEL_H

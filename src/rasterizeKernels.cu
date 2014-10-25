@@ -137,12 +137,18 @@ __global__ void vertexShadeKernel(float* vbo, int vbosize, float* nbo, int nbosi
   int index = (blockIdx.x * blockDim.x) + threadIdx.x;
   if(index<vbosize/3){
 	  //Transform incoming vertex position from model to clip coordinates
-	  glm::vec4 pModel(vbo[index*3], vbo[index*3 + 1],vbo[index*3 + 2], 1.0f);
-	  glm::vec3 pClip = multiplyMV(theCam.M_mvp, pModel);
-	  glm::vec4 nModel(nbo[index*3], nbo[index*3 + 1],nbo[index*3 + 2], 0.0f);
-	  glm::vec3 nClip = glm::normalize( multiplyMV(theCam.M_mvp, nModel));
-	  //glm::vec3 nClip = glm::normalize( multiplyMV(theCam.M_mvp_prime, nModel));
+	  glm::vec3 pModel(vbo[index*3], vbo[index*3 + 1],vbo[index*3 + 2]);
+	  glm::vec3 pClip = multiplyMV(theCam.M_mvp, glm::vec4(pModel, 1.0f));
 
+	  //Transform normal into clip coordinates
+	  glm::vec3 nModel(nbo[index*3], nbo[index*3 + 1],nbo[index*3 + 2]);
+	 
+	  /*glm::vec3 nTip_OS = pModel + nModel;
+	  glm::vec3 nTip_WS = multiplyMV(theCam.M_mvp, glm::vec4(nTip_OS, 1.0f));
+	  glm::vec3 nClip = glm::normalize(nTip_WS - pClip);*/
+	 // glm::vec3 nClip = glm::normalize( multiplyMV(theCam.M_mvp, glm::vec4(nModel, 0.0f)));
+	  glm::vec3 nClip = glm::normalize( multiplyMV(theCam.M_mv_prime, glm::vec4(nModel, 0.0f)));
+	  
 	  vbo[index*3] = pClip.x; 
 	  vbo[index*3 + 1] = pClip.y; 
 	  vbo[index*3 + 2] = pClip.z;
@@ -182,6 +188,9 @@ __global__ void primitiveAssemblyKernel(float* vbo, int vbosize, float* cbo, int
 	  glm::vec3 n1 = glm::vec3(nbo[i1*3], nbo[i1*3+1], nbo[i1*3+2]);
 	  glm::vec3 n2 = glm::vec3(nbo[i2*3], nbo[i2*3+1], nbo[i2*3+2]);
 	  primitives[index].n = (n0 + n1 + n2)/3.0f;
+	  //if(index == 2000){
+		//  printf("transformed normal: %.2f, %.2f, %.2f\n", primitives[index].n.x, primitives[index].n.y, primitives[index].n.z);
+	 // }
   }
 }
 
@@ -192,21 +201,20 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
   if(index<primitivesCount){
 	 
 	  triangle tri = primitives[index];
-	
+	  
 	  if(tri.n.z <0){ // back facing triangles
-		 // printf("back face triangle index: %d\n", index);
 		  return;
 	  }
-	//printf("non back face triangle index: %d\n", index);
+
 	  //get bounding box for this triangle
-	  glm::vec3 minpoint, maxpoint;   // in the screen coordinates
+	  glm::vec3 minpoint, maxpoint;   // in the screen coordinates, floats
 	  getAABBForTriangle(tri, minpoint, maxpoint);
-	  glm::vec2 minPoint, maxPoint;   //in image coodinates
+	  glm::vec2 minPoint, maxPoint;   //in image coodinates, ints
 	  minPoint = screenToImage( glm::vec2(minpoint.x, minpoint.y), resolution);   //viewport transform
 	  maxPoint = screenToImage( glm::vec2(maxpoint.x, maxpoint.y), resolution);
 	  int xMin = (int)floor(minPoint.x);
-	  int yMin = (int)floor(maxPoint.y);
 	  int xMax = (int)ceil(maxPoint.x);
+	  int yMin = (int)floor(maxPoint.y);
 	  int yMax = (int)ceil(minPoint.y);
 	  //printf("min = %.2f, %.2f; max = %.2f, %.2f\n", minpoint.x, minpoint.y, maxpoint.x, maxpoint.y);
 	 // printf("min = %.2f, %.2f; max = %.2f, %.2f\n", minPoint.x, minPoint.y, maxPoint.x, maxPoint.y);
@@ -222,29 +230,31 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 	  if(xMax<0 || yMax<0 || xMax>=resolution.x || yMax>=resolution.y)
 		  return;
 
-	  for(int y = yMin; y < yMax; y++){  //top to down
 
+	  //scanline approach
+	  for(int y = yMin; y < yMax; y++){  //top to down
 		for(int x = xMin; x < xMax; x++){   //left to right
 			 int pixelID = x + resolution.x*y;
-			 glm::vec2 screenCoord = imageToScreen(glm::vec2(x,y),resolution);
-			 //barycentric coordinate for (x,y) point
-			 glm::vec3 b = calculateBarycentricCoordinate(tri, screenCoord);
-			
-			 //p is in the triangle bounds
-			 if(isBarycentricCoordInBounds(b)){
+			 glm::vec2 screenCoord = imageToScreen(glm::vec2(x,y),resolution);  //perspective transformation
+			 glm::vec3 b = calculateBarycentricCoordinate(tri, screenCoord);  //barycentric coordinate for (x,y) pixel
+			 
+			 if(isBarycentricCoordInBounds(b)){  //p is in the triangle bounds
 				 float z = getZAtCoordinate(b, tri);  //depth
 
 				 // printf("frag color: %f.2, %f.02, %f.02\n", frag.color.r, frag.color.g, frag.color.b);
 				// printf("triangle index: %d, frag normal: %.2f, %.2f, %.2f\n", index,frag.normal.x, frag.normal.y, frag.normal.z);
 				// printf("frag pos: %.2f, %.2f, %.2f\n", frag.position.x, frag.position.y, frag.position.z);
-				 if(z > depthbuffer[pixelID].position.z){
+				 if(z > depthbuffer[pixelID].position.z && z <= 1){
 					 fragment frag = depthbuffer[pixelID];
 					 frag.color = interpolateColor(b,tri);
-					 frag.position = interpolatePosition(b,tri);
-				 
-					 //frag.position.x = screenCoord.x;
-					 //frag.position.y = screenCoord.y;
-					// frag.position.z = z;
+					 //frag.position = interpolatePosition(b,tri);
+					 /*glm::vec3 tmp = interpolatePosition(b,tri);
+					 frag.position.x = tmp.x;
+					 frag.position.y = tmp.y;
+					 frag.position.z = z;*/
+					 frag.position.x = screenCoord.x;
+					 frag.position.y = screenCoord.y;
+					 frag.position.z = z;
 					 frag.normal = tri.n;
 					 depthbuffer[pixelID] = frag;
 				 }
@@ -260,7 +270,7 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 }
 
 //TODO: Implement a fragment shader
-__global__ void fragmentShadeKernel(fragment* depthbuffer, glm::vec2 resolution, cam theCam){
+__global__ void fragmentShadeKernel(fragment* depthbuffer, glm::vec2 resolution, cam theCam, glm::vec3 light){
   int x = (blockIdx.x * blockDim.x) + threadIdx.x;
   int y = (blockIdx.y * blockDim.y) + threadIdx.y;
   int index = x + (y * resolution.x);
@@ -269,16 +279,22 @@ __global__ void fragmentShadeKernel(fragment* depthbuffer, glm::vec2 resolution,
 		  depthbuffer[index].color.r = glm::clamp(depthbuffer[index].normal.x, 0.0f, 1.0f);
 		  depthbuffer[index].color.g = glm::clamp(depthbuffer[index].normal.y, 0.0f, 1.0f);
 		  depthbuffer[index].color.b = glm::clamp(depthbuffer[index].normal.z, 0.0f, 1.0f);
-	  }else if(SHADING_MODE == 1){   //shade by depth
+	  }
+	  else if(SHADING_MODE == 1){   //shade by depth
 		  depthbuffer[index].color.r = glm::clamp(depthbuffer[index].position.z/10.0f, 0.0f, 1.0f);
 		  depthbuffer[index].color.g = glm::clamp(depthbuffer[index].position.z/10.0f, 0.0f, 1.0f);
 		  depthbuffer[index].color.b = glm::clamp(depthbuffer[index].position.z/10.0f, 0.0f, 1.0f);
-	  }else if(SHADING_MODE == 2){    //diffuse shade
-		  glm::vec3 viewDir = glm::normalize(theCam.eye - depthbuffer[index].position);
-		  depthbuffer[index].color = depthbuffer[index].color * glm::dot(viewDir, depthbuffer[index].normal);
-		  //depthbuffer[index].color.r = glm::clamp(depthbuffer[index].color.r, 0.0f, 1.0f);
-		 // depthbuffer[index].color.g = glm::clamp(depthbuffer[index].color.g, 0.0f, 1.0f);
-		 // depthbuffer[index].color.b = glm::clamp(depthbuffer[index].color.b, 0.0f, 1.0f);
+	  }
+	  else if(SHADING_MODE == 2){    //diffuse shade
+		  glm::vec3 lightDir = glm::normalize(light - depthbuffer[index].position);
+		  float cosTerm = glm::clamp(glm::dot(lightDir, depthbuffer[index].normal), 0.0f, 1.0f);
+		  depthbuffer[index].color = glm::clamp(cosTerm * depthbuffer[index].color, 0.0f, 1.0f);
+	  }
+	  else if (SHADING_MODE == 3){  //blinn-phong shade
+		  float coeff = 2.0f;
+		  glm::vec3 lightDir = glm::normalize(light - depthbuffer[index].position);
+		  float cosTerm = glm::clamp(glm::dot(lightDir, depthbuffer[index].normal), 0.0f, 1.0f);
+		  depthbuffer[index].color = glm::clamp( std::pow(cosTerm,coeff) * depthbuffer[index].color, 0.0f, 1.0f);
 	  }
   }
 }
@@ -298,8 +314,13 @@ __global__ void render(glm::vec2 resolution, fragment* depthbuffer, glm::vec3* f
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float* vbo, int vbosize, float* cbo, int cbosize, 
 	int* ibo, int ibosize, float * nbo, int nbosize){
+  
+	//set up camera,
+ // cam theCam = mouseCam;
 
-  cam theCam(65.0f, (float)resolution.x/(float)resolution.y, glm::vec3(0.0f, 0.0f, 10.0f), glm::vec3(0.0f, 1.0f, -1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+		//set up light
+  glm::vec3 lightPos(500.0f, 500.0f, 1000.0f);    //add a light in the scene for shading
+
   // set up crucial magic
   int tileSize = 8;
   dim3 threadsPerBlock(tileSize, tileSize);
@@ -350,7 +371,8 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
   //------------------------------
   //vertex shader
   //------------------------------
-  vertexShadeKernel<<<primitiveBlocks, tileSize>>>(device_vbo, vbosize, device_nbo, nbosize, theCam);
+
+  vertexShadeKernel<<<primitiveBlocks, tileSize>>>(device_vbo, vbosize, device_nbo, nbosize, mouseCam);
 
   cudaDeviceSynchronize();
   //------------------------------
@@ -370,7 +392,7 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
   //------------------------------
   //fragment shader
   //------------------------------
-  fragmentShadeKernel<<<fullBlocksPerGrid, threadsPerBlock>>>(depthbuffer, resolution, theCam);
+  fragmentShadeKernel<<<fullBlocksPerGrid, threadsPerBlock>>>(depthbuffer, resolution, mouseCam, lightPos);
 
   cudaDeviceSynchronize();
   //------------------------------

@@ -99,7 +99,12 @@ void deleteTexture(GLuint* tex);
 //-------GLFW CALLBACKS---------
 //------------------------------
 void mainLoop();
+void rotateMouseCam(double x, double y, double xlast, double ylast);
+void translateMouseCam(double x, double y, double xlast, double ylast);
 void errorCallback(int error, const char *description);
 void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods);
+void mousebuttonCallback(GLFWwindow* window, int button, int action, int mods);
+void mousescrollCallback(GLFWwindow * window, double xoffset, double yoffset );
+void mousemoveCallback(GLFWwindow *window, double xpos, double ypos);
 
 #endif

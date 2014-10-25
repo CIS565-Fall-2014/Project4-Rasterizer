@@ -43,13 +43,22 @@ int main(int argc, char** argv){
   return 0;
 }
 
+
+double xpos, ypos, xposLast, yposLast;   //mouse position
+
+//fovy, aspect, eye, up, lookat
+cam mouseCam(65.0f, (float)width/(float)height, glm::vec3(0.0f, 0.0f, 10.0f), glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f));   //cam class
+
+
 void mainLoop() {
+
   while(!glfwWindowShouldClose(window)){
+
     glfwPollEvents();
     runCuda();
 
+	//fps calculation
     time_t seconds2 = time (NULL);
-
     if(seconds2-seconds >= 1){
 
         fps = fpstracker/(seconds2-seconds);
@@ -68,9 +77,60 @@ void mainLoop() {
     // VAO, shader program, and texture already bound
     glDrawElements(GL_TRIANGLES, 6,  GL_UNSIGNED_SHORT, 0);
     glfwSwapBuffers(window);
+
+	// check for mouse press
+	int state = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT);
+	if (state == GLFW_PRESS){
+		glfwGetCursorPos(window, &xpos, &ypos);
+		rotateMouseCam(xpos, ypos, xposLast, yposLast);
+	}
+	int state2 = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT);
+	if (state2 == GLFW_PRESS){
+		glfwGetCursorPos(window, &xpos, &ypos);
+		translateMouseCam(xpos, ypos, xposLast, yposLast);
+	}
+	glfwGetCursorPos(window,&xposLast,&yposLast);	
+
   }
   glfwDestroyWindow(window);
   glfwTerminate();
+}
+
+void rotateMouseCam(double x, double y, double xlast, double ylast){
+
+	float PI = 3.1415926f;
+	float Sensitivity  = 0.1f;
+	float rotX = ((float)x - (float)xlast ) * Sensitivity;
+	float rotY = ((float)y - (float)ylast ) * Sensitivity;
+	mouseCam.theta -= rotY;   //theta is the vertical rotation
+	glm::clamp(mouseCam.theta, 0.0001f, 179.9999f);
+	mouseCam.phi += rotX;   //phi is the horizontal circle rotation
+	if(mouseCam.phi > 360.0f)
+		mouseCam.phi -= 360.0f;
+	mouseCam.calculateCamPos();
+}
+
+void translateMouseCam(double x, double y, double xlast, double ylast){
+
+	float Sensitivity  = 0.001f;
+	float transX = ((float)x - (float)xlast ) * Sensitivity;
+	float transY = ((float)y - (float)ylast ) * Sensitivity;
+	glm::vec3 viewDir = glm::normalize(mouseCam.center - mouseCam.eye);
+	glm::vec3 rightDir = glm::cross(viewDir, mouseCam.up);
+	if(mouseCam.phi < 180.0f){
+		//mouseCam.center.y += transY;
+		//mouseCam.center.x += transX;
+		mouseCam.center += transY * mouseCam.up;
+		mouseCam.center += transX * rightDir;
+	}
+	else{
+		//mouseCam.center.y -= transY;
+		//mouseCam.center.x -= transX;
+		mouseCam.center -= transY * mouseCam.up;
+		mouseCam.center -= transX * rightDir;
+	}
+	
+	mouseCam.calculateCamPos();
 }
 
 //-------------------------------
@@ -129,7 +189,13 @@ bool init(int argc, char* argv[]) {
       return false;
   }
   glfwMakeContextCurrent(window);
-  glfwSetKeyCallback(window, keyCallback);
+
+  glfwSetInputMode(window, GLFW_STICKY_MOUSE_BUTTONS, 1);   //sticking mouse button
+  
+  glfwSetKeyCallback(window, keyCallback);    //keyboard callback
+ // glfwSetMouseButtonCallback(window, mousebuttonCallback);   //mouse button callback
+  glfwSetScrollCallback(window,mousescrollCallback);   //mouse scroll callback	
+ //glfwSetCursorPosCallback(window,mousemoveCallback);  //mouse move callback
 
   // Set up GL context
   glewExperimental = GL_TRUE;
@@ -285,4 +351,26 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     if(key == GLFW_KEY_ESCAPE && action == GLFW_PRESS){
         glfwSetWindowShouldClose(window, GL_TRUE);
     }
+}
+
+
+void mousescrollCallback(GLFWwindow * window, double xoffset, double yoffset ){  
+	// x is always 0, only y is changing, +ve for upwards, -ve for downwards
+	//printf("mouse scroll %.2f %.2f\n", xoffset, yoffset);
+	float Sensitivity = 0.8f;
+
+	//correct zoom...TODO
+	//mouseCam.eye.z -= yoffset * Sensitivity;
+	//mouseCam.calculateMVP();
+
+	//cheap zoom
+	if(mouseCam.fovy - Sensitivity * yoffset > 5.0f && mouseCam.fovy - Sensitivity * yoffset < 180.0f){
+		mouseCam.fovy -= Sensitivity * yoffset;
+		mouseCam.calculateMVP();
+	}
+}
+
+void mousemoveCallback(GLFWwindow *window, double xpos, double ypos){
+	xposLast = xpos;
+	yposLast = ypos;
 }
