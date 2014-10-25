@@ -19,15 +19,22 @@
 #include <string>
 #include <time.h>
 
-
 #include "rasterizeKernels.h"
 #include "utilities.h"
+#include "sceneStructs.h"
 
 using namespace std;
 
 //-------------------------------
+//----------CAMERA STUFF---------
+//-------------------------------
+
+simpleCamera camera;
+
+//-------------------------------
 //------------GL STUFF-----------
 //-------------------------------
+
 int frame;
 int fpstracker;
 double seconds;

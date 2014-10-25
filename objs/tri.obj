@@ -1,7 +1,10 @@
+# Geometric vertices.
 v 0 0 0
 v 0.1 0 0
 v 0 0.1 0
 
+# Vertex normals.
 vn 0 0 1
 
+# Face with vertex normals.
 f 1//1 2//1 3//1

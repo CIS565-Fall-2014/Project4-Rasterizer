@@ -71,6 +71,7 @@
     <ClInclude Include="..\..\..\src\main.h" />
     <ClInclude Include="..\..\..\src\rasterizeKernels.h" />
     <ClInclude Include="..\..\..\src\rasterizeTools.h" />
+    <ClInclude Include="..\..\..\src\sceneStructs.h" />
     <ClInclude Include="..\..\..\src\utilities.h" />
   </ItemGroup>
   <ItemGroup>

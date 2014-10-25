@@ -7,39 +7,48 @@
 //-------------MAIN--------------
 //-------------------------------
 
-int main(int argc, char** argv){
+int main( int argc, char **argv )
+{
+	bool loadedScene = false;
+	for(int i=1; i<argc; i++){
+	string header; string data;
+	istringstream liness(argv[i]);
+	getline(liness, header, '='); getline(liness, data, '=');
+	if(strcmp(header.c_str(), "mesh")==0){
+		//renderScene = new scene(data);
+		mesh = new obj();
+		objLoader* loader = new objLoader(data, mesh);
+		mesh->buildVBOs();
+		delete loader;
+		loadedScene = true;
+	}
+	}
 
-  bool loadedScene = false;
-  for(int i=1; i<argc; i++){
-    string header; string data;
-    istringstream liness(argv[i]);
-    getline(liness, header, '='); getline(liness, data, '=');
-    if(strcmp(header.c_str(), "mesh")==0){
-      //renderScene = new scene(data);
-      mesh = new obj();
-      objLoader* loader = new objLoader(data, mesh);
-      mesh->buildVBOs();
-      delete loader;
-      loadedScene = true;
-    }
-  }
+	if(!loadedScene){
+	cout << "Usage: mesh=[obj file]" << endl;
+	return 0;
+	}
 
-  if(!loadedScene){
-    cout << "Usage: mesh=[obj file]" << endl;
-    return 0;
-  }
+	frame = 0;
+	seconds = time (NULL);
+	fpstracker = 0;
 
-  frame = 0;
-  seconds = time (NULL);
-  fpstracker = 0;
+	// Hardcoded camera definition.
+	camera.position = glm::vec3( 0.0f, 0.0f, -4.0f );
+	camera.target = glm::vec3( 0.0f, 0.0f, 0.0f );
+	camera.up = glm::vec3( 0.0f, 1.0f, 0.0f );
+	camera.fov_y = 25.0f;
+	camera.resolution = glm::vec2( width, height );
+	camera.near_clip = 0.01f;
+	camera.far_clip = 1000.0f;
 
-  // Launch CUDA/GL
-  if (init(argc, argv)) {
-    // GLFW main loop
-    mainLoop();
-  }
+	// Launch CUDA/GL
+	if (init(argc, argv)) {
+		// GLFW main loop
+		mainLoop();
+	}
 
-  return 0;
+	return 0;
 }
 
 void mainLoop() {
@@ -94,7 +103,15 @@ void runCuda(){
   ibosize = mesh->getIBOsize();
 
   cudaGLMapBufferObject((void**)&dptr, pbo);
-  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize);
+  cudaRasterizeCore( dptr,
+					 frame,
+					 vbo,
+					 vbosize,
+					 cbo,
+					 cbosize,
+					 ibo,
+					 ibosize,
+					 camera );
   cudaGLUnmapBufferObject(pbo);
 
   vbo = NULL;
