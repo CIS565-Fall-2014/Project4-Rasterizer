@@ -9,8 +9,11 @@ Due Monday 10/27/2014 @ 12 PM
 -------------------------------------------------------------------------------
 NOTE:
 -------------------------------------------------------------------------------
-This project requires an NVIDIA graphics card with CUDA capability! Any card with CUDA compute capability 1.1 or higher will work fine for this project. For a full list of CUDA capable cards and their compute capability, please consult: http://developer.nvidia.com/cuda/cuda-gpus. If you do not have an NVIDIA graphics card in the machine you are working on, feel free to use any machine in the SIG Lab or in Moore100 labs. All machines in the SIG Lab and Moore100 are equipped with CUDA capable NVIDIA graphics cards. If this too proves to be a problem, please contact Patrick or Karl as soon as possible.
-
+Rasterization:
+parallelized by primitives
+1. use AABB method get the bound box of triangle
+2. set scanline in Y axis and get intersection points for each scan line
+3. fill the pixels between each intersection points with primitive color 
 -------------------------------------------------------------------------------
 INTRODUCTION:
 -------------------------------------------------------------------------------

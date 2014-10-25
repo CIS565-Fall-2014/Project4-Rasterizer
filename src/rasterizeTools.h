@@ -34,6 +34,14 @@ struct fragment{
   float z;
 };
 
+struct light {
+	glm::vec3 color;
+	glm::vec3 pos;
+
+	__host__ __device__ light() : color(), pos() {};
+	__host__ __device__ light(glm::vec3 c, glm::vec3 p) :color(c), pos(p) {};
+};
+
 //Multiplies a cudaMat4 matrix and a vec4
 __host__ __device__ glm::vec3 multiplyMV(cudaMat4 m, glm::vec4 v){
   glm::vec3 r(1,1,1);

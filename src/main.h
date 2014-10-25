@@ -6,7 +6,7 @@
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
-
+#include <GL/glut.h>
 #include <cuda_runtime.h>
 #include <cuda_gl_interop.h>
 #include <fstream>
@@ -74,8 +74,12 @@ void runCuda();
 #ifdef __APPLE__
 	void display();
 #else
-	void display();
+	
 	void keyboard(unsigned char key, int x, int y);
+	void mousePress(int button, int state, int x, int y);
+	void mouseMove(int x, int y);
+	int buttonPressed;
+	int prevX, prevY;
 #endif
 
 //-------------------------------
@@ -95,7 +99,7 @@ GLuint initShader();
 void cleanupCuda();
 void deletePBO(GLuint* pbo);
 void deleteTexture(GLuint* tex);
-
+void shut_down(int return_code);
 //------------------------------
 //-------GLFW CALLBACKS---------
 //------------------------------
