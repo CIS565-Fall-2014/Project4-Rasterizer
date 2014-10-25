@@ -107,7 +107,7 @@ void mainLoop() {
 	float AR = width / height;
 
 	//glm::mat4 ModelTransform =utilityCore::buildTransformationMatrix(glm::vec3(0.0f),glm::vec3(0.0f,0.0f,0.0f),glm::vec3(1.0f));
-	glm::mat4 ModelTransform =utilityCore::buildTransformationMatrix(glm::vec3(0.0f),glm::vec3(-(rotationY + mouseDeltaY),- (rotationX + mouseDeltaX + 10.0f),0.0f),glm::vec3(1.0f));
+	glm::mat4 ModelTransform =utilityCore::buildTransformationMatrix(glm::vec3(0.0f),glm::vec3(-(rotationY + mouseDeltaY),- (rotationX + mouseDeltaX + 10.0f),0.0f),glm::vec3(.3f));
 
 	glm::mat4 cameraAimTransform = utilityCore::buildTransformationMatrix(glm::vec3(0.0f),glm::vec3(0.0f),glm::vec3(1.0f));
 	//glm::mat4 cameraAimTransform = utilityCore::buildTransformationMatrix(glm::vec3(0.0f),glm::vec3(-(rotationY + mouseDeltaY),- (rotationX + mouseDeltaX + 10.0f),0.0f),glm::vec3(1.0f));
@@ -120,11 +120,11 @@ void mainLoop() {
 	glmMVtransform = ViewTransform * ModelTransform;
 
 	//construct light
-	Light.position = glm::vec3(-5.0f,0.0f,5.0f);
+	Light.position = glm::vec3(10.0f,2.0f, -10.0f);
 	Light.diffColor = glm::vec3(1.0f);
 	Light.specColor = glm::vec3(1.0f);
 	Light.specExp = 20;
-	Light.ambColor = glm::vec3(0.0f,0.0f,1.0f);
+	Light.ambColor = glm::vec3(0.2f,0.6f,0.3f);
     glfwPollEvents();
 
     runCuda();
@@ -173,13 +173,17 @@ void runCuda(){
   ibo = mesh->getIBO();
   ibosize = mesh->getIBOsize();
 
+  nbo = mesh->getNBO();
+  nbosize = mesh->getNBOsize();
+
   cudaGLMapBufferObject((void**)&dptr, pbo);
-  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize, glmViewTransform, glmProjectionTransform,glmMVtransform,Light);
+  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize,nbo,nbosize, glmViewTransform, glmProjectionTransform,glmMVtransform,Light);
   cudaGLUnmapBufferObject(pbo);
 
   vbo = NULL;
   cbo = NULL;
   ibo = NULL;
+  nbo = NULL;
 
   frame++;
   fpstracker++;
