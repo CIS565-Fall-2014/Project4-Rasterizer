@@ -15,7 +15,7 @@
 In the scissor test screen, the fragment shader will be skipped. With the scissor test, the FPS should be higher than which without the scissor test. 
 The save time depends on the scissor test screen size. 
 ![ResultImage](scissortest.bmp)
-![ResultImage](scissor test chart.bmp)
+![ResultImage](scissor test chart_resize.bmp)
 
 #Anti-Aliasing:
 * Super sampling antialiasing:
