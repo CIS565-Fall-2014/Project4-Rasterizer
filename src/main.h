@@ -45,6 +45,12 @@ double rotationX = 0.0f;
 double rotationY = 0.0f;
 double mouseDeltaX = 0.0f;
 double mouseDeltaY = 0.0f;
+//toggle view
+bool isFkeyDown = false;
+int isFlatShading = false;
+bool isMkeyDown = false;
+int isMeshView = false;
+
 //keyboard control
 double deltaX = 0.0f;
 double deltaZ = 0.0f;

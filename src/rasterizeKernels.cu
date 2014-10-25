@@ -8,6 +8,13 @@
 #include "rasterizeKernels.h"
 #include "rasterizeTools.h"
 
+#define BLOCK_SIZE 16
+#define DEBUG_VERTICES 0
+#define DEBUG_NORMALS 0
+#define SPECULAR_EXP 3
+#define COLOR_INTERPOLATION_MODE 0
+
+
 glm::vec3* framebuffer;
 fragment* depthbuffer;
 float* device_vbo;
@@ -19,14 +26,6 @@ triangle* primitives;
 cudaMat4 * projectionTransform;
 cudaMat4 * MVtransform;
 cudaMat4 * MVPtransform;
-
-#define BLOCK_SIZE 16
-#define DEBUG_VERTICES 0
-#define DEBUG_NORMALS 0
-#define SPECULAR_EXP 3
-#define FLAT_SHADING 0
-#define COLOR_INTERPOLATION_MODE 0
-
 
 void checkCUDAError(const char *msg) {
   cudaError_t err = cudaGetLastError();
@@ -192,7 +191,7 @@ __global__ void primitiveAssemblyKernel(float* vbo, int vbosize, float* cbo, int
 }
 
 //rasterization
-__global__ void rasterizationKernel(triangle* primitives, int primitivesCount, fragment* depthbuffer, glm::vec2 resolution, cudaMat4 * Ptransform){
+__global__ void rasterizationKernel(triangle* primitives, int primitivesCount, fragment* depthbuffer, glm::vec2 resolution, cudaMat4 * Ptransform, int isFlatShading, int isMeshView){
 	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 	if(index<primitivesCount){
 		triangle originalTri =  primitives[index];
@@ -206,7 +205,6 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 		tri.p0 = glm::vec3(clipP0.x / clipP0.w,clipP0.y / clipP0.w,clipP0.z / clipP0.w);
 		tri.p1 = glm::vec3(clipP1.x / clipP1.w,clipP1.y / clipP1.w,clipP1.z / clipP1.w);
 		tri.p2 = glm::vec3(clipP2.x / clipP2.w,clipP2.y / clipP2.w,clipP2.z / clipP2.w);
-
 
 #if(DEBUG_VERTICES)
 		//Only display vertices
@@ -231,8 +229,9 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 		if(P2 < totalPixel && P2 >=0) depthbuffer[P2].color = tri.c2;
 
 #else
-		//Full rasterization
 
+		//Full rasterization
+		float epsilon = 0.035f;
 		int totalPixel = resolution.x * resolution.y;
 		float halfResoX =  0.5f * (float) resolution.x;
 		float halfResoY =  0.5f * (float) resolution.y;
@@ -241,6 +240,7 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 		getAABBForTriangle(tri,Min,Max);
 		float pixelWidth = 1.0f/(float) resolution.x;
 		float pixelHeight = 1.0f/(float) resolution.y;
+
 
 		//loop thru all pixels in the bounding box
 		for(int i = 0;i < (Max.x - Min.x)/pixelWidth + 1; i++)
@@ -263,21 +263,36 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 					//viewport transformation
 					x = pixelPos.x * halfResoX + halfResoX;
 					y = pixelPos.y  * halfResoY+ halfResoY;
+					if(x < 0 || y < 0 || x > resolution.x || y > resolution.y) continue;
 
 					pixelIndex = x + y * resolution.x;
 
 					fragment frag;
 					frag.position = pixelBaryPos.x * tri.p0 + pixelBaryPos.y * tri.p1 + pixelBaryPos.z * tri.p2;
 					frag.cameraSpacePosition = pixelBaryPos.x * originalTri.p0 + pixelBaryPos.y * originalTri.p1 + pixelBaryPos.z * originalTri.p2;
-#if(FLAT_SHADING)
-					frag.normal = glm::normalize(glm::cross(originalTri.p1 - originalTri.p0, originalTri.p2 - originalTri.p1)); 
-#else
-					frag.normal = pixelBaryPos.x * originalTri.n0 + pixelBaryPos.y * originalTri.n1 + pixelBaryPos.z * originalTri.n2;
-#endif
+
+					if(isFlatShading) frag.normal = glm::normalize(glm::cross(originalTri.p1 - originalTri.p0, originalTri.p2 - originalTri.p1)); 
+					else frag.normal = pixelBaryPos.x * originalTri.n0 + pixelBaryPos.y * originalTri.n1 + pixelBaryPos.z * originalTri.n2;
+
 					frag.color = pixelBaryPos.x * tri.c0 + pixelBaryPos.y * tri.c1 + pixelBaryPos.z * tri.c2;
 					frag.isEmpty = false;
+					frag.isFlat = false;
 
-					if(x < 0 || y < 0 || x > resolution.x || y > resolution.y) continue;
+					if(isMeshView)
+					{
+						float Lyz = glm::length(tri.p1 - tri.p2);float Lxz = glm::length(tri.p0 - tri.p2);float Lxy = glm::length(tri.p0 - tri.p1);
+						if(abs(pixelBaryPos.x)  < epsilon ||abs(pixelBaryPos.y)  < epsilon ||abs(pixelBaryPos.z)  < epsilon)
+						{
+							frag.color = glm::vec3(0.0f,0.0f,1.0f);
+							frag.isFlat = true;
+						}
+
+						else
+						{
+							frag.isEmpty = true;
+							frag.position.z = - 10000;
+						}
+					}
 
 					if(frag.position.z > depthbuffer[pixelIndex].position.z) //TODO change to atomic compare
 					{
@@ -287,13 +302,12 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 			}
 		}
 #endif
-
 	}
 }
 
 
 //fragment shader
-__global__ void fragmentShadeKernel(fragment* depthbuffer, light rawLight, glm::vec2 resolution,cudaMat4 inverseViewTransform,cudaMat4 inverseMV){
+__global__ void fragmentShadeKernel(fragment* depthbuffer, light rawLight, glm::vec2 resolution,cudaMat4 viewTransform){
   int x = (blockIdx.x * blockDim.x) + threadIdx.x;
   int y = (blockIdx.y * blockDim.y) + threadIdx.y;
   int index = x + (y * resolution.x);
@@ -314,12 +328,18 @@ __global__ void fragmentShadeKernel(fragment* depthbuffer, light rawLight, glm::
 
 	  light Light = rawLight;
 
-	  Light.position = multiplyMV(inverseViewTransform, glm::vec4(rawLight.position,1.0f)); 
+	  Light.position = multiplyMV(viewTransform, glm::vec4(rawLight.position,1.0f)); 
 	  fragment f = depthbuffer[index];
 
 	  if(f.isEmpty) 
 	  {
 		  depthbuffer[index].color = Light.ambColor;
+		  return;
+	  }
+
+	  if(f.isFlat)
+	  {
+		  depthbuffer[index].color = f.color;
 		  return;
 	  }
 
@@ -360,7 +380,7 @@ __global__ void render(glm::vec2 resolution, fragment* depthbuffer, glm::vec3* f
 }
 
 // Wrapper for the __global__ call that sets up the kernel calls and memory management
-void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float* vbo, int vbosize, float* cbo, int cbosize, int* ibo, int ibosize, float * nbo, int nbosize,glm::mat4 glmViewTransform,glm::mat4 glmProjectionTransform, glm::mat4 glmMVtransform,light Light){
+void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float* vbo, int vbosize, float* cbo, int cbosize, int* ibo, int ibosize, float * nbo, int nbosize,glm::mat4 glmViewTransform,glm::mat4 glmProjectionTransform, glm::mat4 glmMVtransform,light Light, int isFlatShading, int isMeshView){
 	
 	projectionTransform = new cudaMat4;
 	MVtransform = new cudaMat4;
@@ -409,6 +429,7 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
 	frag.position = glm::vec3(0,0,-10000);
 	frag.cameraSpacePosition = glm::vec3(0,0,0);
 	frag.isEmpty = true;
+	frag.isFlat = false;
 	clearDepthBuffer<<<fullBlocksPerGrid, threadsPerBlock>>>(resolution, depthbuffer,frag);
 
 	//------------------------------
@@ -454,14 +475,14 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
 	//------------------------------
 	//rasterization
 	//------------------------------
-	rasterizationKernel<<<primitiveBlocks, tileSize>>>(primitives, ibosize/3, depthbuffer, resolution,dev_projectionTransform);
+	rasterizationKernel<<<primitiveBlocks, tileSize>>>(primitives, ibosize/3, depthbuffer, resolution,dev_projectionTransform, isFlatShading, isMeshView);
 	checkCUDAError("rasterization failed!");
 
 	cudaDeviceSynchronize();
 	//------------------------------
 	//fragment shader
 	//------------------------------
-	fragmentShadeKernel<<<fullBlocksPerGrid, threadsPerBlock>>>(depthbuffer, Light, resolution,viewTransform, inverseMV);
+	fragmentShadeKernel<<<fullBlocksPerGrid, threadsPerBlock>>>(depthbuffer, Light, resolution,viewTransform);
 	checkCUDAError("fragment shader failed!");
 
 	cudaDeviceSynchronize();

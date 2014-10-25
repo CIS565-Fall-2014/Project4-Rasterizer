@@ -26,5 +26,9 @@ W,A,S,D to move camera position.
 
 Used GLFW glfwGetMouseButton,glfwGetCursorPos for getting necessary inputs for setting up the camera according to mouse movement.
 
+Mesh View
+
+Point View
+
 
 

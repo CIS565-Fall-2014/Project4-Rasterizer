@@ -99,6 +99,34 @@ void mainLoop() {
 	{
 		deltaX += cameraMovementIncrement;
 	}
+	
+	if(glfwGetKey(window,GLFW_KEY_F) == GLFW_PRESS)
+	{
+		isFkeyDown = true;
+	}
+	if(glfwGetKey(window,GLFW_KEY_F) == GLFW_RELEASE)
+	{
+		if(isFkeyDown)
+		{		
+			if(!isFlatShading) isFlatShading = 1;
+			else isFlatShading = 0;
+		}
+		isFkeyDown = false;
+	}
+
+	if(glfwGetKey(window,GLFW_KEY_M) == GLFW_PRESS)
+	{
+		isMkeyDown = true;
+	}
+	if(glfwGetKey(window,GLFW_KEY_M) == GLFW_RELEASE)
+	{
+		if(isMkeyDown)
+		{		
+			if(!isMeshView) isMeshView = 1;
+			else isMeshView = 0;
+		}
+		isMkeyDown = false;
+	}
 
 
 	//set up transformations
@@ -106,7 +134,7 @@ void mainLoop() {
 	float AR = width / height;
 
 	//glm::mat4 ModelTransform =utilityCore::buildTransformationMatrix(glm::vec3(0.0f),glm::vec3(0.0f,0.0f,0.0f),glm::vec3(1.0f));
-	glm::mat4 ModelTransform =utilityCore::buildTransformationMatrix(glm::vec3(0.0f),glm::vec3(-(rotationY + mouseDeltaY),- (rotationX + mouseDeltaX + 10.0f),0.0f),glm::vec3(.3f));
+	glm::mat4 ModelTransform =utilityCore::buildTransformationMatrix(glm::vec3(0.0f),glm::vec3(-(rotationY + mouseDeltaY),- (rotationX + mouseDeltaX + 10.0f),0.0f),glm::vec3(1.0f));
 
 	glm::mat4 cameraAimTransform = utilityCore::buildTransformationMatrix(glm::vec3(0.0f),glm::vec3(0.0f),glm::vec3(1.0f));
 	//glm::mat4 cameraAimTransform = utilityCore::buildTransformationMatrix(glm::vec3(0.0f),glm::vec3(-(rotationY + mouseDeltaY),- (rotationX + mouseDeltaX + 10.0f),0.0f),glm::vec3(1.0f));
@@ -176,7 +204,7 @@ void runCuda(){
   nbosize = mesh->getNBOsize();
 
   cudaGLMapBufferObject((void**)&dptr, pbo);
-  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize,nbo,nbosize, glmViewTransform, glmProjectionTransform,glmMVtransform,Light);
+  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize,nbo,nbosize, glmViewTransform, glmProjectionTransform,glmMVtransform,Light, isFlatShading,isMeshView);
   cudaGLUnmapBufferObject(pbo);
 
   vbo = NULL;
