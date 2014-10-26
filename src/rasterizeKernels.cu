@@ -292,8 +292,14 @@ void rasterizationKernel( triangle *primitives,
 				// Update depth buffer.
 				if ( current_z < buffer_z ) {
 					fragment f;
-					f.color = ( tri.c0 * barycentric_coordinates.x ) + ( tri.c1 * barycentric_coordinates.y ) + ( tri.c2 * barycentric_coordinates.z );
+					//f.color = ( tri.c0 * barycentric_coordinates.x ) + ( tri.c1 * barycentric_coordinates.y ) + ( tri.c2 * barycentric_coordinates.z );
+					f.color = glm::vec3( 0.5f, 0.5f, 0.5f );
+
 					f.normal = glm::normalize( ( tri.n0 * barycentric_coordinates.x ) + ( tri.n1 * barycentric_coordinates.y ) + ( tri.n2 * barycentric_coordinates.z ) );
+					//float tri_area = calculateSignedArea( tri );
+					//tri_area = ( tri_area < 0.0f ) ? ( tri_area * -1.0f ) : tri_area;
+					//f.normal = glm::normalize( ( ( tri.n0 * barycentric_coordinates.x ) + ( tri.n1 * barycentric_coordinates.y ) + ( tri.n2 * barycentric_coordinates.z ) ) / tri_area );
+					
 					f.position = ( tri.p0 * barycentric_coordinates.x ) + ( tri.p1 * barycentric_coordinates.y ) + ( tri.p2 * barycentric_coordinates.z );
 					writeToDepthbuffer( x, y, f, depthbuffer, resolution );
 				}
@@ -313,18 +319,16 @@ void fragmentShadeKernel( fragment *depthbuffer,
 	int y = ( blockIdx.y * blockDim.y ) + threadIdx.y;
 	int index = x + ( y * resolution.x );
 	if ( x <= resolution.x && y <= resolution.y ) {
+		glm::vec3 light_pos( 10.0f, 10.0f, 10.0f );
+		float light_intensity = 2.0f;
+		fragment f = depthbuffer[index];
 
-		//glm::vec3 light_pos( -10.0f, -10.0f, -10.0f );
-		//float ambient = 0.2f;
-		//glm::vec3 N = depthbuffer[index].normal;
-		//glm::vec3 L = glm::normalize( light_pos - depthbuffer[index].position );
-		//depthbuffer[index].color = depthbuffer[index].color * ( ambient + ( 1.0f - ambient ) * max( glm::dot( N, L ), 0.0f ) );
-
+		// Diffuse Lambertian shading.
+		depthbuffer[index].color = max( glm::dot( f.normal, glm::normalize( light_pos - f.position )), 0.0f ) * depthbuffer[index].color * light_intensity;
 	}
 }
 
 /*********** DANNY'S PRIMARY CONTRIBUTION - END ***********/
-
 
 // Write fragment colors to the framebuffer.
 __global__
@@ -336,7 +340,6 @@ void render( glm::vec2 resolution, fragment *depthbuffer, glm::vec3 *framebuffer
 
 	if ( x <= resolution.x && y <= resolution.y ) {
 		framebuffer[index] = depthbuffer[index].color;
-		//framebuffer[index] = glm::vec3( 1.0f, 0.0f, 0.0f );
 	}
 }
 
