@@ -16,32 +16,32 @@ The following is a quick overview of the structure and features of my rasterizor
 
 ###Other features:
 
-*Mouse-based interactive camera.
-*Mesh View
-*Vertices View
-*Color interpolation
+* Mouse-based interactive camera
+* Mesh View
+* Vertices View
+* Color interpolation
 
 ###Reulsts
 Tyra (200,000 faces)
-![]tyra1.jpg
+![](tyra1.jpg)
 
 Cow (5,804 faces) - flat shading
-![] cowFlat.jpg
+![] (cowFlat.jpg)
 
 Cow (5,804 faces) - phong shading
-![] cowPhong.jpg
+![] (cowPhong.jpg)
 
 Donut - phong
-![] donutPhong.jpg
+![] (donutPhong.jpg)
 
 Donut - mesh
-![] donutMesh.jpg
+![] (donutMesh.jpg)
 
 Armadillo (212,000 faces) - camera space normal
-![]armaNormal.jpg
+![](armaNormal.jpg)
 
 Dragon (100,000 faces) - vertices
-![]dragonCloud.jpg
+![](dragonCloud.jpg)
 
 ###Implementation Details
 * Vertex Shading
