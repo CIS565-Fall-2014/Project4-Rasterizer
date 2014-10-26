@@ -91,7 +91,7 @@ transfers data from depthbuffer to framebuffer. No other fancy stuff happens her
 
 ###Other features:
 
-*Mouse-based interactive camera
+* Mouse-based interactive camera
 
 Click and drag to rotate, scroll to zoom in and out. 
 
