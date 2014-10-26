@@ -29,6 +29,7 @@ struct triangle {
 
 struct fragment {
     glm::vec3 pn;  // pos ndc
+    glm::vec3 pw;  // pos world
     glm::vec3 c;   // color
     glm::vec3 nw;  // nor world
 };
@@ -37,6 +38,11 @@ struct fragment {
 __host__ __device__ float screen2ndc(float x, float res)
 {
     return (x / res) * 2.f - 1.f;
+}
+
+__host__ __device__ glm::vec3 ndc2norm(glm::vec3 x)
+{
+    return (x + glm::vec3(1.f)) * 0.5f;
 }
 
 __host__ __device__ glm::vec3 baryinterp(

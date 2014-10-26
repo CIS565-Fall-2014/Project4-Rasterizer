@@ -152,10 +152,16 @@ __global__ void vertexShadeKernel(int vbocount,
         glm::vec3 n(nbo[index * 3], nbo[index * 3 + 1], nbo[index * 3 + 2]);
         glm::vec3 c(cbo[index * 3], cbo[index * 3 + 1], cbo[index * 3 + 2]);
 
+        vertO v;
+
+        // Apply modelview
         //p = glm::rotate(p, 1.f, glm::vec3(0, 1, 0));
         //p = glm::rotate(p, 1.f, glm::vec3(1, 0, 0));
 
-        vertO v;
+        v.pw = p;
+
+        // Apply projection
+
         v.pn = p;
         v.nw = n;
         v.c = c;
@@ -214,9 +220,10 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
                     float depthnew = getZAtCoordinate(bary, tri);
 
                     if (depthnew < 1 && depthnew > depthold) {
+                        frag.pn = glm::vec3(ndc, depthnew);
+                        frag.pw = baryinterp(bary, tri.v[0].pw, tri.v[1].pw, tri.v[2].pw);
                         frag.c  = baryinterp(bary, tri.v[0].c , tri.v[1].c , tri.v[2].c );
                         frag.nw = baryinterp(bary, tri.v[0].nw, tri.v[1].nw, tri.v[2].nw);
-                        frag.pn = glm::vec3(ndc, depthnew);
                         depthbuffer[i] = frag;
                     }
                 }
@@ -235,10 +242,13 @@ __global__ void fragmentShadeKernel(fragment* depthbuffer, glm::vec2 resolution)
         fragment frag = depthbuffer[index];
 
         // Render depth
-        //frag.c = glm::vec3((frag.pn.z + 1) * 0.5f);
+        //frag.c = ndc2norm(glm::vec3(frag.pn.z));
 
         // Render normals
-        frag.c = (frag.nw + glm::vec3(1.f)) * 0.5f;
+        //frag.c = ndc2norm(frag.nw);
+
+        // Render world position
+        frag.c = ndc2norm(frag.pw);
 
         depthbuffer[index] = frag;
     }
@@ -283,9 +293,10 @@ void cudaRasterizeCore(
     clearImage<<<fullBlocksPerGrid, threadsPerBlock>>>(resolution, framebuffer, glm::vec3(0.2f, 0.2f, 0.2f));
 
     fragment frag;
+    frag.pn = glm::vec3(0, 0, -10000);
+    frag.pw = glm::vec3(0, 0, 0);
     frag.c  = glm::vec3(1, 0, 1);
     frag.nw = glm::vec3(0, 0, 0);
-    frag.pn = glm::vec3(0, 0, -10000);
     clearDepthBuffer<<<fullBlocksPerGrid, threadsPerBlock>>>(resolution, depthbuffer, frag);
 
     //------------------------------
