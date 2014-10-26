@@ -18,8 +18,7 @@
 #include <stdlib.h>
 #include <string>
 #include <time.h>
-
-
+#include "../external/include/glm/gtc/matrix_transform.hpp"
 #include "rasterizeKernels.h"
 #include "utilities.h"
 
@@ -49,6 +48,25 @@ float* cbo;
 int cbosize;
 int* ibo;
 int ibosize;
+float* nbo;
+int nbosize;
+
+struct camera{
+	glm::vec3 position;
+	glm::vec3 view;
+	glm::vec3 up;
+	float FOV;
+};
+
+camera cam;
+float z_near;
+float z_far;
+glm::mat4 model;
+glm::mat4 view;
+glm::mat4 projection;
+glm::mat4 n_modelview;
+glm::mat4 M;
+ 
 
 //-------------------------------
 //----------CUDA STUFF-----------

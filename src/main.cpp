@@ -45,6 +45,22 @@ int main(int argc, char** argv){
 void mainLoop() {
   while(!glfwWindowShouldClose(window)){
     glfwPollEvents();
+
+	//camera data
+  cam.position=glm::vec3(0.0f,0.0f,1.0f);
+  cam.view=glm::vec3(0.0f,0.3f,0.0f);
+  cam.up=glm::vec3(0.0f,1.0f,0.0f);
+  cam.FOV=60.0f;
+  z_near=0.1f;
+  z_far=100.0f;
+  //Transform points from model to clip coordinates	
+  model=glm::mat4(1.0f);
+  view=glm::lookAt(cam.position,cam.view,cam.up);
+  projection=glm::perspective(cam.FOV,(float)width/(float)height,z_near,z_far);
+  n_modelview=glm::transpose(glm::inverse(view*model));
+  M=projection*view*model;
+  
+
     runCuda();
 
     time_t seconds2 = time (NULL);
@@ -93,8 +109,12 @@ void runCuda(){
   ibo = mesh->getIBO();
   ibosize = mesh->getIBOsize();
 
+  nbo=mesh->getNBO();
+  nbosize=mesh->getNBOsize();
+
+ 
   cudaGLMapBufferObject((void**)&dptr, pbo);
-  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize);
+  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize,nbo,nbosize,model,view,projection,M,n_modelview, z_near,z_far);
   cudaGLUnmapBufferObject(pbo);
 
   vbo = NULL;
