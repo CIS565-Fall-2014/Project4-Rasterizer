@@ -17,7 +17,7 @@ float *device_nbo;
 triangle* primitives;
 float *device_vbo_window_coords;
 
-const float EMPTY_BUFFER_DEPTH = -10000.0f;
+const float EMPTY_BUFFER_DEPTH = 10000.0f;
 
 void checkCUDAError(const char *msg) {
   cudaError_t err = cudaGetLastError();
@@ -227,12 +227,15 @@ void primitiveAssemblyKernel( float *vbo, int vbosize,
 		glm::vec3 p2( vbo[v2_index + 0], vbo[v2_index + 1], vbo[v2_index + 2] );
 
 		// Get colors of triangle vertices.
-		int c0_index = ( i0 % 3 ) * 3;
-		int c1_index = ( i1 % 3 ) * 3;
-		int c2_index = ( i2 % 3 ) * 3;
-		glm::vec3 c0( cbo[c0_index + 0], cbo[c0_index + 1], cbo[c0_index + 2] );
-		glm::vec3 c1( cbo[c1_index + 0], cbo[c1_index + 1], cbo[c1_index + 2] );
-		glm::vec3 c2( cbo[c2_index + 0], cbo[c2_index + 1], cbo[c2_index + 2] );
+		//int c0_index = ( i0 % 3 ) * 3;
+		//int c1_index = ( i1 % 3 ) * 3;
+		//int c2_index = ( i2 % 3 ) * 3;
+		//glm::vec3 c0( cbo[c0_index + 0], cbo[c0_index + 1], cbo[c0_index + 2] );
+		//glm::vec3 c1( cbo[c1_index + 0], cbo[c1_index + 1], cbo[c1_index + 2] );
+		//glm::vec3 c2( cbo[c2_index + 0], cbo[c2_index + 1], cbo[c2_index + 2] );
+		glm::vec3 c0( cbo[0], cbo[1], cbo[2] );
+		glm::vec3 c1( cbo[3], cbo[4], cbo[5] );
+		glm::vec3 c2( cbo[6], cbo[7], cbo[8] );
 
 		// Get normals of triangle vertices.
 		glm::vec3 n0( nbo[v0_index + 0], nbo[v0_index + 1], nbo[v0_index + 2] );
@@ -246,16 +249,6 @@ void primitiveAssemblyKernel( float *vbo, int vbosize,
 									  n0, n1, n2 );
 	}
 }
-
-
-//__device__ glm::vec3 getScanlineIntersection(glm::vec3 v1, glm::vec3 v2, float y) {
-//	float t = (y-v1.y)/(v2.y-v1.y);
-//	return glm::vec3(t*v2.x + (1-t)*v1.x, y, t*v2.z + (1-t)*v1.z);
-//}
-//
-//__host__
-//__device__
-//glm::vec3 computePoint
 
 
 // Scanline rasterization per triangle.
@@ -336,6 +329,7 @@ void rasterizationKernel( triangle *primitives,
 			for ( int x = lx; x < rx - 1; ++x ) {
 				if ( x > 0 && x < resolution.x && y > 0 && y < resolution.y ) {
 
+					// TODO: There is a race condition here. depthbuffer needs to be updated atomically.
 					// TODO: current_z is computed WRT triangle in object-space. I think it should be computed WRT triangle in camera-space.
 
 					// Compute Barycentric coordinates of current fragment in screen-space triangle.
@@ -346,13 +340,19 @@ void rasterizationKernel( triangle *primitives,
 					float buffer_z = buffer_fragment.position.z;
 
 					// Update depth buffer.
-					if ( current_z > buffer_z ) {
+					if ( current_z < buffer_z ) {
 						fragment f;
 						f.color = ( tri.c0 * barycentric_coordinates.x ) + ( tri.c1 * barycentric_coordinates.y ) + ( tri.c2 * barycentric_coordinates.z );
 						f.normal = glm::normalize( ( tri.n0 * barycentric_coordinates.x ) + ( tri.n1 * barycentric_coordinates.y ) + ( tri.n2 * barycentric_coordinates.z ) );
 						f.position = ( tri.p0 * barycentric_coordinates.x ) + ( tri.p1 * barycentric_coordinates.y ) + ( tri.p2 * barycentric_coordinates.z );
 						writeToDepthbuffer( x, y, f, depthbuffer, resolution );
 					}
+
+					//fragment f;
+					//f.color = glm::vec3( 1.0f, 0.0f, 0.0f );
+					//f.normal = glm::normalize( ( tri.n0 * barycentric_coordinates.x ) + ( tri.n1 * barycentric_coordinates.y ) + ( tri.n2 * barycentric_coordinates.z ) );
+					//f.position = ( tri.p0 * barycentric_coordinates.x ) + ( tri.p1 * barycentric_coordinates.y ) + ( tri.p2 * barycentric_coordinates.z );
+					//writeToDepthbuffer( x, y, f, depthbuffer, resolution );
 				}
 			}
 
@@ -374,7 +374,11 @@ void fragmentShadeKernel( fragment *depthbuffer,
 	int index = x + ( y * resolution.x );
 	if ( x <= resolution.x && y <= resolution.y ) {
 
-		// TODO.
+		//glm::vec3 light_pos( -10.0f, -10.0f, -10.0f );
+		//float ambient = 0.2f;
+		//glm::vec3 N = depthbuffer[index].normal;
+		//glm::vec3 L = glm::normalize( light_pos - depthbuffer[index].position );
+		//depthbuffer[index].color = depthbuffer[index].color * ( ambient + ( 1.0f - ambient ) * max( glm::dot( N, L ), 0.0f ) );
 
 	}
 }
@@ -382,16 +386,18 @@ void fragmentShadeKernel( fragment *depthbuffer,
 /*********** DANNY'S PRIMARY CONTRIBUTION - END ***********/
 
 
-//Writes fragment colors to the framebuffer
-__global__ void render(glm::vec2 resolution, fragment* depthbuffer, glm::vec3* framebuffer){
+// Write fragment colors to the framebuffer.
+__global__
+void render( glm::vec2 resolution, fragment *depthbuffer, glm::vec3 *framebuffer )
+{
+	int x = ( blockIdx.x * blockDim.x ) + threadIdx.x;
+	int y = ( blockIdx.y * blockDim.y ) + threadIdx.y;
+	int index = x + ( y * resolution.x );
 
-  int x = (blockIdx.x * blockDim.x) + threadIdx.x;
-  int y = (blockIdx.y * blockDim.y) + threadIdx.y;
-  int index = x + (y * resolution.x);
-
-  if(x<=resolution.x && y<=resolution.y){
-    framebuffer[index] = depthbuffer[index].color;
-  }
+	if ( x <= resolution.x && y <= resolution.y ) {
+		framebuffer[index] = depthbuffer[index].color;
+		//framebuffer[index] = glm::vec3( 1.0f, 0.0f, 0.0f );
+	}
 }
 
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
