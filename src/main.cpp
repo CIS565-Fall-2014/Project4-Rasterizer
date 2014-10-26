@@ -6,7 +6,7 @@
 //-------------------------------
 //-------------MAIN--------------
 //-------------------------------
-
+using namespace std;
 int main(int argc, char** argv){
 
   bool loadedScene = false;
@@ -37,9 +37,7 @@ int main(int argc, char** argv){
   if (init(argc, argv)) {
     // GLFW main loop
     mainLoop();
-	/*glutKeyboardFunc(keyboard);
-	glutMouseFunc(mousePress);
-	glutMotionFunc(mouseMove);*/
+	
   }
 
   return 0;
@@ -88,7 +86,7 @@ void runCuda(){
   vbo = mesh->getVBO();
   vbosize = mesh->getVBOsize();
 
-  float newcbo[] = {0.0, 1.0, 0.0, 
+  float newcbo[] = {0.8, 0.8, 0.8, 
                     0.0, 0.0, 1.0, 
                     1.0, 0.0, 0.0};
   cbo = newcbo;
@@ -113,34 +111,50 @@ void runCuda(){
 //--------------------------------
 //--------interactive camera------
 //--------------------------------
-void keyboard(unsigned char key, int x, int y)
-  {
-    switch (key) 
-    {
-       case(27):
-         shut_down(1);    
-         break;
-    }
-  }
 
-void mousePress(int button, int state, int x, int y) {
-	if (state == GLUT_DOWN) {
-		buttonPressed = button;
-		prevX = x;
-		prevY = y;
+
+void MouseClickCallback(GLFWwindow *window, int button, int action, int mods)
+{
+	if(action == GLFW_PRESS && button == GLFW_MOUSE_BUTTON_1)
+	{
+	    glfwGetCursorPos(window,&prevX,&prevY);
+		isLeftButton = true;
 	}
-	else {
-		buttonPressed = -1;
-		prevX = -1;
-		prevY = -1;
+
+	if(action == GLFW_PRESS && button == GLFW_MOUSE_BUTTON_2)
+	{
+		glfwGetCursorPos(window,&prevX,&prevY);
+		isRightButton = true;
 	}
+
+	if(action == GLFW_PRESS && button == GLFW_MOUSE_BUTTON_3)
+	{
+		glfwGetCursorPos(window,&prevX,&prevY);
+		isMidButton = true;
+	}
+
+	if(action == GLFW_RELEASE && button == GLFW_MOUSE_BUTTON_1)
+		isLeftButton = false;
+
+	if(action == GLFW_RELEASE && button == GLFW_MOUSE_BUTTON_2)
+		isRightButton = false;
+
+	if(action == GLFW_RELEASE && button == GLFW_MOUSE_BUTTON_3)
+		isMidButton = false;
 }
 
-void mouseMove(int x, int y) {
-	x = max(0, x);
-	x = min(x, width);
-	y = max(0, y);
-	y = min(y, height);
+void CursorEnterCallback(GLFWwindow *window,int entered)
+{
+    if(entered == GL_TRUE)
+		isInside = true;
+	else
+		isInside = false;
+}
+void CursorCallback(GLFWwindow *window, double x,double y) {
+	x = max(0.0, x);
+	x = min(x, (double)width);
+	y = max(0.0, y);
+	y = min(y, (double)height);
 	int offsetX = x - prevX;
 	int offsetY = y - prevY;
 	prevX = x;
@@ -151,28 +165,27 @@ void mouseMove(int x, int y) {
 	glm::vec3 axis;
 	glm::vec3 step;
 
-	switch (buttonPressed) {
-	case(GLUT_LEFT_BUTTON):
+	if(isLeftButton && isInside){
 		teye = glm::vec4(eye - center, 1);
 		axis = glm::normalize(glm::cross(glm::vec3(0,1,0), eye-center));
 		rotation = glm::rotate(rotation, (float)(-360.0f/width*offsetX), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::rotate(rotation,(float)(-360.0f/width*offsetY), glm::vec3(axis.x, axis.y, axis.z));
 		teye = rotation * teye;
 		eye = glm::vec3(teye);
 		eye = eye + center;
-		break;
-	case(GLUT_MIDDLE_BUTTON): //need revise
+	}
+	else if(isMidButton && isInside){ //need revise
 		eye += glm::vec3(-0.002, 0, 0) * (float)offsetX;
 		eye += glm::vec3(0, 0.002, 0) * (float)offsetY;
 		center += glm::vec3(-0.002, 0, 0) * (float)offsetX;
 		center += glm::vec3(0, 0.002, 0) * (float)offsetY;
-		break;
-	case(GLUT_RIGHT_BUTTON): //need revise
+	}
+	else if(isRightButton && isInside){ //need revise
 		if (glm::distance(center, eye) > 0.01 || (offsetX < 0 && glm::distance(center, eye) < 20)) {
 			step = 0.01f * glm::normalize(center - eye);
 			eye += step * (float)offsetX;
 		}
-		break;
 	}
+	
 }
   
 //-------------------------------
@@ -195,6 +208,9 @@ bool init(int argc, char* argv[]) {
   }
   glfwMakeContextCurrent(window);
   glfwSetKeyCallback(window, keyCallback);
+  glfwSetMouseButtonCallback(window,MouseClickCallback);
+  glfwSetCursorEnterCallback(window,CursorEnterCallback);
+  glfwSetCursorPosCallback(window,CursorCallback);
 
   // Set up GL context
   glewExperimental = GL_TRUE;

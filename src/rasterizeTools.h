@@ -22,6 +22,7 @@ struct triangle {
   glm::vec3 n0;
   glm::vec3 n1;
   glm::vec3 n2;
+  bool isVisible; //for backface culling
   __host__ __device__ triangle(glm::vec3 vp0, glm::vec3 vp1, glm::vec3 vp2, glm::vec3 vc0, glm::vec3 vc1, glm::vec3 vc2, glm::vec3 vn0, glm::vec3 vn1, glm::vec3 vn2) :
 	  p0(vp0), p1(vp1), p2(vp2), pt0(), pt1(), pt2(), c0(vc0), c1(vc1), c2(vc2), n0(vn0), n1(vn1), n2(vn2) {};
   __host__ __device__ triangle() : p0(), p1(), p2(), pt0(), pt1(), pt2(), c0(), c1(), c2(), n0(), n1(), n2() {};

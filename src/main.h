@@ -79,7 +79,8 @@ void runCuda();
 	void mousePress(int button, int state, int x, int y);
 	void mouseMove(int x, int y);
 	int buttonPressed;
-	int prevX, prevY;
+	double prevX, prevY;
+	bool isLeftButton = false, isMidButton = false, isRightButton = false, isInside = false;
 #endif
 
 //-------------------------------
