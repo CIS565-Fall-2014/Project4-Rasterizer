@@ -227,15 +227,12 @@ void primitiveAssemblyKernel( float *vbo, int vbosize,
 		glm::vec3 p2( vbo[v2_index + 0], vbo[v2_index + 1], vbo[v2_index + 2] );
 
 		// Get colors of triangle vertices.
-		//int c0_index = ( i0 % 3 ) * 3;
-		//int c1_index = ( i1 % 3 ) * 3;
-		//int c2_index = ( i2 % 3 ) * 3;
-		//glm::vec3 c0( cbo[c0_index + 0], cbo[c0_index + 1], cbo[c0_index + 2] );
-		//glm::vec3 c1( cbo[c1_index + 0], cbo[c1_index + 1], cbo[c1_index + 2] );
-		//glm::vec3 c2( cbo[c2_index + 0], cbo[c2_index + 1], cbo[c2_index + 2] );
-		glm::vec3 c0( cbo[0], cbo[1], cbo[2] );
-		glm::vec3 c1( cbo[3], cbo[4], cbo[5] );
-		glm::vec3 c2( cbo[6], cbo[7], cbo[8] );
+		int c0_index = ( i0 % 3 ) * 3;
+		int c1_index = ( i1 % 3 ) * 3;
+		int c2_index = ( i2 % 3 ) * 3;
+		glm::vec3 c0( cbo[c0_index + 0], cbo[c0_index + 1], cbo[c0_index + 2] );
+		glm::vec3 c1( cbo[c1_index + 0], cbo[c1_index + 1], cbo[c1_index + 2] );
+		glm::vec3 c2( cbo[c2_index + 0], cbo[c2_index + 1], cbo[c2_index + 2] );
 
 		// Get normals of triangle vertices.
 		glm::vec3 n0( nbo[v0_index + 0], nbo[v0_index + 1], nbo[v0_index + 2] );
@@ -252,7 +249,7 @@ void primitiveAssemblyKernel( float *vbo, int vbosize,
 
 
 // Scanline rasterization per triangle.
-// Thanks: http://graphics.stanford.edu/courses/cs248-08/scan/scan1.html
+// See http://graphics.stanford.edu/courses/cs248-08/scan/scan1.html for a similar, but slightly different rasterization method.
 __global__
 void rasterizationKernel( triangle *primitives,
 						  int primitivesCount,
@@ -268,96 +265,39 @@ void rasterizationKernel( triangle *primitives,
 			return;
 		}
 
-		// Get screen-space vertices for current triangle.
-		glm::vec3 v1 = tri.ssp0;
-		glm::vec3 v2 = tri.ssp1;
-		glm::vec3 v3 = tri.ssp2;
+	    glm::vec3 aabb_min;
+	    glm::vec3 aabb_max;
+	    getAABBForTriangle( tri.ssp0, tri.ssp1, tri.ssp2, aabb_min, aabb_max );
 
-		// Sort triangle vertices in ascending order by screen-space y-coordinate.
-		if ( v1.y > v2.y ) {
-			simpleSwap( v1, v2 );
-		}
-		if ( v1.y > v3.y ) {
-			simpleSwap( v1, v3 );
-		}
-		if ( v2.y > v3.y ) {
-			simpleSwap( v2, v3 );
-		}
+		// TODO: Clip AABB boxes outside render resolution.
 
-		// If triangle vertices have same y-coordinate, then sort in ascending order by screen-space x-coordinate.
-		if ( v1.y == v2.y && v1.x > v2.x ) {
-			simpleSwap( v1, v2 );
-		}
-		if ( v2.y == v3.y && v2.x > v3.x  ) {
-			simpleSwap( v2, v3 );
-		}
+		for ( int y = ceil( aabb_min.y ); y < ceil( aabb_max.y ); ++y ) {
+			for ( int x = ceil( aabb_min.x ); x < ceil( aabb_max.x ); ++x ) {
 
-		int y_bot = ceil( v1.y );
-		int y_mid = ceil( v2.y );
-		int y_top = ceil( v3.y );
+				// Compute Barycentric coordinates of current fragment in screen-space triangle.
+				glm::vec3 barycentric_coordinates = calculateBarycentricCoordinate( tri.ssp0, tri.ssp1, tri.ssp2, glm::vec2( x, y ) );
 
-		edge e1, e2, e3, l, r;
-		e1.setEdge( v1, v3, y_bot );
-		e2.setEdge( v1, v2, y_bot );
-		e3.setEdge( v2, v3, y_mid );
-
-		// Set left and right edges based on x-values.
-		if ( v1.x < v2.x ) {
-			l = e1;
-			r = e2;
-		}
-		else {
-			l = e2;
-			r = e1;
-		}
-
-		// Loop through scanlines covered by the triangle.
-		for ( int y = y_bot; y < y_top - 1; ++y ) {
-			// Update edge if scanline has reached the mid-y triangle point.
-			if ( y >= y_mid ) {				
-				if ( v1.x < v2.x ) {
-					r = e3;
+				// (x, y) point is outside triangle.
+				if ( barycentric_coordinates.x < 0.0f || barycentric_coordinates.y < 0.0f || barycentric_coordinates.z < 0.0f ) {
+					continue;
 				}
-				else {
-					l = e3;
+
+				float current_z = getZAtCoordinate( barycentric_coordinates, tri.p0, tri.p1, tri.p2 );
+
+				fragment buffer_fragment = getFromDepthbuffer( x, y, depthbuffer, resolution );
+				float buffer_z = buffer_fragment.position.z;
+
+				// TODO: Update fragment atomically.
+
+				// Update depth buffer.
+				if ( current_z < buffer_z ) {
+					fragment f;
+					f.color = ( tri.c0 * barycentric_coordinates.x ) + ( tri.c1 * barycentric_coordinates.y ) + ( tri.c2 * barycentric_coordinates.z );
+					f.normal = glm::normalize( ( tri.n0 * barycentric_coordinates.x ) + ( tri.n1 * barycentric_coordinates.y ) + ( tri.n2 * barycentric_coordinates.z ) );
+					f.position = ( tri.p0 * barycentric_coordinates.x ) + ( tri.p1 * barycentric_coordinates.y ) + ( tri.p2 * barycentric_coordinates.z );
+					writeToDepthbuffer( x, y, f, depthbuffer, resolution );
 				}
 			}
-
-			int lx = ceil( l.x );
-			int rx = ceil( r.x );
-
-			for ( int x = lx; x < rx - 1; ++x ) {
-				if ( x > 0 && x < resolution.x && y > 0 && y < resolution.y ) {
-
-					// TODO: There is a race condition here. depthbuffer needs to be updated atomically.
-					// TODO: current_z is computed WRT triangle in object-space. I think it should be computed WRT triangle in camera-space.
-
-					// Compute Barycentric coordinates of current fragment in screen-space triangle.
-					glm::vec3 barycentric_coordinates = calculateBarycentricCoordinate( tri.ssp0, tri.ssp1, tri.ssp2, glm::vec2( x, y ) );
-					float current_z = getZAtCoordinate( barycentric_coordinates, tri.p0, tri.p1, tri.p2 );
-
-					fragment buffer_fragment = getFromDepthbuffer( x, y, depthbuffer, resolution );
-					float buffer_z = buffer_fragment.position.z;
-
-					// Update depth buffer.
-					if ( current_z < buffer_z ) {
-						fragment f;
-						f.color = ( tri.c0 * barycentric_coordinates.x ) + ( tri.c1 * barycentric_coordinates.y ) + ( tri.c2 * barycentric_coordinates.z );
-						f.normal = glm::normalize( ( tri.n0 * barycentric_coordinates.x ) + ( tri.n1 * barycentric_coordinates.y ) + ( tri.n2 * barycentric_coordinates.z ) );
-						f.position = ( tri.p0 * barycentric_coordinates.x ) + ( tri.p1 * barycentric_coordinates.y ) + ( tri.p2 * barycentric_coordinates.z );
-						writeToDepthbuffer( x, y, f, depthbuffer, resolution );
-					}
-
-					//fragment f;
-					//f.color = glm::vec3( 1.0f, 0.0f, 0.0f );
-					//f.normal = glm::normalize( ( tri.n0 * barycentric_coordinates.x ) + ( tri.n1 * barycentric_coordinates.y ) + ( tri.n2 * barycentric_coordinates.z ) );
-					//f.position = ( tri.p0 * barycentric_coordinates.x ) + ( tri.p1 * barycentric_coordinates.y ) + ( tri.p2 * barycentric_coordinates.z );
-					//writeToDepthbuffer( x, y, f, depthbuffer, resolution );
-				}
-			}
-
-			l.x += l.dxdy;
-			r.x += r.dxdy;
 		}
 	}
 }

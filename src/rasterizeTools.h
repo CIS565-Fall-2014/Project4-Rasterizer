@@ -23,7 +23,7 @@ struct triangle {
 								  glm::vec3 n0, glm::vec3 n1, glm::vec3 n2 ) :
 										p0( p0 ), p1( p1 ), p2( p2 ),
 										ssp0( ssp0 ), ssp1( ssp1 ), ssp2( ssp2 ),
-										c0( c0 ), c1( 1 ), c2( c2 ),
+										c0( c0 ), c1( c1 ), c2( c2 ),
 										n0( n0 ), n1( n1 ), n2( n2 )
 	{
 		is_visible = true;
@@ -69,13 +69,30 @@ __host__ __device__ glm::vec3 multiplyMV(cudaMat4 m, glm::vec4 v){
 }
 
 //LOOK: finds the axis aligned bounding box for a given triangle
-__host__ __device__ void getAABBForTriangle(triangle tri, glm::vec3& minpoint, glm::vec3& maxpoint){
-  minpoint = glm::vec3(min(min(tri.p0.x, tri.p1.x),tri.p2.x), 
-        min(min(tri.p0.y, tri.p1.y),tri.p2.y),
-        min(min(tri.p0.z, tri.p1.z),tri.p2.z));
-  maxpoint = glm::vec3(max(max(tri.p0.x, tri.p1.x),tri.p2.x), 
-        max(max(tri.p0.y, tri.p1.y),tri.p2.y),
-        max(max(tri.p0.z, tri.p1.z),tri.p2.z));
+//__host__ __device__ void getAABBForTriangle(triangle tri, glm::vec3& minpoint, glm::vec3& maxpoint){
+//  minpoint = glm::vec3(min(min(tri.p0.x, tri.p1.x),tri.p2.x), 
+//        min(min(tri.p0.y, tri.p1.y),tri.p2.y),
+//        min(min(tri.p0.z, tri.p1.z),tri.p2.z));
+//  maxpoint = glm::vec3(max(max(tri.p0.x, tri.p1.x),tri.p2.x), 
+//        max(max(tri.p0.y, tri.p1.y),tri.p2.y),
+//        max(max(tri.p0.z, tri.p1.z),tri.p2.z));
+//}
+
+__host__
+__device__
+void getAABBForTriangle( glm::vec3 tri_p0, glm::vec3 tri_p1, glm::vec3 tri_p2, glm::vec3& minpoint, glm::vec3& maxpoint )
+{
+	triangle tri;
+	tri.p0 = tri_p0;
+	tri.p1 = tri_p1;
+	tri.p2 = tri_p2;
+
+	minpoint = glm::vec3(min(min(tri.p0.x, tri.p1.x),tri.p2.x), 
+		min(min(tri.p0.y, tri.p1.y),tri.p2.y),
+		min(min(tri.p0.z, tri.p1.z),tri.p2.z));
+	maxpoint = glm::vec3(max(max(tri.p0.x, tri.p1.x),tri.p2.x), 
+		max(max(tri.p0.y, tri.p1.y),tri.p2.y),
+		max(max(tri.p0.z, tri.p1.z),tri.p2.z));
 }
 
 //LOOK: calculates the signed area of a given triangle
