@@ -132,7 +132,6 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 
 //TODO: Implement a vertex shader
 __global__ void vertexShadeKernel(float* vbo, int vbosize, float* nbo, int nbosize, cam theCam){
-	
 
   int index = (blockIdx.x * blockDim.x) + threadIdx.x;
   if(index<vbosize/3){
@@ -194,8 +193,10 @@ __global__ void primitiveAssemblyKernel(float* vbo, int vbosize, float* cbo, int
   }
 }
 
+
 //TODO: Implement a rasterization method, such as scanline.
 __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, fragment* depthbuffer, glm::vec2 resolution){
+	
   int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 
   if(index<primitivesCount){
@@ -230,7 +231,6 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 	  if(xMax<0 || yMax<0 || xMax>=resolution.x || yMax>=resolution.y)
 		  return;
 
-
 	  //scanline approach
 	  for(int y = yMin; y < yMax; y++){  //top to down
 		for(int x = xMin; x < xMax; x++){   //left to right
@@ -241,10 +241,10 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 			 if(isBarycentricCoordInBounds(b)){  //p is in the triangle bounds
 				 float z = getZAtCoordinate(b, tri);  //depth
 
-				 // printf("frag color: %f.2, %f.02, %f.02\n", frag.color.r, frag.color.g, frag.color.b);
-				// printf("triangle index: %d, frag normal: %.2f, %.2f, %.2f\n", index,frag.normal.x, frag.normal.y, frag.normal.z);
-				// printf("frag pos: %.2f, %.2f, %.2f\n", frag.position.x, frag.position.y, frag.position.z);
-				 if(z > depthbuffer[pixelID].position.z && z <= 1){
+				 if(Z_TEST == 1){  //do the depth test with atomic function
+					// while(atomicCAS(&depthbuffer[pixelID].tested, 1, 0) != 1);  //until current fragment is tested
+				 }
+				 if(z > depthbuffer[pixelID].position.z && z <= 1.0f){
 					 fragment frag = depthbuffer[pixelID];
 					 frag.color = interpolateColor(b,tri);
 					 //frag.position = interpolatePosition(b,tri);
@@ -256,8 +256,22 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 					 frag.position.y = screenCoord.y;
 					 frag.position.z = z;
 					 frag.normal = tri.n;
+					 
+					 if(LINE_RASTER == 1){   //shade line color
+						 glm::vec3 lineColor(0.0f,0.0f,1.0f);  //blue
+						 glm::vec3 p = interpolatePosition(b,tri);
+						 if(fabs(glm::dot(glm::normalize(tri.p0 - p), glm::normalize(tri.p0 - tri.p1))-1.0f)<0.0001f||
+							 fabs(glm::dot(glm::normalize(tri.p1 - p), glm::normalize(tri.p1 - tri.p2))-1.0f)<0.0001f ||
+							 fabs(glm::dot(glm::normalize(tri.p2 - p), glm::normalize(tri.p2 - tri.p0))-1.0f)<0.0001f ){
+				
+								 frag.color = lineColor;
+								 frag.normal = glm::vec3(0.0f, 0.0f, 1.0f);
+						 }
+					 }
+
 					 depthbuffer[pixelID] = frag;
 				 }
+				// atomicExch(&depthbuffer[pixelID].tested, 1);
 				 
 			 }
 		  }
@@ -268,6 +282,46 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 	  primitives[index] = tri;  //update
   }
 }
+
+// display points
+__global__ void rasterizationPointsKernel(float* vbo, int vbosize, float * nbo, int nbosize, fragment* depthbuffer, glm::vec2 resolution){
+  int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+  if(index<vbosize/3){
+	  //find the point
+	  glm::vec3 point(vbo[index*3], vbo[index*3+1], vbo[index*3+2]);
+	  glm::vec3 normal(nbo[index*3], nbo[index*3+1], nbo[index*3+2]);
+	  if(normal.z < 0)
+		  return;
+
+	  //locate the pixel
+	  glm::vec2 pixel = screenToImage( glm::vec2(point.x, point.y), resolution);   //viewport transform
+	  if(pixel.x<0 || pixel.y<0 || pixel.x>=resolution.x || pixel.y>=resolution.y)
+		  return;
+	  int pixelID = pixel.x + pixel.y * resolution.x;
+
+	  //shade the point representation
+	  if(point.z > depthbuffer[pixelID].position.z ){
+		  glm::vec3 pointColor(1.0f, 1.0f, 0.0f);   //yellow
+		 /* depthbuffer[pixelID].position = point;
+		  depthbuffer[pixelID].color = pointColor;   
+		  depthbuffer[pixelID].normal = glm::vec3(0.0f, 0.0f, 1.0f);*/
+		  for(int i=pixel.x-1; i<=pixel.x+1; i++){
+			  for(int j=pixel.y-1; j<=pixel.y+1; j++){
+				  if(i<0 || j<0 || i>=resolution.x || j>=resolution.y)
+						return;
+				  int newpixelID = i + j * resolution.x;
+				  depthbuffer[newpixelID].position = point;
+				  depthbuffer[newpixelID].color = pointColor;   
+				  depthbuffer[newpixelID].normal = glm::vec3(0.0f, 0.0f, 1.0f);
+				 // atomicExch(&depthbuffer[pixelID].tested, 1);
+			  }
+		  }
+	  }
+
+  }
+}
+
+
 
 //TODO: Implement a fragment shader
 __global__ void fragmentShadeKernel(fragment* depthbuffer, glm::vec2 resolution, cam theCam, glm::vec3 light){
@@ -291,13 +345,14 @@ __global__ void fragmentShadeKernel(fragment* depthbuffer, glm::vec2 resolution,
 		  depthbuffer[index].color = glm::clamp(cosTerm * depthbuffer[index].color, 0.0f, 1.0f);
 	  }
 	  else if (SHADING_MODE == 3){  //blinn-phong shade
-		  float coeff = 2.0f;
+		  float coeff = 5.0f;
 		  glm::vec3 lightDir = glm::normalize(light - depthbuffer[index].position);
 		  float cosTerm = glm::clamp(glm::dot(lightDir, depthbuffer[index].normal), 0.0f, 1.0f);
 		  depthbuffer[index].color = glm::clamp( std::pow(cosTerm,coeff) * depthbuffer[index].color, 0.0f, 1.0f);
 	  }
   }
 }
+
 
 //Writes fragment colors to the framebuffer
 __global__ void render(glm::vec2 resolution, fragment* depthbuffer, glm::vec3* framebuffer){
@@ -395,6 +450,15 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
   fragmentShadeKernel<<<fullBlocksPerGrid, threadsPerBlock>>>(depthbuffer, resolution, mouseCam, lightPos);
 
   cudaDeviceSynchronize();
+  //------------------------------
+  //point raster shader
+  //------------------------------
+  if(POINT_RASTER ==1){
+	primitiveBlocks = ceil(((float)vbosize/3)/((float)tileSize));
+	rasterizationPointsKernel<<<primitiveBlocks, tileSize>>>(device_vbo, vbosize, device_nbo, nbosize, depthbuffer, resolution);   //render point out
+  }
+  cudaDeviceSynchronize();
+
   //------------------------------
   //write fragments to framebuffer
   //------------------------------

@@ -23,6 +23,7 @@ struct fragment{
   glm::vec3 color;
   glm::vec3 normal;
   glm::vec3 position;
+  int tested;
 };
 
 //Multiplies a cudaMat4 matrix and a vec4

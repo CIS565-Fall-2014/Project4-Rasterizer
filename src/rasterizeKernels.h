@@ -14,7 +14,11 @@
 #include "utilities.h"
 
 
-#define SHADING_MODE 3  //0-shading based on normal, 1-shade based on depth, 2-diffuse, 3-blinn
+#define SHADING_MODE 2  //0-shading based on normal, 1-shade based on depth, 2-diffuse, 3-blinn
+#define POINT_RASTER 0  //0/1 to off/on points display
+#define LINE_RASTER 0 //0/1 to off/on lines display
+#define TEXTURE_MAP 0
+#define Z_TEST 1
 
 void kernelCleanup();
 void cudaRasterizeCore(uchar4* pos, glm::vec2 resolution, float frame, float* vbo, int vbosize, float* cbo, int cbosize, 

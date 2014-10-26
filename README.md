@@ -27,16 +27,32 @@ BASIC FETAURES:
 -------------------------------------------------------------------------------
 ADVENCED FEATURES:
 -------------------------------------------------------------------------------
-* MOUSE BASED interactive camera support  
+-------------------------------------------------------------------------------
+MOUSE BASED interactive camera support  
+-------------------------------------------------------------------------------
 - mouse left click + drag: rotate the camera around the lookat center  
 - mouse right click + drag: translate the camera lookat point  
 - mouse scroll: zoom in/out  
+I noticed that when the camera zooms in, the rasterizer fps drops significantly. This is probably because when the camera is closer,
+each of the triangle face will become bigger, which occupies more pixels, hence takes longer to render a fragment, and the fps drops.  
+The possible solution is to parallelize the naive scanline approach, so save the consumption in iteration through many fragments.  
 The video below shows how the interaction is like.  
 
 [![ScreenShot](imgs/CamInteractionThumbnail.png)] (http://youtu.be/34XS6eS-lT8)    
-* Back-face culling  
+-------------------------------------------------------------------------------
+Back-face culling  
+-------------------------------------------------------------------------------
+This is done by checking the normal of current triangle face, if the normal is pointing backwards, then discard shading this face.
+
+
 * Lines
-* Points
+-------------------------------------------------------------------------------
+Points
+-------------------------------------------------------------------------------
+Rasterization of point can be turned on/off in "rasterizeKernel.h",  in the "#define POINT_RASTER".
+When used point raster, the performance maintain the same as not using it.  
+![](imgs/Ccow_point_raster.png)
+
 * Order-independent translucency using a k-buffer
 * Correct color interpolation between points on a primitive
 * Texture mapping WITH texture filtering and perspective correct texture coordinates
