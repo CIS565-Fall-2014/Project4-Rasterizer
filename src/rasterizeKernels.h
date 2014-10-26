@@ -10,7 +10,9 @@
 #include <cmath>
 #include "glm/glm.hpp"
 
+#include "sceneStructs.h"
+
 void kernelCleanup();
-void cudaRasterizeCore(uchar4* pos, glm::vec2 resolution, float frame, float* vbo, int vbosize, float* cbo, int cbosize, int* ibo, int ibosize);
+void cudaRasterizeCore(uchar4* pos, glm::vec2 resolution, float frame, ray light, float* vbo, int vbosize, float* cbo, int cbosize, int* ibo, int ibosize, float* nbo, int nbosize, glm::mat4 mvp);
 
 #endif //RASTERIZEKERNEL_H
