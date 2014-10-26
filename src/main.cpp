@@ -147,7 +147,7 @@ void mainLoop() {
 	glmMVtransform = ViewTransform * ModelTransform;
 
 	//construct light
-	Light.position = glm::vec3(10.0f,2.0f, -10.0f);
+	Light.position = glm::vec3(7.0f,2.0f, -10.0f);
 	Light.diffColor = glm::vec3(1.0f);
 	Light.specColor = glm::vec3(1.0f);
 	Light.specExp = 20;

@@ -15,11 +15,11 @@
 #define BLOCK_SIZE 16
 #define DEBUG_VERTICES 0
 #define DEBUG_NORMALS 0
-#define SPECULAR_EXP 3
-#define COLOR_INTERPOLATION_MODE 0
-#define BACKFACE_CULLING 1
+#define DEBUG_DEPTH 0
+#define SPECULAR_EXP 6
+#define COLOR_INTERPOLATION_MODE 1
+#define BACKFACE_CULLING 0
 #define SHADING_RATE 0.75f
-
 
 glm::vec3* framebuffer;
 fragment* depthbuffer;
@@ -261,11 +261,13 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 		if(P0 < totalPixel && P0 >=0) depthbuffer[P0].color = tri.c0;
 		if(P1 < totalPixel && P1 >=0) depthbuffer[P1].color = tri.c1;
 		if(P2 < totalPixel && P2 >=0) depthbuffer[P2].color = tri.c2;
+		return;
 
 #else
 
 		//Full rasterization
-		float epsilon = 0.035f;
+		float epsilon = 0.035f; // for mesh line
+
 		int totalPixel = resolution.x * resolution.y;
 		float halfResoX =  0.5f * (float) resolution.x;
 		float halfResoY =  0.5f * (float) resolution.y;
@@ -281,16 +283,20 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 		{
 			for(float j = 0;j <(Max.y - Min.y)/pixelHeight + 1.0f; j+=SHADING_RATE)
 			{
+
 				glm::vec2 pixelPos = glm::vec2(Min.x + i * pixelWidth, Min.y + j * pixelHeight);
 				glm::vec3 pixelBaryPos = calculateBarycentricCoordinate(tri, pixelPos);
 				
+				fragment frag;
+				frag.isEmpty = false;
+				frag.isFlat = false;
+
 				//not in triangle
 				if(!isBarycentricCoordInBounds(pixelBaryPos))
 				{
 					continue;
 				}
-
-
+				//in triangle
 				else
 				{
 					int x,y, pixelIndex;
@@ -301,16 +307,15 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 
 					pixelIndex = x + y * resolution.x;
 
-					fragment frag;
+					//calculate fragment positions in both NDC and camera space
 					frag.position = pixelBaryPos.x * tri.p0 + pixelBaryPos.y * tri.p1 + pixelBaryPos.z * tri.p2;
 					frag.cameraSpacePosition = pixelBaryPos.x * originalTri.p0 + pixelBaryPos.y * originalTri.p1 + pixelBaryPos.z * originalTri.p2;
 
+					//calculate normal, either flat or Phong
 					if(isFlatShading) frag.normal = originalTri.flatNormal; 
 					else frag.normal = pixelBaryPos.x * originalTri.n0 + pixelBaryPos.y * originalTri.n1 + pixelBaryPos.z * originalTri.n2;
 
 					frag.color = pixelBaryPos.x * tri.c0 + pixelBaryPos.y * tri.c1 + pixelBaryPos.z * tri.c2;
-					frag.isEmpty = false;
-					frag.isFlat = false;
 
 					if(isMeshView)
 					{
@@ -324,13 +329,13 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 						else
 						{
 							frag.isEmpty = true;
-							frag.position.z = - 10000;
+							frag.position.z = - 10000.0f;
 						}
 					}
 
+					if(frag.isEmpty) frag.position.z = - 10000.0f;
 
 					//test depth in the buffer and swap if greater, have to lock when testing
-
 					bool shouldWait = true;
 					while(shouldWait)
 					{
@@ -362,23 +367,31 @@ __global__ void fragmentShadeKernel(fragment* depthbuffer, light rawLight, glm::
   int index = x + (y * resolution.x);
   if(x<=resolution.x && y<=resolution.y){
 
+	  fragment f = depthbuffer[index];
+
 //debug views
 #if(DEBUG_VERTICES) 
 	  return;
 #endif
 #if(DEBUG_NORMALS)
-	  depthbuffer[index].color = depthbuffer[index].normal;
+	  if(f.isEmpty) depthbuffer[index].color = glm::vec3(0.0f);
+	  else depthbuffer[index].color = depthbuffer[index].normal;
+	  return;
+#endif
+#if(DEBUG_DEPTH)
+	  if(f.isEmpty) depthbuffer[index].color = glm::vec3(0.0f);
+	  else depthbuffer[index].color = glm::vec3((1.5f - depthbuffer[index].cameraSpacePosition.z)/1.5f);
 	  return;
 #endif
 
-	  float diffCoe = 0.40f;
-	  float specCoe = 0.55f;
+	  float diffCoe = 0.60f;
+	  float specCoe = 0.35f;
 	  float ambCoe = glm::clamp(1.0f - diffCoe - specCoe,0.0f,1.0f);
 
 	  light Light = rawLight;
 
 	  Light.position = multiplyMV(viewTransform, glm::vec4(rawLight.position,1.0f)); 
-	  fragment f = depthbuffer[index];
+
 
 	  if(f.isEmpty) 
 	  {
@@ -388,7 +401,7 @@ __global__ void fragmentShadeKernel(fragment* depthbuffer, light rawLight, glm::
 
 	  if(f.isFlat)
 	  {
-		  depthbuffer[index].color = f.color;
+		  depthbuffer[index].color = f.coverage * f.color + (1.0f - f.coverage) * Light.ambColor;
 		  return;
 	  }
 
@@ -410,8 +423,7 @@ __global__ void fragmentShadeKernel(fragment* depthbuffer, light rawLight, glm::
 	  else specCom = pow( glm::dot( V, R), Light.specExp);
 	  specCom = glm::clamp(specCom,0.0f,1.0f);
 
-	  depthbuffer[index].color = diffCoe * diffCom * Light.diffColor * f.color  +  specCoe * specCom * Light.specColor + ambCoe * Light.ambColor;
-
+	  depthbuffer[index].color = (f.coverage * diffCoe * diffCom * Light.diffColor * f.color  +  specCoe * specCom * Light.specColor + ambCoe * Light.ambColor) + (1.0f - f.coverage) * Light.ambColor;
 
   }
 }
@@ -476,9 +488,10 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
 	frag.color = glm::vec3(0,0,0);
 	frag.normal = glm::vec3(0,0,0);
 	frag.position = glm::vec3(0,0,-10000);
-	frag.cameraSpacePosition = glm::vec3(0,0,0);
+	frag.cameraSpacePosition = glm::vec3(0,0,-10000);
 	frag.isEmpty = true;
 	frag.isFlat = false;
+	frag.coverage = 1.0f;
 	clearDepthBuffer<<<fullBlocksPerGrid, threadsPerBlock>>>(resolution, depthbuffer,frag);
 
 	//------------------------------

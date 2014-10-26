@@ -29,6 +29,7 @@ struct fragment{
   glm::vec3 cameraSpacePosition;
   bool isEmpty;
   bool isFlat;
+  float coverage;
 };
 
 
