@@ -45,9 +45,10 @@ Lines Rasterization
 
 Points Rasterization
 
+![](https://github.com/DiracSea3921/Project4-Rasterizer/blob/master/texture.bmp)
 ![](https://github.com/DiracSea3921/Project4-Rasterizer/blob/master/cow4.png)
 
-Texture mapping WITH texture filtering
+Texture mapping with texture filtering, bilinear interpolation
 
 ![](https://github.com/DiracSea3921/Project4-Rasterizer/blob/master/chart.png)
 
