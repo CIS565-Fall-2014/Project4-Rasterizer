@@ -187,17 +187,26 @@ __global__ void primitiveAssemblyKernel(
     }
 }
 
-//TODO: Implement a better rasterization method, such as scanline.
+//TODO: Implement a better rasterization method?
 __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, fragment* depthbuffer, glm::vec2 resolution)
 {
     int index = (blockIdx.x * blockDim.x) + threadIdx.x;
     if (index < primitivesCount) {
         triangle tri = primitives[index];
+
+        // Backface culling
+        glm::vec3 winding = glm::cross(tri.p1 - tri.p0, tri.p2 - tri.p1);
+        if (winding.z > 0) {
+            return;
+        }
+
+        // Find the AABB of the tri on the screen
         glm::vec3 minp, maxp;
         getAABBForTriangle(tri, minp, maxp);
         glm::vec2 minc = (glm::vec2(minp) + 1.f) * 0.5f * resolution;
         glm::vec2 maxc = (glm::vec2(maxp) + 1.f) * 0.5f * resolution;
 
+        // Depth-buffer-ize pixels within the triangle
         for (int x = minc.x; x < maxc.x; ++x) {
             for (int y = minc.y; y < maxc.y; ++y) {
                 glm::vec2 ndc = glm::vec2(
@@ -209,6 +218,7 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
                     fragment frag = depthbuffer[i];
                     float depthold = frag.position.z;
                     float depthnew = getZAtCoordinate(bary, tri);
+
                     if (depthnew < 1 && depthnew > depthold) {
                         frag.color  = bary.x * tri.c0 + bary.y * tri.c1 + bary.z * tri.c2;
                         frag.normal = bary.x * tri.n0 + bary.y * tri.n1 + bary.z * tri.n2;
@@ -229,9 +239,13 @@ __global__ void fragmentShadeKernel(fragment* depthbuffer, glm::vec2 resolution)
     int index = x + (y * resolution.x);
     if (x <= resolution.x && y <= resolution.y) {
         fragment frag = depthbuffer[index];
+
         // Render depth
         //frag.color = glm::vec3((frag.position.z + 1) * 0.5f);
-        frag.color = frag.normal;
+
+        // Render normals
+        frag.color = (frag.normal + glm::vec3(1.f)) * 0.5f;
+
         depthbuffer[index] = frag;
     }
 }
@@ -246,7 +260,7 @@ __global__ void render(glm::vec2 resolution, fragment* depthbuffer, glm::vec3* f
 
     if (x <= resolution.x && y <= resolution.y) {
         fragment frag = depthbuffer[index];
-        if (frag.position.z > -2.f) { // min should be -1
+        if (frag.position.z > -1.0001f) { // min should be -1
             framebuffer[index] = depthbuffer[index].color;
         }
     }
