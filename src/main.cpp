@@ -84,6 +84,9 @@ void runCuda(){
   vbo = mesh->getVBO();
   vbosize = mesh->getVBOsize();
 
+  nbo = mesh->getNBO();
+  nbosize = mesh->getNBOsize();
+
   float newcbo[] = {0.0, 1.0, 0.0, 
                     0.0, 0.0, 1.0, 
                     1.0, 0.0, 0.0};

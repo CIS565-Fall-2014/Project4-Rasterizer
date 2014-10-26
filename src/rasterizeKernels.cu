@@ -129,9 +129,14 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 }
 
 //TODO: Implement a vertex shader
-__global__ void vertexShadeKernel(float* vbo, int vbosize){
+__global__ void vertexShadeKernel(float* vbo, int vbosize, glm::mat4 mvp){
   int index = (blockIdx.x * blockDim.x) + threadIdx.x;
   if(index<vbosize/3){
+    glm::vec4 p (vbo[index * 3], vbo[index * 3 + 1], vbo[index * 3 + 2], 1);
+    p = mvp * p;
+    vbo[index * 3] = p.x / p.w;
+    vbo[index * 3 + 1] = p.y / p.w;
+    vbo[index * 3 + 2] = p.z / p.w;
   }
 }
 
@@ -154,20 +159,110 @@ __global__ void primitiveAssemblyKernel(float* vbo, int vbosize, float* cbo, int
   }
 }
 
+__global__ void backfaceCullingKernel(triangle* primitives, int primitivesCount) {
+  int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+  if(index<primitivesCount){
+  }
+}
+
 //TODO: Implement a rasterization method, such as scanline.
 __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, fragment* depthbuffer, glm::vec2 resolution){
   int index = (blockIdx.x * blockDim.x) + threadIdx.x;
   if(index<primitivesCount){
+    depthbuffer[index].color = glm::vec3(1, 0, 0);
+    triangle t = primitives[index];
+    point top, middle, bottom;
+    top.position = t.p0;
+    middle.position = t.p1;
+    bottom.position = t.p2;
+    top.color = t.c0;
+    middle.color = t.c1;
+    bottom.color = t.c2;
+    top.normal = t.n0;
+    middle.normal = t.n1;
+    bottom.normal = t.n2;
 
+    point temp;
+
+    // Do a basic bubble sort
+    for (int i = 0; i < 2; i++) {
+      if (bottom.position.y > middle.position.y) {
+        temp = bottom;
+        bottom = middle;
+        middle = temp;
+      }
+      if (middle.position.y > top.position.y) {
+        temp = middle;
+        middle = top;
+        top = temp;
+      }
+    }
+
+    // "left" and "right" are relative to each other, not top.
+    float dLeft, dRight;
+    // let's assume top-left is 0,0 (it might be top-right)
+    float d1, d2;
+    d1 = (middle.position.x - top.position.x) / (middle.position.y - top.position.y);
+    d2 = (bottom.position.x - top.position.x) / (bottom.position.y - top.position.y);
+
+    if (d1 < d2) {  // top->middle is on the left
+      dLeft = d1;
+      dRight = d2;
+    } else {        // top->bottom is on left
+      dLeft = d2;
+      dRight = d1;
+    }
+    
+    int currY = top.position.y;  // The current pixel row.
+    float left = top.position.x;
+    float right = top.position.x;
+    while (currY < middle.position.y) {
+      // interpolate along left edge
+      // interpolate along right edge
+      for (int i = left; i <= right; i++) {
+        depthbuffer[currY * (int)resolution.x + i];
+        // interpolate color, normal, and position
+        // writetodepthbuffer(...);
+      }
+      left += dLeft;
+      right += dRight;
+      currY++;
+    }
+    
+    if (middle.position.x > right) {
+      right = middle.position.x;
+    } else if (middle.position.x < left) {
+      left = middle.position.x;
+    }
+    d1 = (bottom.position.x - middle.position.x) / (bottom.position.y - middle.position.y);
+    d2 = (bottom.position.x - top.position.x) / (bottom.position.y - top.position.y);
+    if (d1 < d2) {
+      dLeft = d1;
+      dRight = d2;
+    } else {
+      dLeft = d2;
+      dRight = d1;
+    }
+
+    //while (currY < bottom.y) {...}
   }
 }
 
 //TODO: Implement a fragment shader
-__global__ void fragmentShadeKernel(fragment* depthbuffer, glm::vec2 resolution){
+// Modifies the .color value per fragment.
+// Simple Blinn-Phong shading, light needs to be transformed into clip coordinates.
+__global__ void fragmentShadeKernel(fragment* depthbuffer, glm::vec2 resolution, light light, glm::mat4 matVP){
   int x = (blockIdx.x * blockDim.x) + threadIdx.x;
   int y = (blockIdx.y * blockDim.y) + threadIdx.y;
   int index = x + (y * resolution.x);
   if(x<=resolution.x && y<=resolution.y){
+    glm::vec3 lpos (matVP * glm::vec4(light.position, 1));
+    fragment f = depthbuffer[index];
+    float diffuse = glm::dot(f.normal, glm::normalize(light.position - f.position));
+    if (diffuse < 0) {
+      diffuse = 0;
+    }
+    depthbuffer[index].color *= light.color * diffuse;
   }
 }
 
@@ -230,9 +325,32 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
   int primitiveBlocks = ceil(((float)vbosize/3)/((float)tileSize));
 
   //------------------------------
+  //camera setup
+  //------------------------------
+  glm::vec3 eye (0, 0, 5);
+  glm::vec3 center (0, 0, 0);
+  glm::vec3 up (0, 1, 0);
+  glm::mat4 matView = glm::lookAt(eye, center, up);
+  float fovy, aspect, znear, zfar;
+  fovy = 45;
+  aspect = 1.0;
+  znear = 1.0;
+  zfar = 10;
+  glm::mat4 matProj = glm::perspective(fovy, aspect, znear, zfar);
+
+  glm::mat4 matVP = matProj * matView;
+
+  //----------------------------
+  //light setup
+  //----------------------------
+  light light;
+  light.color = glm::vec3(1, 1, 1);
+  light.position = glm::vec3(10, 10, 10);
+
+  //------------------------------
   //vertex shader
   //------------------------------
-  vertexShadeKernel<<<primitiveBlocks, tileSize>>>(device_vbo, vbosize);
+  vertexShadeKernel<<<primitiveBlocks, tileSize>>>(device_vbo, vbosize, matVP);
 
   cudaDeviceSynchronize();
   //------------------------------
@@ -251,7 +369,7 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
   //------------------------------
   //fragment shader
   //------------------------------
-  fragmentShadeKernel<<<fullBlocksPerGrid, threadsPerBlock>>>(depthbuffer, resolution);
+  fragmentShadeKernel<<<fullBlocksPerGrid, threadsPerBlock>>>(depthbuffer, resolution, light, matVP);
 
   cudaDeviceSynchronize();
   //------------------------------
