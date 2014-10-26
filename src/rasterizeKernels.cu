@@ -328,6 +328,29 @@ void fragmentShadeKernel( fragment *depthbuffer,
 	}
 }
 
+
+__global__
+void antiAliasingPostProcess( fragment *depthbuffer,
+							  glm::vec2 resolution )
+{
+	int x = ( blockIdx.x * blockDim.x ) + threadIdx.x;
+	int y = ( blockIdx.y * blockDim.y ) + threadIdx.y;
+	int index = x + ( y * resolution.x );
+	if ( x <= resolution.x && y <= resolution.y ) {
+		int pixel_count = 0;
+		glm::vec3 sum( 0.0f, 0.0f, 0.0f );
+		for ( int i = x - 1; i < x + 1; ++i ) {
+			for ( int j = y - 1; j < y + 1; ++j ) {
+				if ( i > 0 && i <= resolution.x && j > 0 && j <= resolution.y ) {
+					sum += depthbuffer[i + ( j * ( int )resolution.x )].color;
+					++pixel_count;
+				}
+			}
+		}
+		depthbuffer[index].color = glm::vec3( sum.x / pixel_count, sum.y / pixel_count, sum.z / pixel_count );
+	}
+}
+
 /*********** DANNY'S PRIMARY CONTRIBUTION - END ***********/
 
 // Write fragment colors to the framebuffer.
@@ -481,6 +504,13 @@ void cudaRasterizeCore( uchar4 *PBOpos,
 	//------------------------------
 	fragmentShadeKernel<<< fullBlocksPerGrid, threadsPerBlock >>>( depthbuffer,
 																   camera.resolution );
+	cudaDeviceSynchronize();
+
+	//------------------------------
+	// anti-aliasing
+	//------------------------------
+	antiAliasingPostProcess<<< fullBlocksPerGrid, threadsPerBlock >>>( depthbuffer,
+																	   camera.resolution );
 	cudaDeviceSynchronize();
 
 	//------------------------------
