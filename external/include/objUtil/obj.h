@@ -26,6 +26,8 @@ private:
 	float* vbo;
 	float* nbo;
 	float* cbo;
+	float* tbo;
+	int tbosize;
 	int* ibo;
 	float* boundingbox;
 	float top;

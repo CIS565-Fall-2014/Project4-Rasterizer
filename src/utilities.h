@@ -22,6 +22,12 @@ const float EPSILON                     =.000000001;
 const float ZERO_ABSORPTION_EPSILON     =0.00001;
 const float RAY_BIAS_AMOUNT             =0.0002;
 
+struct bmp_texture {
+	glm::vec3 *data;
+	int width;
+	int height;
+};
+
 namespace utilityCore {
     extern float clamp(float f, float min, float max);
     extern bool replaceString(std::string& str, const std::string& from, const std::string& to);
