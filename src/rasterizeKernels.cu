@@ -299,16 +299,18 @@ __global__ void rasterizationKernelLines(triangle* primitives, int primitivesCou
 }
 
 //TODO: Implement a rasterization method, such as scanline.
-__global__ void rasterizationKernel(triangle* primitives, int primitivesCount, fragment* depthbuffer, glm::vec2 resolution){
+__global__ void rasterizationKernel(triangle* primitives, int primitivesCount, fragment* depthbuffer, glm::vec2 resolution,bool back){
   int index = (blockIdx.x * blockDim.x) + threadIdx.x;
   if(index<primitivesCount){
 
+	  if(back){
 	  //back face culling
-	  glm::vec3 v1 = primitives[index].p1 - primitives[index].p0;
-	  glm::vec3 v2 = primitives[index].p2 - primitives[index].p1;
-	  glm::vec3 tmp = glm::cross(v1,v2);
-	  if(tmp.z>0)
-		  return;
+		  glm::vec3 v1 = primitives[index].p1 - primitives[index].p0;
+		  glm::vec3 v2 = primitives[index].p2 - primitives[index].p1;
+		  glm::vec3 tmp = glm::cross(v1,v2);
+		  if(tmp.z>0)
+			  return;
+	  }
 
 	  float maxX,maxY,minX,minY;
 	  if(primitives[index].p0.x>primitives[index].p1.x){
@@ -400,7 +402,7 @@ __global__ void render(glm::vec2 resolution, fragment* depthbuffer, glm::vec3* f
 
 
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
-void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float* vbo, int vbosize, float* cbo, int cbosize, int* ibo, int ibosize, float* nbo,int nbosize,bmp_texture *tex,vector<glm::vec4> *texcoord,float theTa, float alpha,bool line, bool vertex){
+void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float* vbo, int vbosize, float* cbo, int cbosize, int* ibo, int ibosize, float* nbo,int nbosize,bmp_texture *tex,vector<glm::vec4> *texcoord,float theTa, float alpha,bool line, bool vertex,bool back){
 
   // set up crucial magic
   int tileSize = 8;
@@ -489,7 +491,7 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
   //------------------------------
   //rasterization
   //------------------------------
-  rasterizationKernel<<<primitiveBlocks, tileSize>>>(primitives, ibosize/3, depthbuffer, resolution);
+  rasterizationKernel<<<primitiveBlocks, tileSize>>>(primitives, ibosize/3, depthbuffer, resolution,back);
   cudaDeviceSynchronize();
   if(line){
 	  rasterizationKernelLines<<<primitiveBlocks, tileSize>>>(primitives, ibosize/3, depthbuffer, resolution);
