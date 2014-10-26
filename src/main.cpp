@@ -25,9 +25,21 @@ int main(int argc, char** argv){
   }
 
   if(!loadedScene){
-    cout << "Usage: mesh=[obj file]" << endl;
+    cout << "Usage: mesh=[obj file]\n !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << endl;
     return 0;
   }
+
+  Mmodel = glm::mat4(1.0);
+  Mprojection = glm::perspective(fovy, float(width) / float(height), depth_near, depth_far);
+  Mview = glm::lookAt( Veye, Vcenter, Vup);
+  
+  // initialize output images => black
+  VimageBuffer = new glm::vec3[ width * height ];
+  for(int i = 0; i<width; i++)
+	  for(int j = 0; j<height; j++)
+	  {
+		  VimageBuffer[i+width*j] = glm::vec3(0,0,0);
+	  }
 
   frame = 0;
   seconds = time (NULL);
@@ -93,13 +105,24 @@ void runCuda(){
   ibo = mesh->getIBO();
   ibosize = mesh->getIBOsize();
 
+  nbo = mesh->getNBO();
+  nbosize = mesh->getNBOsize();
+
+  /////ra
+  Mmodel = glm::rotate(Mmodel, (float)1.0f, glm::vec3(1,1,0));
+
+
   cudaGLMapBufferObject((void**)&dptr, pbo);
-  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize);
+  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize, nbo, nbosize, Veye, Mmodel, Mview, Mprojection, depth_near, depth_far);
   cudaGLUnmapBufferObject(pbo);
 
   vbo = NULL;
   cbo = NULL;
   ibo = NULL;
+
+  ///////ra
+  nbo = NULL;
+
 
   frame++;
   fpstracker++;
