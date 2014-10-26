@@ -82,7 +82,7 @@ void runCuda(){
   // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
   dptr=NULL;
   glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), 20.0f-0.5f*frame, glm::vec3(0.0f, 1.0f, 0.0f));
-  rotation = glm::mat4(1.0f);
+  //rotation = glm::mat4(1.0f);
   vbo = mesh->getVBO();
   vbosize = mesh->getVBOsize();
 

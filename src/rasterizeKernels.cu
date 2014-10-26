@@ -19,7 +19,7 @@ int* device_ibo;
 triangle* primitives;
 //camera info
 glm::vec3 up(0, 1, 0);
-float fovy = 50;
+float fovy = 250;
 float zNear = 0.01;
 float zFar = 1000;
 //light info
@@ -354,7 +354,7 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 						
 				if (point.z > depthbuffer[pixelIndex].z) {
 					glm::vec3 bc = calculateBarycentricCoordinate(prim, glm::vec2(point.x, point.y));
-					depthbuffer[pixelIndex].color = glm::vec3(1,0,0) * bc.x + glm::vec3(0,1,0) * bc.y + glm::vec3(0,0,1) * bc.z;//prim.c0 * bc.x + prim.c1 * bc.y + prim.c2 * bc.z;//
+					depthbuffer[pixelIndex].color = (prim.c0 * bc.x + prim.c1 * bc.y + prim.c2 * bc.z);//glm::vec3(1,0,0) * bc.x + glm::vec3(0,1,0) * bc.y + glm::vec3(0,0,1) * bc.z;//
 					depthbuffer[pixelIndex].normal = glm::normalize(prim.n0 * bc.x + prim.n1 * bc.y + prim.n2 * bc.z);
 					//depthbuffer[pixelIndex].color = depthbuffer[pixelIndex].normal;
 					depthbuffer[pixelIndex].position = prim.p0 * bc.x + prim.p1 * bc.y + prim.p2 * bc.z;
@@ -375,36 +375,36 @@ __global__ void fragmentShadeKernel(fragment* depthbuffer, glm::vec2 resolution,
   int y = (blockIdx.y * blockDim.y) + threadIdx.y;
   int index = x + (y * resolution.x);
   if(x<=resolution.x && y<=resolution.y){
-	  glm::vec3 diffuseColor(1);
+	  glm::vec3 diffuseColor(0);
 		glm::vec3 specularColor(0);
 		float ks = 0.0;
-		//if (glm::distance(depthbuffer[index].color, glm::vec3(245.0/255.0, 222.0/255.0, 179.0/255.0)) > 0.1) {
-		//	ks = 0.1;
-		//}
-		//glm::vec3 norm =  depthbuffer[index].normal;
-		//glm::vec3 pos = depthbuffer[index].position;
-		//for (int i=0; i<lightsize; ++i) {
-		//	//diffuse component
-		//	glm::vec3 lightDir = glm::normalize(glm::vec3(pos-lights[i].pos));
-		//	float diffuseTerm = glm::clamp(glm::dot(lightDir, norm), 0.0f, 1.0f);
-		//	diffuseColor += diffuseTerm * lights[i].color;
+		if (glm::distance(depthbuffer[index].color, glm::vec3(245.0/255.0, 222.0/255.0, 179.0/255.0)) > 0.1) {
+			ks = 0.3;
+		}
+		glm::vec3 norm =  depthbuffer[index].normal;
+		glm::vec3 pos = depthbuffer[index].position;
+		for (int i=0; i<lightsize; ++i) {
+			//diffuse component
+			glm::vec3 lightDir = glm::normalize(glm::vec3(lights[i].pos-pos));
+			float diffuseTerm = glm::clamp(glm::dot(lightDir, norm), 0.0f, 1.0f);
+			diffuseColor += diffuseTerm * lights[i].color;
 
-		//	//specular component
-		//	if (ks > 0.0001) {
-		//		glm::vec3 LR; // reflected light direction
-		//		if (glm::length(lightDir - norm) < 0.0001) {
-		//			LR = norm;
-		//		}
-		//		else if (abs(glm::dot(lightDir, norm)) < 0.0001) {
-		//			LR = -lightDir;
-		//		}
-		//		else {
-		//			LR = glm::normalize(-lightDir - 2.0f * glm::dot(-lightDir, norm) * norm);
-		//		}
-		//		float specularTerm = min(1.0f, pow(max(0.0f, glm::dot(LR, glm::normalize(eye - pos))), 20.0f));
-		//		specularColor += specularTerm * glm::vec3(1.0f);
-		//	}
-		//}
+			//specular component
+			if (ks > 0.0001) {
+				glm::vec3 LR; // reflected light direction
+				if (glm::length(lightDir - norm) < 0.0001) {
+					LR = norm;
+				}
+				else if (abs(glm::dot(lightDir, norm)) < 0.0001) {
+					LR = -lightDir;
+				}
+				else {
+					LR = glm::normalize(-lightDir - 2.0f * glm::dot(-lightDir, norm) * norm);
+				}
+				float specularTerm = min(1.0f, pow(max(0.0f, glm::dot(LR, glm::normalize(eye - pos))), 20.0f));
+				specularColor += specularTerm * glm::vec3(1.0f);
+			}
+		}
 		depthbuffer[index].color = (diffuseColor* depthbuffer[index].color + ks * specularColor) ;
 
 		//set background color
@@ -426,8 +426,8 @@ __global__ void render(glm::vec2 resolution, fragment* depthbuffer, glm::vec3* f
   }
 }
 void initLights() {
-	light l1(glm::vec3(0.5, 0.5, 0.5), glm::vec3(4, -4, 4));
-	light l2(glm::vec3(0.5, 0.0, 0.2), glm::vec3(4, 9, -6));
+	light l1(glm::vec3(0.6, 0.5, 0.2), glm::vec3(4, -4, 4));
+	light l2(glm::vec3(0.5, 0.5, 0.2), glm::vec3(4, 9, -6));
 	light l3(glm::vec3(0.0, 0.8, 0.8), glm::vec3(0, 10, -5));
 	light l4(glm::vec3(0.3, 0.0, 0.0), glm::vec3(0, -9, 0));
 	light* cpulights = new light[lightsize];
