@@ -32,19 +32,128 @@ int main(int argc, char** argv){
   frame = 0;
   seconds = time (NULL);
   fpstracker = 0;
-
   // Launch CUDA/GL
   if (init(argc, argv)) {
     // GLFW main loop
     mainLoop();
   }
-
   return 0;
 }
 
+
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
+{
+	mouseScrollOffset += yoffset;
+}
 void mainLoop() {
-  while(!glfwWindowShouldClose(window)){
+ 
+
+ while(!glfwWindowShouldClose(window)){
+
+	//camera rotation, zoom control using mouse
+	double * mouseX = new double;
+	double * mouseY = new double;
+
+	if(glfwGetMouseButton(window,GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)
+	{
+		glfwGetCursorPos(window,mouseX,mouseY);
+		if(mouseButtonIsDown == false)
+		{
+			mouseButtonIsDown = true;
+			mouseClickedX = *mouseX;
+			mouseClickedY = *mouseY;
+		}
+		mouseDeltaX = *mouseX - mouseClickedX;
+		mouseDeltaY = *mouseY - mouseClickedY;
+
+	}
+
+	else
+	{
+		if(mouseButtonIsDown == true)
+		{
+			rotationX += mouseDeltaX;
+			rotationY += mouseDeltaY;
+			mouseButtonIsDown = false;
+			mouseDeltaX = 0.0f;
+			mouseDeltaY = 0.0f;
+		}
+
+	}
+	delete mouseX,mouseY;
+
+	//camera movement control using keyboard
+	if(glfwGetKey(window,GLFW_KEY_W) == GLFW_PRESS)
+	{
+		deltaZ -= cameraMovementIncrement;
+	}
+	if(glfwGetKey(window,GLFW_KEY_S) == GLFW_PRESS)
+	{
+		deltaZ += cameraMovementIncrement;
+	}
+	if(glfwGetKey(window,GLFW_KEY_A) == GLFW_PRESS)
+	{
+		deltaX -= cameraMovementIncrement;
+	}
+	if(glfwGetKey(window,GLFW_KEY_D) == GLFW_PRESS)
+	{
+		deltaX += cameraMovementIncrement;
+	}
+	
+	if(glfwGetKey(window,GLFW_KEY_F) == GLFW_PRESS)
+	{
+		isFkeyDown = true;
+	}
+	if(glfwGetKey(window,GLFW_KEY_F) == GLFW_RELEASE)
+	{
+		if(isFkeyDown)
+		{		
+			if(!isFlatShading) isFlatShading = 1;
+			else isFlatShading = 0;
+		}
+		isFkeyDown = false;
+	}
+
+	if(glfwGetKey(window,GLFW_KEY_M) == GLFW_PRESS)
+	{
+		isMkeyDown = true;
+	}
+	if(glfwGetKey(window,GLFW_KEY_M) == GLFW_RELEASE)
+	{
+		if(isMkeyDown)
+		{		
+			if(!isMeshView) isMeshView = 1;
+			else isMeshView = 0;
+		}
+		isMkeyDown = false;
+	}
+
+
+	//set up transformations
+	float fov_rad = FOV_DEG * PI / 180.0f;
+	float AR = width / height;
+
+	//glm::mat4 ModelTransform =utilityCore::buildTransformationMatrix(glm::vec3(0.0f),glm::vec3(0.0f,0.0f,0.0f),glm::vec3(1.0f));
+	glm::mat4 ModelTransform =utilityCore::buildTransformationMatrix(glm::vec3(0.0f),glm::vec3(-(rotationY + mouseDeltaY),- (rotationX + mouseDeltaX + 10.0f),0.0f),glm::vec3(0.6f));
+
+	glm::mat4 cameraAimTransform = utilityCore::buildTransformationMatrix(glm::vec3(0.0f),glm::vec3(0.0f),glm::vec3(1.0f));
+	//glm::mat4 cameraAimTransform = utilityCore::buildTransformationMatrix(glm::vec3(0.0f),glm::vec3(-(rotationY + mouseDeltaY),- (rotationX + mouseDeltaX + 10.0f),0.0f),glm::vec3(1.0f));
+	glm::mat4 cameraPosTransform = utilityCore::buildTransformationMatrix(glm::vec3(0.0f + deltaX,-.25f+ deltaZ,(2.0f  + MOUSE_SCROLL_SPEED * mouseScrollOffset)),glm::vec3(0.0f),glm::vec3(1.0f));
+	glm::mat4 ViewTransform = cameraAimTransform *cameraPosTransform;
+	//glm::mat4 ViewTransform =utilityCore::buildTransformationMatrix(glm::vec3(0.0f + deltaX,-.25f,2.0f + deltaZ + MOUSE_SCROLL_SPEED * mouseScrollOffset),glm::vec3(-(rotationY + mouseDeltaY),- (rotationX + mouseDeltaX),0.0f),glm::vec3(1.0f));
+	
+	glmViewTransform = ViewTransform;
+	glmProjectionTransform = glm::perspective((float)45.0f,AR, 1.0f,50.0f);
+	glmMVtransform = ViewTransform * ModelTransform;
+
+	//construct light
+	Light.position = glm::vec3(7.0f,2.0f, -10.0f);
+	Light.diffColor = glm::vec3(1.0f);
+	Light.specColor = glm::vec3(1.0f);
+	Light.specExp = 20;
+	Light.ambColor = glm::vec3(0.2f,0.6f,0.3f);
     glfwPollEvents();
+
     runCuda();
 
     time_t seconds2 = time (NULL);
@@ -68,6 +177,7 @@ void mainLoop() {
     glDrawElements(GL_TRIANGLES, 6,  GL_UNSIGNED_SHORT, 0);
     glfwSwapBuffers(window);
   }
+
   glfwDestroyWindow(window);
   glfwTerminate();
 }
@@ -84,22 +194,23 @@ void runCuda(){
   vbo = mesh->getVBO();
   vbosize = mesh->getVBOsize();
 
-  float newcbo[] = {0.0, 1.0, 0.0, 
-                    0.0, 0.0, 1.0, 
-                    1.0, 0.0, 0.0};
-  cbo = newcbo;
-  cbosize = 9;
+  cbo = mesh->getCBO();
+  cbosize = mesh->getCBOsize();
 
   ibo = mesh->getIBO();
   ibosize = mesh->getIBOsize();
 
+  nbo = mesh->getNBO();
+  nbosize = mesh->getNBOsize();
+
   cudaGLMapBufferObject((void**)&dptr, pbo);
-  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize);
+  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize,nbo,nbosize, glmViewTransform, glmProjectionTransform,glmMVtransform,Light, isFlatShading,isMeshView);
   cudaGLUnmapBufferObject(pbo);
 
   vbo = NULL;
   cbo = NULL;
   ibo = NULL;
+  nbo = NULL;
 
   frame++;
   fpstracker++;
@@ -119,7 +230,7 @@ bool init(int argc, char* argv[]) {
 
   width = 800;
   height = 800;
-  window = glfwCreateWindow(width, height, "CIS 565 Pathtracer", NULL, NULL);
+  window = glfwCreateWindow(width, height, "CUDA rasterizer", NULL, NULL);
   if (!window){
       glfwTerminate();
       return false;
@@ -144,6 +255,8 @@ bool init(int argc, char* argv[]) {
 
   glUseProgram(passthroughProgram);
   glActiveTexture(GL_TEXTURE0);
+
+  glfwSetScrollCallback(window, scroll_callback);
 
   return true;
 }

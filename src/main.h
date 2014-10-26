@@ -3,6 +3,7 @@
 
 #ifndef MAIN_H
 #define MAIN_H
+#include <stdlib.h>
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
@@ -12,10 +13,10 @@
 #include <fstream>
 #include <glm/glm.hpp>
 #include <glslUtil/glslUtility.hpp>
+#include "glm/gtc/matrix_transform.hpp"
 #include <iostream>
 #include <objUtil/objloader.h>
 #include <sstream>
-#include <stdlib.h>
 #include <string>
 #include <time.h>
 
@@ -24,6 +25,36 @@
 #include "utilities.h"
 
 using namespace std;
+
+#define FOV_DEG 30
+#define MOUSE_SCROLL_SPEED 0.1f
+
+light Light;
+
+//transformations
+glm::mat4 glmViewTransform;
+glm::mat4 glmProjectionTransform;
+glm::mat4 glmMVtransform;
+
+//mouse control stuff
+bool mouseButtonIsDown = false;
+float mouseScrollOffset = 0.0f;
+double mouseClickedX = 0.0f;
+double mouseClickedY = 0.0f;
+double rotationX = 0.0f;
+double rotationY = 0.0f;
+double mouseDeltaX = 0.0f;
+double mouseDeltaY = 0.0f;
+//toggle view
+bool isFkeyDown = false;
+int isFlatShading = false;
+bool isMkeyDown = false;
+int isMeshView = false;
+
+//keyboard control
+double deltaX = 0.0f;
+double deltaZ = 0.0f;
+double cameraMovementIncrement = 0.015f;
 
 //-------------------------------
 //------------GL STUFF-----------
@@ -49,6 +80,8 @@ float* cbo;
 int cbosize;
 int* ibo;
 int ibosize;
+float* nbo;
+int nbosize;
 
 //-------------------------------
 //----------CUDA STUFF-----------
