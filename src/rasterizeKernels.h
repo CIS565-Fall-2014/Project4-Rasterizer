@@ -20,9 +20,9 @@ struct camera{
   float nearClip;
   float farClip;
   camera(){//initialize camera to default values
-    position = glm::vec3(1,1,1);
+    position = glm::vec3(1,.25,1.25);
     up       = glm::vec3(0,-1,0);
-    forward  = glm::vec3(0,0,0);
+    forward  = glm::vec3(0,0.25,0);
     fovy     = 45.0f;
     nearClip = 0.1f;
     farClip  = 8.0f;

@@ -161,12 +161,11 @@ __global__ void primitiveAssemblyKernel(float* vbo, int vbosize, float* cbo, int
   if(index<primitivesCount){
     //assemble the primitives!
     //At this point vertices and normals are in eye space.
-    
-    //This isn't using IBO.   come back and fix so IBO is index for CBO and VBO
-    
-    //if this looks funky, come back and switch order on even numbers!
+    //not using ibo, not sure what problem is with ibo but it looks funky
     int vboindex = index * 9;
     int nboindex = vboindex;
+    
+    
     glm::vec4 p0 = glm::vec4(0,0,0,1.0f);
     glm::vec4 p1 = glm::vec4(0,0,0,1.0f);
     glm::vec4 p2 = glm::vec4(0,0,0,1.0f);
@@ -180,7 +179,7 @@ __global__ void primitiveAssemblyKernel(float* vbo, int vbosize, float* cbo, int
     glm::vec3 n2 = glm::vec3(0   ,0   ,1.0f);
     //get points
     p0.x = vbo[vboindex];
-    p0.y = vbo[vboindex + 1];
+    p0.y = vbo[vboindex+ 1];
     p0.z = vbo[vboindex + 2];
     p1.x = vbo[vboindex + 3];
     p1.y = vbo[vboindex + 4];
@@ -188,14 +187,8 @@ __global__ void primitiveAssemblyKernel(float* vbo, int vbosize, float* cbo, int
     p2.x = vbo[vboindex + 6];
     p2.y = vbo[vboindex + 7];
     p2.z = vbo[vboindex + 8];
-    //transform into clip space
-    p0 = projection * p0;
-    p1 = projection * p1;
-    p2 = projection * p2;
     
-    glm::vec3 transP0 = glm::vec3(p0.x/p0.w, p0.y/p0.w, p0.z/p0.w); 
-    glm::vec3 transP1 = glm::vec3(p1.x/p1.w, p1.y/p1.w, p1.z/p1.w); 
-    glm::vec3 transP2 = glm::vec3(p2.x/p2.w, p2.y/p2.w, p2.z/p2.w); 
+    
     
     //get colors (nothing here yet)
     
@@ -211,6 +204,30 @@ __global__ void primitiveAssemblyKernel(float* vbo, int vbosize, float* cbo, int
     n2.z = nbo[nboindex + 8];
     //leave them in clip space for shading
     
+    ////////////////////
+    //Back Face Culling!
+    ////////////////////
+    bool back0;
+    bool back1;
+    bool back2;
+    back0 = glm::dot(n0,-glm::vec3(p0.x,p0.y,p0.z)) < 0;
+    back1 = glm::dot(n1,-glm::vec3(p1.x,p1.y,p1.z)) < 0;
+    back2 = glm::dot(n2,-glm::vec3(p2.x,p2.y,p2.z)) < 0;
+    if(back0 && back1 && back2){
+      primitives[index].culled = true;
+      return;//no need to do more work
+    }
+    
+    //transform points into clip space
+    p0 = projection * p0;
+    p1 = projection * p1;
+    p2 = projection * p2;
+    
+    glm::vec3 transP0 = glm::vec3(p0.x/p0.w, p0.y/p0.w, p0.z/p0.w); 
+    glm::vec3 transP1 = glm::vec3(p1.x/p1.w, p1.y/p1.w, p1.z/p1.w); 
+    glm::vec3 transP2 = glm::vec3(p2.x/p2.w, p2.y/p2.w, p2.z/p2.w); 
+    
+    
     //place triangles
     primitives[index].p0 = transP0;
     primitives[index].p1 = transP1;
@@ -221,9 +238,11 @@ __global__ void primitiveAssemblyKernel(float* vbo, int vbosize, float* cbo, int
     primitives[index].n0 = n0;
     primitives[index].n1 = n1;
     primitives[index].n2 = n2;
+    primitives[index].culled = false;
 
   }
 }
+
 
 //TODO: Implement a rasterization method, such as scanline.
 __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, fragment* depthbuffer, glm::vec2 resolution){ //, glm::vec3* devbbox){
@@ -231,6 +250,9 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
   if(index<primitivesCount){
     //convert to screen coordinates
     triangle tri = primitives[index];
+    if(tri.culled == true){//did I cull this triangle?
+      return;
+    }
     clipToScreen(tri, resolution);
     //get bounding box for triangle
     glm::vec3 bbMin;
@@ -264,13 +286,12 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
           
           int dbIndex = i + (j * resolution.x);
           fragment frag2 = depthbuffer[dbIndex];
+          
           //need to figure how to do this atomically
           if(frag.position.z >= 0.0f && frag.position.z <= 1.0f && frag.position.z < frag2.position.z){
             frag.color  = tri.c0 * baryCords.x + tri.c1 * baryCords.y + tri.c2 * baryCords.z;
-            //frag.color = glm::vec3(1,1,1);
             frag.normal = tri.n0 * baryCords.x + tri.n1 * baryCords.y + tri.n2 * baryCords.z;
             depthbuffer[dbIndex] = frag;
-            //depthbuffer[dbIndex].color = glm::vec3(1,1,1);
           }
           
         }
@@ -281,15 +302,24 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 }
 
 //TODO: Implement a fragment shader
-__global__ void fragmentShadeKernel(fragment* depthbuffer, glm::vec2 resolution){
+__global__ void fragmentShadeKernel(fragment* depthbuffer, glm::vec2 resolution, glm::vec3 lightPos){
   int x = (blockIdx.x * blockDim.x) + threadIdx.x;
   int y = (blockIdx.y * blockDim.y) + threadIdx.y;
   int index = x + (y * resolution.x);
   if(x<=resolution.x && y<=resolution.y){
     if (depthbuffer[index].position.z == 100000.0f){
-      //depthbuffer[index].color = glm::vec3((float)x/resolution.x, (float)y/resolution.y, 1.0f);
+      depthbuffer[index].color = glm::vec3((float)x/resolution.x, (float)y/resolution.y, 1.0f);
     }else{
-      //depthbuffer[index].color = glm::vec3(1,1,1);
+      fragment frag = depthbuffer[index];
+      //Lambert
+      
+      glm::vec3 fragPos  = glm::vec3((frag.position.x / resolution.x) * 2 - 1, (frag.position.y / resolution.y) * 2 - 1, frag.position.z);
+      glm::vec3 lightDir = glm::normalize(lightPos - fragPos);
+      float diffuse = max(glm::dot(frag.normal,lightDir), 0.0);
+      depthbuffer[index].color = frag.color * diffuse;
+      
+      //Depth Render
+      //depthbuffer[index].color = frag.position.z * glm::vec3(1,1,1);
     }
   }
 }
@@ -373,10 +403,14 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
   
   // model transform matrix?
   glm::vec3 translation  = glm::vec3(0.0f,0.0f,0.0f);
-  glm::vec3 rotation     = glm::vec3(0.0f,0.0f,0.0f);
+  glm::vec3 rotation     = glm::vec3(0.0f,frame,0.0f);
   glm::vec3 scale        = glm::vec3(1.0f,1.0f,1.0f);
   glm::mat4 modelTransform = utilityCore::buildTransformationMatrix(translation, rotation, scale);
   
+  //Light  Make this editable
+  glm::vec4 Light = glm::vec4(2,5,0,1);
+  Light = View * Light;
+  glm::vec3 lightPos = glm::vec3(Light.x, Light.y, Light.z); //in clip space
   
   /*
   std::cout << "vbo length" << vbosize << "\n";
@@ -470,7 +504,7 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
   //fragment shader
   //------------------------------
 //std::cout << "Try to shade \n";
-  fragmentShadeKernel<<<fullBlocksPerGrid, threadsPerBlock>>>(depthbuffer, resolution);
+  fragmentShadeKernel<<<fullBlocksPerGrid, threadsPerBlock>>>(depthbuffer, resolution, lightPos);
 
   cudaDeviceSynchronize();
   //------------------------------
