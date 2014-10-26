@@ -130,6 +130,17 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
       PBOpos[index].z = color.z;
   }
 }
+//Gaussian Kernel
+__device__ float gaussSample(float inX, float inY, float sigma){
+  float xSquared = inX * inX;
+  float ySquared = inY * inY;
+  float sigmaSquared = sigma * sigma;
+  float exponent = (xSquared + ySquared)/sigmaSquared;
+  float e = powf(E,-exponent);
+  return e / (2 * PI * sigmaSquared);
+   
+  
+}
 
 //TODO: Implement a vertex shader
 __global__ void vertexShadeKernel(float* vbo, int vbosize, float* nbo, int nbosize, glm::mat4 View, glm::mat4 modelTransform){
@@ -324,7 +335,9 @@ __global__ void fragmentShadeKernel(fragment* depthbuffer, glm::vec2 resolution,
   }
 }
 
-//Writes fragment colors to the framebuffer
+
+
+//MODIFIED  Downsamples and then prints
 __global__ void render(glm::vec2 resolution, fragment* depthbuffer, glm::vec3* framebuffer){
 
   int x = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -332,7 +345,23 @@ __global__ void render(glm::vec2 resolution, fragment* depthbuffer, glm::vec3* f
   int index = x + (y * resolution.x);
 
   if(x<=resolution.x && y<=resolution.y){
-    framebuffer[index] = depthbuffer[index].color;
+    float dbX = x * 3 + 3;
+    float dbY = y * 3 + 3;
+    glm::vec2 dbRes = resolution;
+    dbRes.x = resolution.x * 3 + 6;
+    dbRes.y = resolution.y * 3 + 6;
+    glm::vec3 color = glm::vec3(0,0,0);
+    for(int i = int(dbX) - 3; i < int(dbX) + 4; i++){
+      for(int j = int(dbY) - 3; j < int(dbY) + 4; j ++){
+        if(i == int(dbX) && j == int(dbY)){
+          float gauss = gaussSample(EPSILON, EPSILON, 1.0f); //sigma = 1
+          color += depthbuffer[i + (j * int(dbRes.x))].color * gauss;
+        }else{
+          color += depthbuffer[i + (j * int(dbRes.x))].color * gaussSample((float(i) - dbX), (float(j) - dbY), 1.0f); //sigma = 1
+        }
+      }
+    }
+    framebuffer[index] = color;
   }
 }
 
@@ -341,15 +370,29 @@ __global__ void render(glm::vec2 resolution, fragment* depthbuffer, glm::vec3* f
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float* vbo, int vbosize, float* cbo, int cbosize, int* ibo, int ibosize, float* nbo, int nbosize, camera cam){
 
+  //set up framebuffer
+  framebuffer = NULL;
+  cudaMalloc((void**)&framebuffer, (int)resolution.x*(int)resolution.y*sizeof(glm::vec3));
+  
   // set up crucial magic
   int tileSize = 8;
   dim3 threadsPerBlock(tileSize, tileSize);
   dim3 fullBlocksPerGrid((int)ceil(float(resolution.x)/float(tileSize)), (int)ceil(float(resolution.y)/float(tileSize)));
+  
+  //kernel launches to black out accumulated/unaccumlated pixel buffers and clear our scattering states
+  clearImage<<<fullBlocksPerGrid, threadsPerBlock>>>(resolution, framebuffer, glm::vec3(0,0,0));
+  
+  //superscale:
+  glm::vec2 screenRes = resolution;
+  resolution.x = resolution.x * 3 + 6;
+  resolution.y = resolution.y * 3 + 6;
 
+  // set up crucial magic
+  tileSize = 8;
+  threadsPerBlock = dim3(tileSize, tileSize);
+  fullBlocksPerGrid = dim3((int)ceil(float(resolution.x)/float(tileSize)), (int)ceil(float(resolution.y)/float(tileSize)));
 
-  //set up framebuffer
-  framebuffer = NULL;
-  cudaMalloc((void**)&framebuffer, (int)resolution.x*(int)resolution.y*sizeof(glm::vec3));
+  
   
 
   //set up depthbuffer
@@ -357,8 +400,7 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
   cudaMalloc((void**)&depthbuffer, (int)resolution.x*(int)resolution.y*sizeof(fragment));
   
 
-  //kernel launches to black out accumulated/unaccumlated pixel buffers and clear our scattering states
-  clearImage<<<fullBlocksPerGrid, threadsPerBlock>>>(resolution, framebuffer, glm::vec3(0,0,0));
+  
   
   fragment frag;
   frag.color = glm::vec3(0,0,0);
@@ -510,6 +552,10 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
   //------------------------------
   //write fragments to framebuffer
   //------------------------------
+  //Downscale:
+  resolution = screenRes;
+  tileSize = 8;
+  fullBlocksPerGrid = dim3((int)ceil(float(resolution.x)/float(tileSize)), (int)ceil(float(resolution.y)/float(tileSize)));
   render<<<fullBlocksPerGrid, threadsPerBlock>>>(resolution, depthbuffer, framebuffer);
   sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, resolution, framebuffer);
 
