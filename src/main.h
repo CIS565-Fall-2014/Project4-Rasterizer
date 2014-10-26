@@ -21,6 +21,7 @@
 
 
 #include "rasterizeKernels.h"
+#include "sceneStructs.h"
 #include "utilities.h"
 
 using namespace std;
@@ -40,7 +41,13 @@ GLuint displayImage;
 uchar4 *dptr;
 
 GLFWwindow *window;
+bool mouse_pressed = false;
+double x_last = -1;
+double y_last = -1;
 
+//--------------------------------
+//-----------MODEL STUFF----------
+//--------------------------------
 obj* mesh;
 
 float* vbo;
@@ -49,6 +56,17 @@ float* cbo;
 int cbosize;
 int* ibo;
 int ibosize;
+float* nbo;
+int nbosize;
+
+//-------------------------------
+//----------CAMERA STUFF---------
+//-------------------------------
+glm::mat4 mvp;
+ray light;
+float camera_distance;
+float camera_phi;
+float camera_theta;
 
 //-------------------------------
 //----------CUDA STUFF-----------
@@ -99,5 +117,7 @@ void deleteTexture(GLuint* tex);
 void mainLoop();
 void errorCallback(int error, const char *description);
 void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods);
-
+void mouseButtonCallback(GLFWwindow* window, int button, int action);
+void mousePositionCallback(GLFWwindow* window, double x, double y);
+void mouseScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
 #endif

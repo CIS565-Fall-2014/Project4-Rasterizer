@@ -2,6 +2,7 @@
 // Written by Yining Karl Li, Copyright (c) 2012 University of Pennsylvania
 
 #include "main.h"
+#include "glm/gtc/matrix_transform.hpp"
 
 //-------------------------------
 //-------------MAIN--------------
@@ -9,6 +10,8 @@
 
 int main(int argc, char** argv){
 
+
+  /*
   bool loadedScene = false;
   for(int i=1; i<argc; i++){
     string header; string data;
@@ -23,11 +26,43 @@ int main(int argc, char** argv){
       loadedScene = true;
     }
   }
+  */
+
+  // Initialize the model
+  bool loadedScene = false;
+  string data = std::string("C:\\\\Users\\Dave\\Documents\\Github\\Project4-Rasterizer\\objs\\cow.obj");
+  mesh = new obj();
+  objLoader* loader = new objLoader(data, mesh);
+  mesh->buildVBOs();
+  delete loader;
+  loadedScene = true;
 
   if(!loadedScene){
     cout << "Usage: mesh=[obj file]" << endl;
     return 0;
   }
+
+  // Initialize the camera
+  camera_distance = 3.0f;
+  camera_phi = PI/2.0f;
+  camera_theta = 3.0f*PI/2.0f;
+
+  // Initialize the MVP matrix
+  glm::mat4 model = glm::translate(glm::mat4(), glm::vec3(0.0f, 0.0f, 0.0f)) * glm::scale(glm::mat4(), glm::vec3(1.0f));
+  glm::vec3 eye(camera_distance*sin(camera_phi)*cos(camera_theta), camera_distance*cos(camera_phi), camera_distance*sin(camera_phi)*sin(camera_theta));
+  glm::vec3 origin(0.0f, 0.0f, 0.0f);
+  glm::vec3 up(0.0f, 1.0f, 0.0f);
+  glm::mat4 view = glm::lookAt(eye, origin, up);
+  glm::mat4 projection = glm::perspective(45.0f, (float)(width / height), 0.1f, 100.0f);
+  mvp = projection * view * model;
+
+  // Initialize the light source (undirected)
+  light.origin = glm::vec3(-15.0f, -15.0f, -15.0f);
+  light.color = glm::vec3(1.0f, 1.0f, 1.0f);
+  glm::vec4 light_temp = mvp*glm::vec4(light.origin, 1.0f);
+  light.origin.x = light_temp.x/light_temp.w;
+  light.origin.y = light_temp.y/light_temp.w;
+  light.origin.z = light_temp.z/light_temp.w;
 
   frame = 0;
   seconds = time (NULL);
@@ -93,13 +128,26 @@ void runCuda(){
   ibo = mesh->getIBO();
   ibosize = mesh->getIBOsize();
 
+  nbo = mesh->getNBO();
+  nbosize = mesh->getNBOsize();
+
+  // Update the MVP matrix
+  glm::mat4 model = glm::translate(glm::mat4(), glm::vec3(0.0f, 0.0f, 0.0f)) * glm::scale(glm::mat4(), glm::vec3(1.0f));
+  glm::vec3 eye(camera_distance*sin(camera_phi)*cos(camera_theta), camera_distance*cos(camera_phi), camera_distance*sin(camera_phi)*sin(camera_theta));
+  glm::vec3 origin(0.0f, 0.0f, 0.0f);
+  glm::vec3 up(0.0f, 1.0f, 0.0f);
+  glm::mat4 view = glm::lookAt(eye, origin, up);
+  glm::mat4 projection = glm::perspective(45.0f, (float)(width / height), 0.1f, 100.0f);
+  mvp = projection * view * model;
+
   cudaGLMapBufferObject((void**)&dptr, pbo);
-  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize);
+  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, light, vbo, vbosize, cbo, cbosize, ibo, ibosize, nbo, nbosize, mvp);
   cudaGLUnmapBufferObject(pbo);
 
   vbo = NULL;
   cbo = NULL;
   ibo = NULL;
+  nbo = NULL;
 
   frame++;
   fpstracker++;
@@ -126,6 +174,9 @@ bool init(int argc, char* argv[]) {
   }
   glfwMakeContextCurrent(window);
   glfwSetKeyCallback(window, keyCallback);
+  glfwSetMouseButtonCallback(window, (GLFWmousebuttonfun)mouseButtonCallback);
+  glfwSetCursorPosCallback(window, (GLFWcursorposfun)mousePositionCallback);
+  glfwSetScrollCallback(window, (GLFWscrollfun)mouseScrollCallback);
 
   // Set up GL context
   glewExperimental = GL_TRUE;
@@ -281,4 +332,39 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     if(key == GLFW_KEY_ESCAPE && action == GLFW_PRESS){
         glfwSetWindowShouldClose(window, GL_TRUE);
     }
+}
+
+void mouseButtonCallback(GLFWwindow* window, int button, int action) {
+
+  if (button == GLFW_MOUSE_BUTTON_LEFT) {
+    mouse_pressed = (action == GLFW_PRESS) ? true : false;
+    if (!mouse_pressed) {
+      x_last = -1;
+      y_last = -1;
+    }
+  }
+
+}
+
+void mousePositionCallback(GLFWwindow* window, double x, double y) {
+
+  if (mouse_pressed) {
+    if (x_last == -1) {
+      x_last = x;
+      y_last = y;
+      return;
+    }
+    camera_theta -= (x-x_last)*0.0005;
+    camera_phi += (y - y_last)*0.0005;
+    if (camera_phi <= 0.0005f) {
+      camera_phi = 0.0005f;
+    } else if (camera_phi >= PI-0.0005f) {
+      camera_phi = PI-0.0005f;
+    }
+  }
+
+}
+
+void mouseScrollCallback(GLFWwindow* window, double xoffset, double yoffset) {
+  camera_distance -= yoffset*0.1f;
 }

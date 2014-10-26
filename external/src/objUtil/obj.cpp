@@ -18,7 +18,7 @@ obj::obj(){
 	defaultColor = glm::vec3(0,0,0);
 	boundingbox = new float[32];
 	maxminSet = false;
-	xmax=0; xmin=0; ymax=0; ymin=0; zmax=0; zmin=0; 
+	xmax=0; xmin=0; ymax=0; ymin=0; zmax=0; zmin=0;
 	
 }
 
@@ -52,7 +52,7 @@ void obj::buildVBOs(){
 			for(int i=2; i<face.size(); i++){
 				glm::vec4 p1 = points[face[i-1]];
 				glm::vec4 p2 = points[face[i]];
-				VBOvec.push_back(p0[0]) ; VBOvec.push_back(p0[1]); VBOvec.push_back(p0[2]); //VBOvec.push_back(1.0f);
+				VBOvec.push_back(p0[0]); VBOvec.push_back(p0[1]); VBOvec.push_back(p0[2]); //VBOvec.push_back(1.0f);
 				VBOvec.push_back(p1[0]); VBOvec.push_back(p1[1]); VBOvec.push_back(p1[2]); //VBOvec.push_back(1.0f);
 				VBOvec.push_back(p2[0]); VBOvec.push_back(p2[1]); VBOvec.push_back(p2[2]); //VBOvec.push_back(1.0f);
 
