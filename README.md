@@ -69,5 +69,5 @@ On the other side, when kernel is dealing with every pixel, there is no remarkab
 ![ResultImage](tilesize2_chart.bmp)
 
 #Video:
-http://youtu.be/22JkxHzivGE
+http://youtu.be/risFVKhcJxw?list=UUJtkDj4l59vXO54RI76gTvg
 
