@@ -2,50 +2,8 @@
 CIS565: Project 4: CUDA Rasterizer
 -------------------------------------------------------------------------------
 Fall 2014
--------------------------------------------------------------------------------
-Due Monday 10/27/2014 @ 12 PM
--------------------------------------------------------------------------------
 
--------------------------------------------------------------------------------
-NOTE:
--------------------------------------------------------------------------------
-This project requires an NVIDIA graphics card with CUDA capability! Any card with CUDA compute capability 1.1 or higher will work fine for this project. For a full list of CUDA capable cards and their compute capability, please consult: http://developer.nvidia.com/cuda/cuda-gpus. If you do not have an NVIDIA graphics card in the machine you are working on, feel free to use any machine in the SIG Lab or in Moore100 labs. All machines in the SIG Lab and Moore100 are equipped with CUDA capable NVIDIA graphics cards. If this too proves to be a problem, please contact Patrick or Karl as soon as possible.
-
--------------------------------------------------------------------------------
-INTRODUCTION:
--------------------------------------------------------------------------------
-In this project, you will implement a simplified CUDA based implementation of a standard rasterized graphics pipeline, similar to the OpenGL pipeline. In this project, you will implement vertex shading, primitive assembly, perspective transformation, rasterization, fragment shading, and write the resulting fragments to a framebuffer. More information about the rasterized graphics pipeline can be found in the class slides and in your notes from CIS560.
-
-The basecode provided includes an OBJ loader and much of the mundane I/O and bookkeeping code. The basecode also includes some functions that you may find useful, described below. The core rasterization pipeline is left for you to implement.
-
-You MAY NOT use ANY raycasting/raytracing AT ALL in this project, EXCEPT in the fragment shader step. One of the purposes of this project is to see how a rasterization pipeline can generate graphics WITHOUT the need for raycasting! Raycasting may only be used in the fragment shader effect for interesting shading results, but is absolutely not allowed in any other stages of the pipeline.
-
-Also, you MAY NOT use OpenGL ANYWHERE in this project, aside from the given OpenGL code for drawing Pixel Buffer Objects to the screen. Use of OpenGL for any pipeline stage instead of your own custom implementation will result in an incomplete project.
-
-Finally, note that while this basecode is meant to serve as a strong starting point for a CUDA rasterizer, you are not required to use this basecode if you wish, and you may also change any part of the basecode specification as you please, so long as the final rendered result is correct.
-
--------------------------------------------------------------------------------
-CONTENTS:
--------------------------------------------------------------------------------
-The Project4 root directory contains the following subdirectories:
-	
-* src/ contains the source code for the project. Both the Windows Visual Studio solution and the OSX makefile reference this folder for all source; the base source code compiles on OSX and Windows without modification.
-* objs/ contains example obj test files: cow.obj, cube.obj, tri.obj.
-* renders/ contains an example render of the given example cow.obj file with a z-depth fragment shader. 
-* windows/ contains a Windows Visual Studio 2010 project and all dependencies needed for building and running on Windows 7.
-
-The Windows and OSX versions of the project build and run exactly the same way as in Project0, Project1, and Project2.
-
--------------------------------------------------------------------------------
-REQUIREMENTS:
--------------------------------------------------------------------------------
-In this project, you are given code for:
-
-* A library for loading/reading standard Alias/Wavefront .obj format mesh files and converting them to OpenGL style VBOs/IBOs
-* A suggested order of kernels with which to implement the graphics pipeline
-* Working code for CUDA-GL interop
-
-You will need to implement the following stages of the graphics pipeline and features:
+Graphics pipeline and features implemented:
 
 * Vertex Shading
 * Primitive Assembly with support for triangle VBOs/IBOs

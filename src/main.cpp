@@ -74,6 +74,8 @@ void mainLoop() {
 
 float theTa =0;
 float alpha =1;
+float line = false;
+float vertex = false;
 //-------------------------------
 //---------RUNTIME STUFF---------
 //-------------------------------
@@ -101,7 +103,7 @@ void runCuda(){
   texcoord = mesh->getTextureCoords();
   
   cudaGLMapBufferObject((void**)&dptr, pbo);
-  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize, nbo, nbosize,&tex,texcoord,theTa,alpha);
+  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize, nbo, nbosize,&tex,texcoord,theTa,alpha,line,vertex);
   cudaGLUnmapBufferObject(pbo);
 
   vbo = NULL;
@@ -325,10 +327,10 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 		theTa-=0.1f;
     }
 	
-	if(key == GLFW_KEY_DOWN){
-		alpha +=0.05f;
+	if(key == GLFW_KEY_A && action == GLFW_PRESS){
+		line = !line;
     }
-	if(key == GLFW_KEY_UP){
-		alpha -=0.05f;
+	if(key == GLFW_KEY_S && action == GLFW_PRESS){
+		vertex = !vertex;
     }
 }

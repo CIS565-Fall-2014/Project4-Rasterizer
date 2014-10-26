@@ -196,7 +196,7 @@ __global__ void rasterizationKernelVertices(triangle* primitives, int primitives
 	  int x = (primitives[index].p0.x/2+0.5f)*(int)resolution.x;
 	  int y = (primitives[index].p0.y/2+0.5f)*(int)resolution.y;
 	  int buffer_index = y*(int)resolution.y+x;
-	  if(depthbuffer[buffer_index].position.z  < primitives[index].p0.z){
+	  if(depthbuffer[buffer_index].position.z  < getZAtCoordinate(glm::vec3(1,0,0),primitives[index])+0.0001f){
 		  depthbuffer[buffer_index].color = glm::vec3(1.0f,0,0);
 		  depthbuffer[buffer_index].type = 2;
 
@@ -214,7 +214,26 @@ __global__ void rasterizationKernelVertices(triangle* primitives, int primitives
 		  depthbuffer[y*(int)resolution.y+x].type = 2;
 	  }
 
-	  
+	  x = (primitives[index].p1.x/2+0.5f)*(int)resolution.x;
+	  y = (primitives[index].p1.y/2+0.5f)*(int)resolution.y;
+	  buffer_index = y*(int)resolution.y+x;
+	  if(depthbuffer[buffer_index].position.z  < getZAtCoordinate(glm::vec3(0,1,0),primitives[index])+0.0001f){
+		  depthbuffer[buffer_index].color = glm::vec3(1.0f,0,0);
+		  depthbuffer[buffer_index].type = 2;
+
+		  x = (primitives[index].p1.x/2+0.5f)*(int)resolution.x+1;
+		  y = (primitives[index].p1.y/2+0.5f)*(int)resolution.y;
+		  depthbuffer[y*(int)resolution.y+x].color = glm::vec3(1.0f,0,0);
+		  depthbuffer[y*(int)resolution.y+x].type = 2;
+		  x = (primitives[index].p1.x/2+0.5f)*(int)resolution.x;
+		  y = (primitives[index].p1.y/2+0.5f)*(int)resolution.y+1;
+		  depthbuffer[y*(int)resolution.y+x].color = glm::vec3(1.0f,0,0);
+		  depthbuffer[y*(int)resolution.y+x].type = 2;
+		  x = (primitives[index].p1.x/2+0.5f)*(int)resolution.x+1;
+		  y = (primitives[index].p1.y/2+0.5f)*(int)resolution.y+1;
+		  depthbuffer[y*(int)resolution.y+x].color = glm::vec3(1.0f,0,0);
+		  depthbuffer[y*(int)resolution.y+x].type = 2;
+	  }
   }
 }
 
@@ -381,7 +400,7 @@ __global__ void render(glm::vec2 resolution, fragment* depthbuffer, glm::vec3* f
 
 
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
-void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float* vbo, int vbosize, float* cbo, int cbosize, int* ibo, int ibosize, float* nbo,int nbosize,bmp_texture *tex,vector<glm::vec4> *texcoord,float theTa, float alpha){
+void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float* vbo, int vbosize, float* cbo, int cbosize, int* ibo, int ibosize, float* nbo,int nbosize,bmp_texture *tex,vector<glm::vec4> *texcoord,float theTa, float alpha,bool line, bool vertex){
 
   // set up crucial magic
   int tileSize = 8;
@@ -472,10 +491,14 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
   //------------------------------
   rasterizationKernel<<<primitiveBlocks, tileSize>>>(primitives, ibosize/3, depthbuffer, resolution);
   cudaDeviceSynchronize();
-  rasterizationKernelLines<<<primitiveBlocks, tileSize>>>(primitives, ibosize/3, depthbuffer, resolution);
-  cudaDeviceSynchronize();
-  rasterizationKernelVertices<<<primitiveBlocks, tileSize>>>(primitives, ibosize/3, depthbuffer, resolution);
-  cudaDeviceSynchronize();
+  if(line){
+	  rasterizationKernelLines<<<primitiveBlocks, tileSize>>>(primitives, ibosize/3, depthbuffer, resolution);
+	  cudaDeviceSynchronize();
+  }
+  if(vertex){
+	  rasterizationKernelVertices<<<primitiveBlocks, tileSize>>>(primitives, ibosize/3, depthbuffer, resolution);
+	  cudaDeviceSynchronize();
+  }
   //------------------------------
   //fragment shader
   //------------------------------

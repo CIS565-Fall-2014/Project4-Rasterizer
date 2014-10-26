@@ -16,6 +16,6 @@
 using namespace std;
 
 void kernelCleanup();
-void cudaRasterizeCore(uchar4* pos, glm::vec2 resolution, float frame, float* vbo, int vbosize, float* cbo, int cbosize, int* ibo, int ibosize, float* nbo,int nbosize,bmp_texture *tex,vector<glm::vec4> *texcoord,float theTa, float alpha);
+void cudaRasterizeCore(uchar4* pos, glm::vec2 resolution, float frame, float* vbo, int vbosize, float* cbo, int cbosize, int* ibo, int ibosize, float* nbo,int nbosize,bmp_texture *tex,vector<glm::vec4> *texcoord,float theTa, float alpha, bool line, bool vertex);
 
 #endif //RASTERIZEKERNEL_H
