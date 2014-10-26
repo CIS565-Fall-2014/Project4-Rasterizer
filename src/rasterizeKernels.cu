@@ -17,6 +17,8 @@ float *device_nbo;
 triangle* primitives;
 float *device_vbo_window_coords;
 
+const float EMPTY_BUFFER_DEPTH = -10000.0f;
+
 void checkCUDAError(const char *msg) {
   cudaError_t err = cudaGetLastError();
   if( cudaSuccess != err) {
@@ -171,16 +173,26 @@ void vertexShadeKernel( float *vbo,
 }
 
 
+template<typename T>
+__host__
+__device__
+void simpleSwap( T &f1, T &f2 )
+{
+	T tmp = f1;
+	f1 = f2;
+	f2 = tmp;
+}
+
+
 // Construct primitives from vertices.
 __global__
 void primitiveAssemblyKernel( float *vbo, int vbosize,
 							  float *cbo, int cbosize,
 							  int *ibo, int ibosize,
 							  float *nbo, int nbosize,
+							  float *vbo_window_coords,
 							  triangle *primitives )
 {
-	// TODO: Backface culling.
-
 	int index = ( blockIdx.x * blockDim.x ) + threadIdx.x;
 	int primitivesCount = ibosize / 3;
 	if ( index < primitivesCount ) {
@@ -194,6 +206,22 @@ void primitiveAssemblyKernel( float *vbo, int vbosize,
 		int v0_index = i0 * 3;
 		int v1_index = i1 * 3;
 		int v2_index = i2 * 3;
+
+		// Get screen-space positions of triangle vertices.
+		glm::vec3 ssp0( vbo_window_coords[v0_index + 0], vbo_window_coords[v0_index + 1], vbo_window_coords[v0_index + 2] );
+		glm::vec3 ssp1( vbo_window_coords[v1_index + 0], vbo_window_coords[v1_index + 1], vbo_window_coords[v1_index + 2] );
+		glm::vec3 ssp2( vbo_window_coords[v2_index + 0], vbo_window_coords[v2_index + 1], vbo_window_coords[v2_index + 2] );
+
+		// Check if triangle is visible.
+		glm::vec3 backface_check = glm::cross( ssp1 - ssp0, ssp2 - ssp0 );
+		if ( backface_check.z < 0.0f ) {
+			triangle tri;
+			tri.is_visible = false;
+			primitives[index] = tri;
+			return;
+		}
+
+		// Get positions of triangle vertices.
 		glm::vec3 p0( vbo[v0_index + 0], vbo[v0_index + 1], vbo[v0_index + 2] );
 		glm::vec3 p1( vbo[v1_index + 0], vbo[v1_index + 1], vbo[v1_index + 2] );
 		glm::vec3 p2( vbo[v2_index + 0], vbo[v2_index + 1], vbo[v2_index + 2] );
@@ -213,42 +241,140 @@ void primitiveAssemblyKernel( float *vbo, int vbosize,
 
 		// Set triangle.
 		primitives[index] = triangle( p0, p1, p2,
+									  ssp0, ssp1, ssp2,
 									  c0, c1, c2,
 									  n0, n1, n2 );
 	}
 }
 
 
-// TODO: Implement a rasterization method, such as scanline.
+//__device__ glm::vec3 getScanlineIntersection(glm::vec3 v1, glm::vec3 v2, float y) {
+//	float t = (y-v1.y)/(v2.y-v1.y);
+//	return glm::vec3(t*v2.x + (1-t)*v1.x, y, t*v2.z + (1-t)*v1.z);
+//}
+//
+//__host__
+//__device__
+//glm::vec3 computePoint
+
+
+// Scanline rasterization per triangle.
+// Thanks: http://graphics.stanford.edu/courses/cs248-08/scan/scan1.html
 __global__
 void rasterizationKernel( triangle *primitives,
 						  int primitivesCount,
 						  fragment *depthbuffer,
 						  glm::vec2 resolution )
 {
-
-	// TODO: Which pixels does a primitive cover?
-
 	int index = ( blockIdx.x * blockDim.x ) + threadIdx.x;
 	if ( index < primitivesCount ) {
+		triangle tri = primitives[index];
 
+		// Only rasterize current triangle if triangle is visible (determined in primitive assembly stage).
+		if ( !tri.is_visible ) {
+			return;
+		}
+
+		// Get screen-space vertices for current triangle.
+		glm::vec3 v1 = tri.ssp0;
+		glm::vec3 v2 = tri.ssp1;
+		glm::vec3 v3 = tri.ssp2;
+
+		// Sort triangle vertices in ascending order by screen-space y-coordinate.
+		if ( v1.y > v2.y ) {
+			simpleSwap( v1, v2 );
+		}
+		if ( v1.y > v3.y ) {
+			simpleSwap( v1, v3 );
+		}
+		if ( v2.y > v3.y ) {
+			simpleSwap( v2, v3 );
+		}
+
+		// If triangle vertices have same y-coordinate, then sort in ascending order by screen-space x-coordinate.
+		if ( v1.y == v2.y && v1.x > v2.x ) {
+			simpleSwap( v1, v2 );
+		}
+		if ( v2.y == v3.y && v2.x > v3.x  ) {
+			simpleSwap( v2, v3 );
+		}
+
+		int y_bot = ceil( v1.y );
+		int y_mid = ceil( v2.y );
+		int y_top = ceil( v3.y );
+
+		edge e1, e2, e3, l, r;
+		e1.setEdge( v1, v3, y_bot );
+		e2.setEdge( v1, v2, y_bot );
+		e3.setEdge( v2, v3, y_mid );
+
+		// Set left and right edges based on x-values.
+		if ( v1.x < v2.x ) {
+			l = e1;
+			r = e2;
+		}
+		else {
+			l = e2;
+			r = e1;
+		}
+
+		// Loop through scanlines covered by the triangle.
+		for ( int y = y_bot; y < y_top - 1; ++y ) {
+			// Update edge if scanline has reached the mid-y triangle point.
+			if ( y >= y_mid ) {				
+				if ( v1.x < v2.x ) {
+					r = e3;
+				}
+				else {
+					l = e3;
+				}
+			}
+
+			int lx = ceil( l.x );
+			int rx = ceil( r.x );
+
+			for ( int x = lx; x < rx - 1; ++x ) {
+				if ( x > 0 && x < resolution.x && y > 0 && y < resolution.y ) {
+
+					// TODO: current_z is computed WRT triangle in object-space. I think it should be computed WRT triangle in camera-space.
+
+					// Compute Barycentric coordinates of current fragment in screen-space triangle.
+					glm::vec3 barycentric_coordinates = calculateBarycentricCoordinate( tri.ssp0, tri.ssp1, tri.ssp2, glm::vec2( x, y ) );
+					float current_z = getZAtCoordinate( barycentric_coordinates, tri.p0, tri.p1, tri.p2 );
+
+					fragment buffer_fragment = getFromDepthbuffer( x, y, depthbuffer, resolution );
+					float buffer_z = buffer_fragment.position.z;
+
+					// Update depth buffer.
+					if ( current_z > buffer_z ) {
+						fragment f;
+						f.color = ( tri.c0 * barycentric_coordinates.x ) + ( tri.c1 * barycentric_coordinates.y ) + ( tri.c2 * barycentric_coordinates.z );
+						f.normal = glm::normalize( ( tri.n0 * barycentric_coordinates.x ) + ( tri.n1 * barycentric_coordinates.y ) + ( tri.n2 * barycentric_coordinates.z ) );
+						f.position = ( tri.p0 * barycentric_coordinates.x ) + ( tri.p1 * barycentric_coordinates.y ) + ( tri.p2 * barycentric_coordinates.z );
+						writeToDepthbuffer( x, y, f, depthbuffer, resolution );
+					}
+				}
+			}
+
+			l.x += l.dxdy;
+			r.x += r.dxdy;
+		}
 	}
 }
 
 
-// TODO: Implement a fragment shader.
+// Compute light interaction with fragments.
+// Write fragment colors to frame buffer.
 __global__
 void fragmentShadeKernel( fragment *depthbuffer,
 						  glm::vec2 resolution )
 {
-
-	// TODO: How does light interact with a fragment?
-	// TODO: Write pixel color to frame buffer.
-
 	int x = ( blockIdx.x * blockDim.x ) + threadIdx.x;
 	int y = ( blockIdx.y * blockDim.y ) + threadIdx.y;
 	int index = x + ( y * resolution.x );
 	if ( x <= resolution.x && y <= resolution.y ) {
+
+		// TODO.
 
 	}
 }
@@ -302,7 +428,7 @@ void cudaRasterizeCore( uchar4 *PBOpos,
 	fragment frag;
 	frag.color = glm::vec3( 0.0f, 0.0f, 0.0f );
 	frag.normal = glm::vec3( 0.0f, 0.0f, 0.0f );
-	frag.position = glm::vec3( 0.0f, 0.0f, -10000.0f );
+	frag.position = glm::vec3( 0.0f, 0.0f, EMPTY_BUFFER_DEPTH );
 	clearDepthBuffer<<< fullBlocksPerGrid, threadsPerBlock >>>( camera.resolution,
 																depthbuffer,
 																frag );
@@ -388,6 +514,7 @@ void cudaRasterizeCore( uchar4 *PBOpos,
 															  device_cbo, cbosize,
 															  device_ibo, ibosize,
 															  device_nbo, nbosize,
+															  device_vbo_window_coords,
 															  primitives );
 	cudaDeviceSynchronize();
 
