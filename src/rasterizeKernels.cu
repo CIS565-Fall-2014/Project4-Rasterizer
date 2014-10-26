@@ -554,7 +554,7 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, ray li
   //------------------------------
   //primitive assembly
   //------------------------------
-  primitiveBlocks = ceil(((float)ibosize/3)/((float)tileSize));
+  primitiveBlocks = ceil(((float)numPrimitives)/((float)tileSize));
   primitiveAssemblyKernel<<<primitiveBlocks, tileSize>>>(device_vbo, vbosize, device_cbo, cbosize, device_ibo, ibosize, device_nbo, nbosize, primitives1);
 
   cudaDeviceSynchronize();
@@ -563,6 +563,7 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, ray li
   //culling
   //------------------------------
   culling(primitives1, primitives2, numPrimitives);
+  primitiveBlocks = ceil(((float)numPrimitives)/((float)tileSize));
 
   //------------------------------
   //rasterization
