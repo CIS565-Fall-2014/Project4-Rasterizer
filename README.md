@@ -39,16 +39,20 @@ After these 3 steps I can get a plain filled scene like this
 ![alt tag](https://raw.githubusercontent.com/XJMa/Project4-Rasterizer/master/screenshots/paintfill.jpg)
 Then I implemented a Lambert shading model in fregmant shader
 diffuse model:
+
 ![alt tag](https://raw.githubusercontent.com/XJMa/Project4-Rasterizer/master/screenshots/diffuss-light.jpg)
 specular model:
+
 ![alt tag](https://raw.githubusercontent.com/XJMa/Project4-Rasterizer/master/screenshots/spec.jpg)
 Normal debug scene:
+
 ![alt tag](https://raw.githubusercontent.com/XJMa/Project4-Rasterizer/master/screenshots/normal.jpg)
 
 -------------------------------------------------------------------------------
 Color Interpolation
 -------------------------------------------------------------------------------
 To achieve proper color interpolation, I converted each pixel coordinate back to barycentric coordinates relative to the triangle primitive's three vertices. Then I can get properly interpolated color gradients within each face by following barycentric interpolation model
+
 ![alt tag](https://raw.githubusercontent.com/XJMa/Project4-Rasterizer/master/screenshots/color%20interpolation.jpg)
 
 -------------------------------------------------------------------------------
@@ -66,9 +70,13 @@ Interactive camera demo: https://www.youtube.com/watch?v=Q0boU6VKco4
 Anti-aliasing
 -------------------------------------------------------------------------------
 Anti-aliasing is achieved by rasterizing in another depthbuffer with doubled width and height, and convert the big buffer into normal size with simple interpolation, the result is pretty good:
+
 without antianliazing:
+
 ![alt tag](https://raw.githubusercontent.com/XJMa/Project4-Rasterizer/master/screenshots/anti_no.jpg)
+
 with antianliazing:
+
 ![alt tag](https://raw.githubusercontent.com/XJMa/Project4-Rasterizer/master/screenshots/anti.jpg)
 -------------------------------------------------------------------------------
 Back-face culling
@@ -82,6 +90,7 @@ To achieve that I determined if the face is visible in primitive assembly stage 
 Performance Analysis
 -------------------------------------------------------------------------------
 ![alt tag](https://raw.githubusercontent.com/XJMa/Project4-Rasterizer/master/screenshots/performance.jpg)
+
 In my implementation the rasterization is parallerized by permitives, so it is no suprise that the FPS rates drop when we have a bigger mesh(with more faces). And the antialiasing process is computationally expensive too, since it require extra computation in a 4X depthbuffer. 
 For the back-face culling, since normally we can only see about half of the front faces, I expected it will speed up the FPS by a factor of 2. But in fact it does not have that obvious influence. When tested with cow the back-face culling did not speed up the rasterization process at all. I think it is because the overhead of trust::remove_if operation for each primitive(similar to the result of stream compaction in path tracer). For the bunny mesh the culling face process did pretty good. But surprisingly the back-face culling did not speed up the dragon mesh as much as the bunny, given the dragon has more faces the result is quite different from stream compaction. I think this may because the removeif loop is also a hot spot in computaion. Although we can save time in rasterization, increase mesh faces greatly increase the culling loop time.   
 
