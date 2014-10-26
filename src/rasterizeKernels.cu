@@ -17,9 +17,9 @@
 #define DEBUG_NORMALS 0
 #define DEBUG_DEPTH 0
 #define SPECULAR_EXP 6
-#define COLOR_INTERPOLATION_MODE 1
+#define COLOR_INTERPOLATION_MODE 0
 #define BACKFACE_CULLING 0
-#define SHADING_RATE 0.75f
+#define SHADING_RATE 1.0f
 
 glm::vec3* framebuffer;
 fragment* depthbuffer;
@@ -258,9 +258,9 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 
 		int totalPixel = resolution.x * resolution.y;
 		  
-		if(P0 < totalPixel && P0 >=0) depthbuffer[P0].color = tri.c0;
-		if(P1 < totalPixel && P1 >=0) depthbuffer[P1].color = tri.c1;
-		if(P2 < totalPixel && P2 >=0) depthbuffer[P2].color = tri.c2;
+		if(x0 > 0 && y0 > 0 && x0 < resolution.x && y0 < resolution.y) depthbuffer[P0].color = tri.c0;
+		if(x1 > 0 && y1 > 0 && x1 < resolution.x && y1 < resolution.y) depthbuffer[P1].color = tri.c1;
+		if(x2 > 0 && y2 > 0 && x2 < resolution.x && y2 < resolution.y) depthbuffer[P2].color = tri.c2;
 		return;
 
 #else
@@ -375,7 +375,13 @@ __global__ void fragmentShadeKernel(fragment* depthbuffer, light rawLight, glm::
 #endif
 #if(DEBUG_NORMALS)
 	  if(f.isEmpty) depthbuffer[index].color = glm::vec3(0.0f);
-	  else depthbuffer[index].color = depthbuffer[index].normal;
+
+	  else 
+	  {
+		  glm::vec3 normalColor = depthbuffer[index].normal;
+		  normalColor.z *= -1.0f;
+	      depthbuffer[index].color = normalColor;
+	  }
 	  return;
 #endif
 #if(DEBUG_DEPTH)
