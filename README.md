@@ -12,6 +12,7 @@ Overview
 -------------------------------------------------------------------------------
 In this project I will implement a simplified CUDA based implementation of a standard rasterized graphics pipeline, similar to the OpenGL pipeline, including vertex shading, primitive assembly, perspective transformation, rasterization, fragment shading, and writing the resulting fragments to a framebuffer.
 ![alt tag](https://github.com/XJMa/Project4-Rasterizer/blob/master/screenshots/demo3.gif)
+
 I have implemented the following features:
 * Vertex Shading
 * Primitive Assembly with support for triangle VBOs/IBOs
@@ -37,13 +38,16 @@ My first step is implementing vertax shader, which is the first stage of the pip
 3. fill the pixels between each intersection points with primitive color it is the front pixel
 After these 3 steps I can get a plain filled scene like this
 ![alt tag](https://raw.githubusercontent.com/XJMa/Project4-Rasterizer/master/screenshots/paintfill.jpg)
+
 Then I implemented a Lambert shading model in fregmant shader
 diffuse model:
 
 ![alt tag](https://raw.githubusercontent.com/XJMa/Project4-Rasterizer/master/screenshots/diffuss-light.jpg)
+
 specular model:
 
 ![alt tag](https://raw.githubusercontent.com/XJMa/Project4-Rasterizer/master/screenshots/spec.jpg)
+
 Normal debug scene:
 
 ![alt tag](https://raw.githubusercontent.com/XJMa/Project4-Rasterizer/master/screenshots/normal.jpg)
