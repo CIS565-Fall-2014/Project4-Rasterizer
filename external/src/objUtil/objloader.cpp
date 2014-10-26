@@ -56,6 +56,16 @@ objLoader::objLoader(string filename, obj* newMesh){
 				getline(liness, y, ' ');
 				getline(liness, z, ' ');
 				geomesh->addPoint(glm::vec3(::atof(x.c_str()), ::atof(y.c_str()), ::atof(z.c_str())));
+			}else if(line[0]=='l'){
+				string l;
+				string p0;
+				string p1;
+				string z;
+				getline(liness, l, ' ');
+				getline(liness, p0, ' ');
+				getline(liness, p1, ' ');
+				int g = 0;
+				//geomesh->addPoint(glm::vec3(::atof(x.c_str()), ::atof(y.c_str()), ::atof(z.c_str())));
 			}else if(line[0]=='f'){
 				string v;
 				getline(liness, v, ' ');

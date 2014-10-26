@@ -16,6 +16,14 @@ struct triangle {
   glm::vec3 c0;
   glm::vec3 c1;
   glm::vec3 c2;
+  glm::vec3 n0;
+  glm::vec3 n1;
+  glm::vec3 n2;
+};
+
+struct line{
+  glm::vec3 p0;
+  glm::vec3 p1;
 };
 
 struct fragment{
@@ -27,9 +35,12 @@ struct fragment{
 //Multiplies a cudaMat4 matrix and a vec4
 __host__ __device__ glm::vec3 multiplyMV(cudaMat4 m, glm::vec4 v){
   glm::vec3 r(1,1,1);
-  r.x = (m.x.x*v.x)+(m.x.y*v.y)+(m.x.z*v.z)+(m.x.w*v.w);
-  r.y = (m.y.x*v.x)+(m.y.y*v.y)+(m.y.z*v.z)+(m.y.w*v.w);
-  r.z = (m.z.x*v.x)+(m.z.y*v.y)+(m.z.z*v.z)+(m.z.w*v.w);
+
+   
+	r.x = (m.x.x*v.x)+(m.x.y*v.y)+(m.x.z*v.z)+(m.x.w*v.w);
+	r.y = (m.y.x*v.x)+(m.y.y*v.y)+(m.y.z*v.z)+(m.y.w*v.w);
+	r.z = (m.z.x*v.x)+(m.z.y*v.y)+(m.z.z*v.z)+(m.z.w*v.w);
+
   return r;
 }
 
@@ -42,6 +53,43 @@ __host__ __device__ void getAABBForTriangle(triangle tri, glm::vec3& minpoint, g
         max(max(tri.p0.y, tri.p1.y),tri.p2.y),
         max(max(tri.p0.z, tri.p1.z),tri.p2.z));
 }
+
+__host__ __device__ void getAABBForLine(line ln, glm::vec3& minpoint, glm::vec3& maxpoint){
+  minpoint = glm::vec3(min(ln.p0.x, ln.p1.x), 
+					   min(ln.p0.y, ln.p1.y),
+					   min(ln.p0.z, ln.p1.z));
+  maxpoint = glm::vec3(max(ln.p0.x, ln.p1.x), 
+					   max(ln.p0.y, ln.p1.y),
+					   max(ln.p0.z, ln.p1.z));
+}
+
+__host__ __device__ bool checkBoundaryForLine(float x, float y, glm::vec3 p0, glm::vec3 p1){
+	float minX = min(p0.x, p1.x);
+	float maxX = max(p0.x, p1.x);
+	float minY = min(p0.y, p1.y);
+	float maxY = max(p0.y, p1.y);
+
+	if(x >= minX-0.5 && x <= maxX+0.5 && y >= minY-0.5 && y <= maxY+0.5 )
+		return true;
+	else 
+		return false;
+}
+
+__host__ __device__ float getPtToLineDistance(float x, float y, glm::vec3 p0, glm::vec3 p1){
+
+	float dis;
+	if(p0.x - p1.x != 0){
+		float a1 = (p0.y - p1.y) / (p0.x - p1.x);
+		float b1 = p0.y - a1 * p0.x;
+		dis = abs((a1 * x - y + b1)) / sqrt(a1*a1 + 1);
+	}
+	else{
+		dis = abs(x - p0.x);
+	}
+	return dis;
+}
+
+
 
 //LOOK: calculates the signed area of a given triangle
 __host__ __device__ float calculateSignedArea(triangle tri){

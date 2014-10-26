@@ -325,3 +325,7 @@ int obj::getCBOsize(){
 	return cbosize;
 }
 
+int obj::getLineIBOsize(){
+	return lineIboSize;
+}
+

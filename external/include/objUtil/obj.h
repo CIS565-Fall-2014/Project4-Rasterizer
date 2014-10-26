@@ -27,6 +27,8 @@ private:
 	float* nbo;
 	float* cbo;
 	int* ibo;
+	int* lineIbo;
+	int lineIboSize;
 	float* boundingbox;
 	float top;
 	glm::vec3 defaultColor;
@@ -61,10 +63,12 @@ public:
 	float* getCBO();
 	float* getNBO();
 	int* getIBO();
+	int* getLineIBO();
 	int getVBOsize();
 	int getNBOsize();
 	int getIBOsize();
 	int getCBOsize();
+	int getLineIBOsize();
     vector<glm::vec4>* getPoints();
 	vector<vector<int> >* getFaces(); 
 	vector<vector<int> >* getFaceNormals(); 
