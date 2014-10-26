@@ -72,6 +72,7 @@ From the table, we can see, the performance gain of back-face culling is about 4
 the primitive array.
 
 * Scanline rasterization
+
 CUDA Kernel parallel on primitive i.e. each thread deals with one triangle. Several tasks are done in this stage. First of all, it transforms all all vertices and normals of the triangle into NDC space.
 Then, it calculates a bounding box of the triangle, and it loops through all fragments within this box. For each fragment, it calculates its barycentric coordiates in the triangle. Fragment will be discarded if
 it's Not in the triangle (according to its barycentric coordinates). If it's in the triangle, using the barycentric coordinates, a correctly interpolated color and normals will be calculated.
@@ -90,7 +91,7 @@ transfers data from depthbuffer to framebuffer. No other fancy stuff happens her
 
 ###Other features:
 
-*Mouse-based interactive camera.
+*Mouse-based interactive camera
 
 Click and drag to rotate, scroll to zoom in and out. 
 
@@ -102,15 +103,15 @@ M to toggle shaded/mesh view.
 
 It's implemented using GLFW glfwGetMouseButton,glfwGetCursorPos for getting necessary inputs for setting up the camera according to mouse movement.
 
-*Mesh View
+* Mesh View
 
 This is done at the rasterization stage, where according to the barycentric coordinates of the fragment, it decides whether it's on an edge. Fragments that are not on any edge will be flagged as discarded.
 
-*Vertices View
+* Vertices View
 
 This is done in rasterization stage, where it only produces fragments that are the vertices of the given triangle.
 
-*Color interpolation
+* Color interpolation
 
 In the rasterization stage, the color of the fragment is interpolated among the 3 vertex colors of the triangle using barycentric coordinates.
 
