@@ -18,6 +18,7 @@ int* device_ibo;
 float* device_nbo;
 triangle* primitives1;
 triangle* primitives2;
+triangle* primitives3;
 
 void checkCUDAError(const char *msg) {
   cudaError_t err = cudaGetLastError();
@@ -249,6 +250,65 @@ __host__ void culling(triangle* primitives, triangle* new_primitives, int& numPr
   thrust::device_ptr<triangle> in = thrust::device_pointer_cast<triangle>(primitives);
   thrust::device_ptr<triangle> out = thrust::device_pointer_cast<triangle>(new_primitives);
   numPrimitives = thrust::copy_if(in, in + numPrimitives, out, check_triangle()) - out;
+}
+
+//Handy function that splits a triangle into 3 sub-triangles
+__host__ __device__ void splitTriangle(triangle* in, triangle* out) {
+  glm::vec3 center_pt = (in->p0 + in->p1 + in->p2)/3.0f;
+
+  //Create triangle 0
+  out[0].p0 = in->p0;
+  out[0].p1 = in->p1;
+  out[0].p2 = center_pt;
+  out[0].n = in->n;
+
+  //Create triangle 1
+  out[1].p0 = in->p1;
+  out[1].p1 = in->p2;
+  out[1].p2 = center_pt;
+  out[1].n = in->n;
+
+  //Create triangle 2
+  out[2].p0 = in->p2;
+  out[2].p1 = in->p0;
+  out[2].p2 = center_pt;
+  out[2].n = in->n;
+
+  //TODO: Pass/interpolate vertex colors
+}
+
+//Tesselation kernel
+__global__ void geometryShadeKernel(triangle* primitives, triangle* new_primitives, int primitivesCount, int tesselationLevel) {
+  int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+  if (index<primitivesCount){
+    //Create local memory to create triangles in
+    int size = (int)pow(3.0f, (float)tesselationLevel);
+    triangle* these_tris1 = (triangle*) malloc(size*sizeof(triangle));
+    triangle* these_tris2 = (triangle*) malloc(size*sizeof(triangle));
+    these_tris1[0] = primitives[index];
+
+    //Loop through tesselation levels
+    for (int i = 0; i < tesselationLevel; i++) {
+      int currentNumTris = (int)pow(3.0f, (float)i);
+
+      //Loop through triangles in the previous level and create new ones
+      for (int j = 0; j < currentNumTris; j++) {
+        splitTriangle(&(these_tris1[j]), &(these_tris2[3*j]));
+      }
+
+      //Swap the local memory for the next level
+      triangle* temp = these_tris1;
+      these_tris1 = these_tris2;
+      these_tris2 = temp;
+    }
+
+    //Save off the result into global memory
+    memcpy(&(new_primitives[index*size]), these_tris1, size*sizeof(triangle));
+
+    //Delete local memory
+    free(these_tris1);
+    free(these_tris2);
+  }
 }
 
 //Function for sorting a triangle's vertices in ascending y
@@ -501,6 +561,10 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, ray li
   dim3 threadsPerBlock(tileSize, tileSize);
   dim3 fullBlocksPerGrid((int)ceil(float(resolution.x)/float(tileSize)), (int)ceil(float(resolution.y)/float(tileSize)));
 
+  tileSize = 32;
+  int primitiveBlocks = ceil(((float)vbosize / 3) / ((float)tileSize));
+  int numPrimitives = ibosize / 3;
+
   //set up framebuffer
   framebuffer = NULL;
   cudaMalloc((void**)&framebuffer, (int)resolution.x*(int)resolution.y*sizeof(glm::vec3));
@@ -521,9 +585,12 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, ray li
   //memory stuff
   //------------------------------
   primitives1 = NULL;
-  cudaMalloc((void**)&primitives1, (ibosize/3)*sizeof(triangle));
+  cudaMalloc((void**)&primitives1, numPrimitives*sizeof(triangle));
   primitives2 = NULL;
-  cudaMalloc((void**)&primitives2, (ibosize/3)*sizeof(triangle));
+  cudaMalloc((void**)&primitives2, numPrimitives*sizeof(triangle));
+  int tessLevels = 1;
+  primitives3 = NULL;
+  cudaMalloc((void**)&primitives3, (int)pow(3.0f,(float)tessLevels)*numPrimitives*sizeof(triangle));
 
   device_ibo = NULL;
   cudaMalloc((void**)&device_ibo, ibosize*sizeof(int));
@@ -540,10 +607,6 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, ray li
   device_nbo = NULL;
   cudaMalloc((void**)&device_nbo, nbosize*sizeof(float));
   cudaMemcpy(device_nbo, nbo, nbosize*sizeof(float), cudaMemcpyHostToDevice);
-
-  tileSize = 32;
-  int primitiveBlocks = ceil(((float)vbosize/3)/((float)tileSize));
-  int numPrimitives = ibosize/3;
   
   //------------------------------
   //vertex shader
@@ -566,11 +629,21 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, ray li
   primitiveBlocks = ceil(((float)numPrimitives)/((float)tileSize));
 
   //------------------------------
-  //rasterization
+  //geometry shader
   //------------------------------
-  rasterizationKernel<<<primitiveBlocks, tileSize>>>(primitives2, numPrimitives, depthbuffer, resolution);
+  geometryShadeKernel<<<primitiveBlocks, tileSize>>>(primitives2, primitives3, numPrimitives, tessLevels);
+  numPrimitives *= (int)pow(3.0f,(float) tessLevels);
+  primitiveBlocks = ceil(((float)numPrimitives) / ((float)tileSize));
 
   cudaDeviceSynchronize();
+
+  //------------------------------
+  //rasterization
+  //------------------------------
+  rasterizationKernel<<<primitiveBlocks, tileSize>>>(primitives3, numPrimitives, depthbuffer, resolution);
+
+  cudaDeviceSynchronize();
+
   //------------------------------ 
   //fragment shader
   //------------------------------
@@ -593,6 +666,7 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, ray li
 void kernelCleanup(){
   cudaFree( primitives1 );
   cudaFree( primitives2 );
+  cudaFree( primitives3 );
   cudaFree( device_vbo );
   cudaFree( device_cbo );
   cudaFree( device_ibo );
