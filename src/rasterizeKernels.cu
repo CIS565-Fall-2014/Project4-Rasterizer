@@ -615,9 +615,9 @@ __global__ void fragmentShadeKernel(fragment* depthbuffer, glm::vec2 resolution,
 	  //depthbuffer[index].color.y = diffuseTerm * depthbuffer[index].color.y;
 	  //depthbuffer[index].color.z = diffuseTerm * depthbuffer[index].color.z;
 
-	  //depthbuffer[index].color.x = specularTerm + diffuseTerm;
-	  //depthbuffer[index].color.y = specularTerm + diffuseTerm;
-	  //depthbuffer[index].color.z = specularTerm + diffuseTerm;
+	  depthbuffer[index].color.x = specularTerm + diffuseTerm;
+	  depthbuffer[index].color.y = specularTerm + diffuseTerm;
+	  depthbuffer[index].color.z = specularTerm + diffuseTerm;
   }
 }
 
