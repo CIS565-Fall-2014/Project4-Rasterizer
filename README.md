@@ -88,7 +88,7 @@ Back-face culling
 Each face of a sold polyhedron has two sides, a frontface on the outside and a backface on the inside. We can only see frontfaces, and normally, we can only see about half of the front faces. If we take one polygon in isolation, and find that we are looking at it's backface, we can cull that face (remove that face from the list of faces to be rendered).
 This article gives clear explaination of the idea: http://glasnost.itcarlow.ie/~powerk/GeneralGraphicsNotes/HSR/backfaceculling.html
 
-To achieve that I determined if the face is visible in primitive assembly stage by checking the angle between eye direction and face normal. And cull out the invisible face using trust move(like we did in stream compaction).
+To achieve that I determined if the face is visible in primitive assembly stage by checking the angle between eye direction and face normal. And cull out the invisible face using thrust remove(like we did in stream compaction).
 
 -------------------------------------------------------------------------------
 Performance Analysis
@@ -96,6 +96,6 @@ Performance Analysis
 ![alt tag](https://raw.githubusercontent.com/XJMa/Project4-Rasterizer/master/screenshots/performance.jpg)
 
 In my implementation the rasterization is parallerized by permitives, so it is no suprise that the FPS rates drop when we have a bigger mesh(with more faces). And the antialiasing process is computationally expensive too, since it require extra computation in a 4X depthbuffer. 
-For the back-face culling, since normally we can only see about half of the front faces, I expected it will speed up the FPS by a factor of 2. But in fact it does not have that obvious influence. When tested with cow the back-face culling did not speed up the rasterization process at all. I think it is because the overhead of trust::remove_if operation for each primitive(similar to the result of stream compaction in path tracer). For the bunny mesh the culling face process did pretty good. But surprisingly the back-face culling did not speed up the dragon mesh as much as the bunny, given the dragon has more faces the result is quite different from stream compaction. I think this may because the removeif loop is also a hot spot in computaion. Although we can save time in rasterization, increase mesh faces greatly increase the culling loop time.   
+For the back-face culling, since normally we can only see about half of the front faces, I expected it will speed up the FPS by a factor of 2. But in fact it does not have that obvious influence. When tested with cow the back-face culling did not speed up the rasterization process at all. I think it is because the overhead of thrust::remove_if operation for each primitive(similar to the result of stream compaction in path tracer). For the bunny mesh the culling face process did pretty good. But surprisingly the back-face culling did not speed up the dragon mesh as much as the bunny, given the dragon has more faces the result is quite different from stream compaction. I think this may because the removeif loop is also a hot spot in computaion, since we are not really get rid of the backfaces like we did with the ray in pathtracer. Although we can save time in rasterization, increase mesh faces greatly increase the culling loop time.   
 
 
