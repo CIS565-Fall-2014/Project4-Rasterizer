@@ -5,7 +5,7 @@ Fall 2014
 -------------------------------------------------------------------------------
 Due Monday 10/27/2014 @ 12 PM
 -------------------------------------------------------------------------------
-![alt tag](https://github.com/jianqiaol/Project4-Rasterizer/blob/master/with_light.png)
+![alt tag](https://github.com/jianqiaol/Project4-Rasterizer/blob/master/one_more_light.png)
 -------------------------------------------------------------------------------
 Project Overview:
 -------------------------------------------------------------------------------
@@ -39,6 +39,8 @@ By setting the color of the fragment as its normal, I get this debug picture:
 After I implemented the fragment shader with to add light effect. The diffuse and specular color are calculated based on Blinn-Phong mode:http://en.wikipedia.org/wiki/Blinn%E2%80%93Phong_shading_model. The cow now looks like this:
 ![alt tag](https://github.com/jianqiaol/Project4-Rasterizer/blob/master/with_light.png)
 
+By using the Barycentric interpolation, I get this correct color interpolation between points on a primitive by setting the vertices' color to be red, green and blue in each triangle:
+![alt tag](https://github.com/jianqiaol/Project4-Rasterizer/blob/master/color_interpolation.png)
 
 * A brief description of the project and the specific features you implemented.
 * At least one screenshot of your project running.
