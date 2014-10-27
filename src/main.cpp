@@ -2,6 +2,7 @@
 // Written by Yining Karl Li, Copyright (c) 2012 University of Pennsylvania
 
 #include "main.h"
+#pragma   comment(lib,"FreeImage.lib")
 
 //-------------------------------
 //-------------MAIN--------------
@@ -150,12 +151,16 @@ void runCuda(){
                     1.0, 0.0, 0.0};
   cbo = newcbo;
   cbosize = 9;
+  
+  /*cbo = mesh->getCBO();
+  cbosize = mesh->getCBOsize();*/
 
   ibo = mesh->getIBO();
   ibosize = mesh->getIBOsize();
 
   nbo = mesh->getNBO();
   nbosize = mesh->getNBOsize();
+
   
   cudaGLMapBufferObject((void**)&dptr, pbo);
   cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize, nbo, nbosize);
@@ -208,6 +213,10 @@ bool init(int argc, char* argv[]) {
   initTextures();
   initCuda();
   initPBO();
+
+  //initialize texture
+initTextureMap("C:/Users/AppleDu/Documents/GitHub/Project4-Rasterizer/textures/magicCube.png");
+  
   
   GLuint passthroughProgram;
   passthroughProgram = initShader();
@@ -304,6 +313,7 @@ GLuint initShader() {
   return program;
 }
 
+
 //-------------------------------
 //---------CLEANUP STUFF---------
 //-------------------------------
@@ -342,6 +352,10 @@ void shut_down(int return_code){
 //------------------------------
 //-------GLFW CALLBACKS---------
 //------------------------------
+int PERFORMANCE_MEASURE = 0;
+int SHADING_MODE = 2;  //0-shading based on normal, 1-shade based on depth, 2-diffuse, 3-blinn, 4-texture map,  5-original cbo,
+int POINT_RASTER = 0;  //0/1 to off/on points display
+int LINE_RASTER = 0; //0/1 to off/on lines display
 
 void errorCallback(int error, const char* description){
     fputs(description, stderr);
@@ -351,6 +365,30 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     if(key == GLFW_KEY_ESCAPE && action == GLFW_PRESS){
         glfwSetWindowShouldClose(window, GL_TRUE);
     }
+	else if(key == GLFW_KEY_P && action == GLFW_PRESS){  //performance analysis
+		PERFORMANCE_MEASURE = 1 - PERFORMANCE_MEASURE;
+	}
+	else if(key == GLFW_KEY_1 && action == GLFW_PRESS){  //point render
+		POINT_RASTER = 1 - POINT_RASTER;
+	}
+	else if(key == GLFW_KEY_2 && action == GLFW_PRESS){  //line render
+		LINE_RASTER = 1 - LINE_RASTER;
+	}
+	else if(key == GLFW_KEY_3 && action == GLFW_PRESS){  //normal based shading
+		SHADING_MODE = 0;
+	}
+	else if(key == GLFW_KEY_4 && action == GLFW_PRESS){  //vertex interpolation shading
+		SHADING_MODE = 5;
+	}
+	else if(key == GLFW_KEY_5 && action == GLFW_PRESS){  //diffuse
+		SHADING_MODE = 2;
+	}
+	else if(key == GLFW_KEY_6 && action == GLFW_PRESS){  //blinn
+		SHADING_MODE = 3;
+	}
+	else if(key == GLFW_KEY_7 && action == GLFW_PRESS){  //texture map   //TODO
+		SHADING_MODE = 4;
+	}
 }
 
 
@@ -373,4 +411,68 @@ void mousescrollCallback(GLFWwindow * window, double xoffset, double yoffset ){
 void mousemoveCallback(GLFWwindow *window, double xpos, double ypos){
 	xposLast = xpos;
 	yposLast = ypos;
+}
+
+
+//------------------------------
+//-------TEXTURE STUFF---------
+//------------------------------
+//http://www.mingw.org/
+//http://freeimage.sourceforge.net/download.html
+//https://www.opengl.org/discussion_boards/showthread.php/163929-image-loading?p=1158293#post1158293
+//http://inst.eecs.berkeley.edu/~cs184/fa09/resources/sec_UsingFreeImage.pdf
+
+//loading and initializing texture map
+tex textureMap;   //defined in "rasterizeKernel.h"
+std::vector<glm::vec3> textureColor;
+
+void initTextureMap(char* textureFileName){
+	int h = 0,  w = 0;
+	int tmp = loadTexture(textureFileName,textureColor,h,w);
+	if( tmp != -1){
+		textureMap.id = tmp;   //start index, point to textureColor
+		textureMap.h = h;   //height
+		textureMap.w = w;   //width
+	}
+}
+
+int loadTexture(char* file, std::vector<glm::vec3> &c, int &h,int &w){
+	FIBITMAP* image = FreeImage_Load( FreeImage_GetFileType(file, 0), file);
+	if(!image){
+		printf("Error: fail to open texture file %s\n", file );
+		FreeImage_Unload(image);
+		return -1;
+	}
+	image = FreeImage_ConvertTo32Bits(image);
+	 
+	w = FreeImage_GetWidth(image);
+	h = FreeImage_GetHeight(image);
+	if( w == 0 && h == 0 ) {
+		printf("Error: texture file is empty\n");
+		FreeImage_Unload(image);
+		return -1;
+	}
+
+	int start = c.size();
+	//int total = w * h;
+	//if(n.size()>0)  //useful when load multiple picture of texture
+		//total += n[n.size()-1];
+	//n.push_back(total);
+
+	//int k = 0;
+	for(int i = 0; i < w; i++){
+	   for(int j = 0;j < h; j++){
+		   RGBQUAD color;
+		   FreeImage_GetPixelColor( image, i, j, &color );
+		   glm::vec3 nc(color.rgbRed, color.rgbGreen, color.rgbBlue);
+	       c.push_back(nc);
+	
+		   //printf("color @ %d is %.2f, %.2f, %.2f\n",k, c[k].r, c[k].g, c[k].b);
+		  // k++;
+	   }
+	}
+	
+	FreeImage_Unload(image);
+	printf("Loaded texture %s with %dx%d pixels\n", file,w,h );
+	return start;
 }

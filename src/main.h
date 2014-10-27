@@ -22,6 +22,7 @@
 
 #include "rasterizeKernels.h"
 #include "utilities.h"
+#include "FreeImage.h"  //for loading texture from ".jpg", ".png", ".bmp"
 
 using namespace std;
 
@@ -51,6 +52,8 @@ int* ibo;
 int ibosize;
 float* nbo;
 int nbosize;
+float* uvbo;
+int uvbosize;
 
 //-------------------------------
 //----------CUDA STUFF-----------
@@ -77,6 +80,8 @@ void runCuda();
 	void keyboard(unsigned char key, int x, int y);
 #endif
 
+
+
 //-------------------------------
 //----------SETUP STUFF----------
 //-------------------------------
@@ -85,6 +90,8 @@ void initPBO();
 void initCuda();
 void initTextures();
 void initVAO();
+void initTextureMap(char* textureFileName);
+int loadTexture(char* file, std::vector<glm::vec3> &c, int &h,int &w );
 GLuint initShader();
 
 //-------------------------------

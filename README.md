@@ -16,12 +16,10 @@ BASIC FETAURES:
 * Vertex Shading
 * Primitive Assembly with support for triangle VBOs/IBOs
 * Perspective Transformation
-* Rasterization through either a scanline or a tiled approach
+* Rasterization through either a scanline 
 * Fragment Shading
 * A depth buffer for storing and depth testing fragments
 * Fragment to framebuffer writing
-* A simple lighting/shading scheme, such as Lambert or Blinn-Phong, implemented in the fragment shader
-
 
 
 -------------------------------------------------------------------------------
@@ -32,44 +30,69 @@ MOUSE BASED interactive camera support
 -------------------------------------------------------------------------------
 - mouse left click + drag: rotate the camera around the lookat center  
 - mouse right click + drag: translate the camera lookat point  
-- mouse scroll: zoom in/out  
-I noticed that when the camera zooms in, the rasterizer fps drops significantly. This is probably because when the camera is closer,
-each of the triangle face will become bigger, which occupies more pixels, hence takes longer to render a fragment, and the fps drops.  
-The possible solution is to parallelize the naive scanline approach, so save the consumption in iteration through many fragments.  
-The video below shows how the interaction is like.  
-
+- mouse scroll: zoom in/out   
+The video below shows how the interaction is like.   
 [![ScreenShot](imgs/CamInteractionThumbnail.png)] (http://youtu.be/34XS6eS-lT8)    
+-------------------------------------------------------------------------------
+Keyboard Control
+-------------------------------------------------------------------------------
+- p: performance analysis on/off
+- 1: points raster on/off
+- 2: line raster on/off
+- 3: normal based shading
+- 4: face orientation shading
+- 5: diffuse shading
+- 6: blinn shading
+- 7: texture map 
 -------------------------------------------------------------------------------
 Back-face culling  
 -------------------------------------------------------------------------------
 This is done by checking the normal of current triangle face, if the normal is pointing backwards, then discard shading this face.
 
-
+-------------------------------------------------------------------------------
+Different Shading mode 
+-------------------------------------------------------------------------------
+* Points
+![](imgs/cow_point_raster.png)
 * Lines
--------------------------------------------------------------------------------
-Points
--------------------------------------------------------------------------------
-Rasterization of point can be turned on/off in "rasterizeKernel.h",  in the "#define POINT_RASTER".
-When used point raster, the performance maintain the same as not using it.  
-![](imgs/Ccow_point_raster.png)
+![](imgs/cube_line_raster.png)
+* normal based shading
+![](imgs/cow_shade_by_normal.png)
+* face orientation shading (Correct color interpolation between points on a primitive)
+![](imgs/bunny_vertex_shade.png)
+* diffuse shading
+![](imgs/cow_diffuse_shade.png)
+* blinn shading
+![](imgs/cow_blinn_shade.png)
+* texture map (WITH texture filtering and perspective correct texture coordinates)
+Reading a texture image is completed with the support of "FreeImage". TODO, the perspectively correct texture map is not finished yet.
 
-* Order-independent translucency using a k-buffer
-* Correct color interpolation between points on a primitive
-* Texture mapping WITH texture filtering and perspective correct texture coordinates
-* Blending
 
 -------------------------------------------------------------------------------
 PERFORMANCE EVALUATION
 -------------------------------------------------------------------------------
-The performance evaluation is where you will investigate how to make your CUDA
-programs more efficient using the skills you've learned in class. You must have
-performed at least one experiment on your code to investigate the positive or
-negative effects on performance. 
+I noticed that when the camera zooms in, the rasterizer fps drops significantly. So I started the comparison between camera zoom-out and camera zoom-in, with other set up exactly same.  
+The pictures below describes the camera zoom distance, and the corresponding performance analysis.  
+* Time Consumption Pie Chart for Pipeline (zoom-out, cow model)
+![](imgs/performance_zoom_out.png)
+![](imgs/performance_zoom_out_pieChart.png)
+* Time Consumption Pie Chart for Pipeline (zoom-in, cow model)
+![](imgs/performance_zoom_in.png)
+![](imgs/performance_zoom_in_pieChart.png)
 
-We encourage you to get creative with your tweaks. Consider places in your code
-that could be considered bottlenecks and try to improve them. 
+It can be noticed that the rasterization takes additional time when camera zooms in, and introduces drop of efficiency. And all the rest stage takes roughly the same amount of time no matter zooms in or zooms out.  
+This is probably because when the camera is closer, each of the triangle face will become bigger, which occupies more pixels, hence takes longer to complete rasterization. 
+One possible solution is to parallelize the naive scanline approach, so save the consumption in iteration through many fragments.  
 
-Each student should provide no more than a one page summary of their
-optimizations along with tables and or graphs to visually explain any
-performance differences.
+-------------------------------------------------------------------------------
+REFERRENCES
+-------------------------------------------------------------------------------
+loading texture image  
+ - http://www.mingw.org/
+ - http://freeimage.sourceforge.net/download.html
+ - https://www.opengl.org/discussion_boards/showthread.php/163929-image-loading?p=1158293#post1158293
+ - http://inst.eecs.berkeley.edu/~cs184/fa09/resources/sec_UsingFreeImage.pdf
 
+perspectively correct texture mapping   
+ - http://www.lysator.liu.se/~mikaelk/doc/perspectivetexture/
+-  http://chrishecker.com/Miscellaneous_Technical_Articles

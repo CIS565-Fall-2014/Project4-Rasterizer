@@ -13,12 +13,11 @@
 #include "cudaMat4.h"
 #include "utilities.h"
 
-
-#define SHADING_MODE 2  //0-shading based on normal, 1-shade based on depth, 2-diffuse, 3-blinn
-#define POINT_RASTER 0  //0/1 to off/on points display
-#define LINE_RASTER 0 //0/1 to off/on lines display
-#define TEXTURE_MAP 0
-#define Z_TEST 1
+#define Z_TEST 0
+extern int PERFORMANCE_MEASURE;
+extern int SHADING_MODE;  //0-shading based on normal, 1-shade based on depth, 2-diffuse, 3-blinn, 4-texture map,  5-original cbo,
+extern int POINT_RASTER;  //0/1 to off/on points display
+extern int LINE_RASTER; //0/1 to off/on lines display
 
 void kernelCleanup();
 void cudaRasterizeCore(uchar4* pos, glm::vec2 resolution, float frame, float* vbo, int vbosize, float* cbo, int cbosize, 
@@ -38,6 +37,7 @@ public:
 
 	glm::mat4 M_model, M_view, M_projection;
 	//glm::mat4 M_camera;
+	cudaMat4 M_mvp_inverse;
 	cudaMat4 M_mvp;   //model-view-projection matrix
 	cudaMat4 M_mv_prime;  // transpose(inverse(modelView))
 
@@ -100,13 +100,26 @@ public:
 		//M_mvp_prime = utilityCore::glmMat4ToCudaMat4(glm::transpose(glm::inverse(M_projection * M_view * M_model )));
 		M_mv_prime = utilityCore::glmMat4ToCudaMat4(glm::transpose(glm::inverse(M_view * M_model)));
 
+		M_mvp_inverse = utilityCore::glmMat4ToCudaMat4( glm::inverse(M_projection * M_view * M_model ));
 		//printf("the mvp matrix:\n");
 		//utilityCore::printCudaMat4(M_mvp);
 
 	}
 };
 
-extern cam mouseCam;   //used for mouse events
+extern cam mouseCam;   //used for mouse events in "main.cpp"
 
+class tex{
+
+public:
+	tex(){}  //default constructor
+	int id;
+	int h;
+	int w;
+
+};
+//stores multiple textures
+extern tex textureMap;   //used for loading texture in "main.cpp"
+extern std::vector<glm::vec3> textureColor;
 
 #endif //RASTERIZEKERNEL_H
