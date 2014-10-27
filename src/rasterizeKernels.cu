@@ -186,187 +186,188 @@ __global__ void backfaceCullingKernel(triangle* primitives, int primitivesCount)
 }
 
 //TODO: Implement a rasterization method, such as scanline.
-__global__ void rasterizationKernel(triangle* primitives, int primitivesCount, fragment* depthbuffer, glm::vec2 resolution){
+__global__ void rasterizationKernel(triangle* primitives, int primitivesCount, fragment* depthbuffer, glm::vec2 resolution, int mode){
   int index = (blockIdx.x * blockDim.x) + threadIdx.x;
   if(index<primitivesCount){
-    // Draw Vertices
-    /*
-    int x, y;
-    ndcToScreen(primitives[index].p0.x, resolution.x, &x);
-    ndcToScreen(primitives[index].p0.y, resolution.y, &y);
-            
-    fragment frag;
-    frag.color = primitives[index].c0;
-    frag.normal = primitives[index].n0;
-    frag.position = primitives[index].p0;
-    writeToDepthbuffer(x, y, frag, depthbuffer, resolution);
-    
-    ndcToScreen(primitives[index].p1.x, resolution.x, &x);
-    ndcToScreen(primitives[index].p1.y, resolution.y, &y);
-            
-    frag.color = primitives[index].c1;
-    frag.normal = primitives[index].n1;
-    frag.position = primitives[index].p1;
-    writeToDepthbuffer(x, y, frag, depthbuffer, resolution);
-    
-    ndcToScreen(primitives[index].p2.x, resolution.x, &x);
-    ndcToScreen(primitives[index].p2.y, resolution.y, &y);
-            
-    frag.color = primitives[index].c2;
-    frag.normal = primitives[index].n2;
-    frag.position = primitives[index].p2;
-    writeToDepthbuffer(x, y, frag, depthbuffer, resolution);
-    */
+    if (mode == 0) {
+      // Draw Faces
+      triangle t = primitives[index];
+      point top, middle, bottom;
+      top.position = t.p0;
+      middle.position = t.p1;
+      bottom.position = t.p2;
+      top.color = t.c0;
+      middle.color = t.c1;
+      bottom.color = t.c2;
+      top.normal = t.n0;
+      middle.normal = t.n1;
+      bottom.normal = t.n2;
 
-    // Draw Faces
-    triangle t = primitives[index];
-    point top, middle, bottom;
-    top.position = t.p0;
-    middle.position = t.p1;
-    bottom.position = t.p2;
-    top.color = t.c0;
-    middle.color = t.c1;
-    bottom.color = t.c2;
-    top.normal = t.n0;
-    middle.normal = t.n1;
-    bottom.normal = t.n2;
+      point temp;
 
-    point temp;
-
-    // Do a basic bubble sort
-    for (int i = 0; i < 2; i++) {
-      if (bottom.position.y > middle.position.y) {
-        temp = bottom;
-        bottom = middle;
-        middle = temp;
-      }
-      if (middle.position.y > top.position.y) {
-        temp = middle;
-        middle = top;
-        top = temp;
-      }
-    }
-
-    // Ignore triangle if it's outside
-    // TODO: move this to a clipper later, with the x and z clipping as well.
-    if (top.position.y < -1 || bottom.position.y > 1) {
-      return;
-    }
-
-    // "left" and "right" are relative to each other, not top.
-    point pointLeft, pointRight;    // used for interpolation
-
-    if (bottom.position.x > middle.position.x) {  // top->middle is on the left
-      pointLeft = middle;
-      pointRight = bottom;
-    } else {        // top->bottom is on left
-      pointLeft = bottom;
-      pointRight = middle;
-    }
-    
-    float currNDCx = top.position.x;
-    float currNDCy = top.position.y;
-    int currY, currX;
-    ndcToScreen(currNDCx, resolution.x, &currX);
-    ndcToScreen(currNDCy, resolution.y, &currY);
-
-    while (currNDCy > middle.position.y && currNDCy > -1) {
-      // only perform these operations if the current y coordinate is in the screen.
-      if (currNDCy <= 1) {
-        // interpolate along the edges
-        float tLeft = (top.position.y - currNDCy) / (top.position.y - pointLeft.position.y);
-        if (top.position.y == pointLeft.position.y) {
-          tLeft = 0;
+      // Do a basic bubble sort
+      for (int i = 0; i < 2; i++) {
+        if (bottom.position.y > middle.position.y) {
+          temp = bottom;
+          bottom = middle;
+          middle = temp;
         }
-        float tRight = (top.position.y - currNDCy) / (top.position.y - pointRight.position.y);
-        if (top.position.y == pointRight.position.y) {
-          tRight = 0;
+        if (middle.position.y > top.position.y) {
+          temp = middle;
+          middle = top;
+          top = temp;
         }
+      }
 
-        // Would saving 1-tleft and 1-tright into variables save 1 cycle per statement (if they fit in registers?)
-        glm::vec3 cLeft, cRight, pLeft, pRight, nLeft, nRight;
-        pLeft = (1 - tLeft) * top.position + tLeft * pointLeft.position;
-        nLeft = (1 - tLeft) * top.normal + tLeft * pointLeft.normal;
-        cLeft = (1 - tLeft) * top.color + tLeft * pointLeft.color;
-        pRight = (1 - tRight) * top.position + tRight * pointRight.position;
-        nRight = (1 - tRight) * top.normal + tRight * pointRight.normal;
-        cRight = (1 - tRight) * top.color + tRight * pointRight.color;
-        int rBound = 0;
-        int lBound = 0;
-        ndcToScreen(pRight.x, resolution.x, &rBound);
-        ndcToScreen(pLeft.x, resolution.x, &lBound);
-        for (currX = lBound; currX >= rBound; currX--) {
-          if (currX >= 0 && currX < resolution.x) {
-            screenToNDC(currX, resolution.x, &currNDCx);
-            // interpolate color, normal, and position
-            float t = (currX - lBound) / (float) (rBound - lBound);
-            if (rBound == lBound) {
-              t = 0;
+      // Ignore triangle if it's outside
+      // TODO: move this to a clipper later, with the x and z clipping as well.
+      if (top.position.y < -1 || bottom.position.y > 1) {
+        return;
+      }
+
+      // "left" and "right" are relative to each other, not top.
+      point pointLeft, pointRight;    // used for interpolation
+
+      if (bottom.position.x > middle.position.x) {  // top->middle is on the left
+        pointLeft = middle;
+        pointRight = bottom;
+      } else {        // top->bottom is on left
+        pointLeft = bottom;
+        pointRight = middle;
+      }
+    
+      float currNDCx = top.position.x;
+      float currNDCy = top.position.y;
+      int currY, currX;
+      ndcToScreen(currNDCx, resolution.x, &currX);
+      ndcToScreen(currNDCy, resolution.y, &currY);
+
+      while (currNDCy > middle.position.y && currNDCy > -1) {
+        // only perform these operations if the current y coordinate is in the screen.
+        if (currNDCy <= 1) {
+          // interpolate along the edges
+          float tLeft = (top.position.y - currNDCy) / (top.position.y - pointLeft.position.y);
+          if (top.position.y == pointLeft.position.y) {
+            tLeft = 0;
+          }
+          float tRight = (top.position.y - currNDCy) / (top.position.y - pointRight.position.y);
+          if (top.position.y == pointRight.position.y) {
+            tRight = 0;
+          }
+
+          // Would saving 1-tleft and 1-tright into variables save 1 cycle per statement (if they fit in registers?)
+          glm::vec3 cLeft, cRight, pLeft, pRight, nLeft, nRight;
+          pLeft = (1 - tLeft) * top.position + tLeft * pointLeft.position;
+          nLeft = (1 - tLeft) * top.normal + tLeft * pointLeft.normal;
+          cLeft = (1 - tLeft) * top.color + tLeft * pointLeft.color;
+          pRight = (1 - tRight) * top.position + tRight * pointRight.position;
+          nRight = (1 - tRight) * top.normal + tRight * pointRight.normal;
+          cRight = (1 - tRight) * top.color + tRight * pointRight.color;
+          int rBound = 0;
+          int lBound = 0;
+          ndcToScreen(pRight.x, resolution.x, &rBound);
+          ndcToScreen(pLeft.x, resolution.x, &lBound);
+          for (currX = lBound; currX >= rBound; currX--) {
+            if (currX >= 0 && currX < resolution.x) {
+              screenToNDC(currX, resolution.x, &currNDCx);
+              // interpolate color, normal, and position
+              float t = (currX - lBound) / (float) (rBound - lBound);
+              if (rBound == lBound) {
+                t = 0;
+              }
+              fragment frag;
+              frag.position = (1 - t) * pLeft + t * pRight;
+              frag.normal = (1 - t) * nLeft + t * nRight;
+              frag.color = (1 - t) * cLeft + t * cRight;
+              writeToDepthbuffer(currX, currY, frag, depthbuffer, resolution);
             }
-            fragment frag;
-            frag.position = (1 - t) * pLeft + t * pRight;
-            frag.normal = (1 - t) * nLeft + t * nRight;
-            frag.color = (1 - t) * cLeft + t * cRight;
-            writeToDepthbuffer(currX, currY, frag, depthbuffer, resolution);
           }
         }
+        currY++;
+        screenToNDC(currY, resolution.y, &currNDCy);
       }
-      currY++;
-      screenToNDC(currY, resolution.y, &currNDCy);
-    }
     
-    if (middle.position.x < top.position.x) {
-      pointLeft = middle;
-      pointRight = top;
-    } else {
-      pointLeft = top;
-      pointRight = middle;
-    }
+      if (middle.position.x < top.position.x) {
+        pointLeft = middle;
+        pointRight = top;
+      } else {
+        pointLeft = top;
+        pointRight = middle;
+      }
 
-    while (currNDCy > bottom.position.y && currNDCy > -1) {
-      // only perform these operations if the current y coordinate is in the screen.
-      if (currNDCy <= 1) {
-        // interpolate along the edges
-        float tLeft = (pointLeft.position.y - currNDCy) / (pointLeft.position.y - bottom.position.y);
-        if (pointLeft.position.y == bottom.position.y) {
-          tLeft = 0;
-        }
-        float tRight = (pointRight.position.y - currNDCy) / (pointRight.position.y - bottom.position.y);
-        if (pointRight.position.y == bottom.position.y) {
-          tRight = 0;
-        }
+      while (currNDCy > bottom.position.y && currNDCy > -1) {
+        // only perform these operations if the current y coordinate is in the screen.
+        if (currNDCy <= 1) {
+          // interpolate along the edges
+          float tLeft = (pointLeft.position.y - currNDCy) / (pointLeft.position.y - bottom.position.y);
+          if (pointLeft.position.y == bottom.position.y) {
+            tLeft = 0;
+          }
+          float tRight = (pointRight.position.y - currNDCy) / (pointRight.position.y - bottom.position.y);
+          if (pointRight.position.y == bottom.position.y) {
+            tRight = 0;
+          }
 
-        // Would saving 1-tleft and 1-tright into variables save 1 cycle per statement (if they fit in registers?)
-        glm::vec3 cLeft, cRight, pLeft, pRight, nLeft, nRight;
-        pLeft = (1 - tLeft) * pointLeft.position + tLeft * bottom.position;
-        nLeft = (1 - tLeft) * pointLeft.normal + tLeft * bottom.normal;
-        cLeft = (1 - tLeft) * pointLeft.color + tLeft * bottom.color;
-        pRight = (1 - tRight) * pointRight.position + tRight * bottom.position;
-        nRight = (1 - tRight) * pointRight.normal + tRight * bottom.normal;
-        cRight = (1 - tRight) * pointRight.color + tRight * bottom.color;
+          // Would saving 1-tleft and 1-tright into variables save 1 cycle per statement (if they fit in registers?)
+          glm::vec3 cLeft, cRight, pLeft, pRight, nLeft, nRight;
+          pLeft = (1 - tLeft) * pointLeft.position + tLeft * bottom.position;
+          nLeft = (1 - tLeft) * pointLeft.normal + tLeft * bottom.normal;
+          cLeft = (1 - tLeft) * pointLeft.color + tLeft * bottom.color;
+          pRight = (1 - tRight) * pointRight.position + tRight * bottom.position;
+          nRight = (1 - tRight) * pointRight.normal + tRight * bottom.normal;
+          cRight = (1 - tRight) * pointRight.color + tRight * bottom.color;
 
-        int rBound = 0;
-        int lBound = 0;
-        ndcToScreen(pRight.x, resolution.x, &rBound);
-        ndcToScreen(pLeft.x, resolution.x, &lBound);
-        for (currX = lBound; currX >= rBound; currX--) {
-          if (currX >= 0 && currX < resolution.x) {
-            screenToNDC(currX, resolution.x, &currNDCx);
-            // interpolate color, normal, and position
-            float t = (currX - lBound) / (float) (rBound - lBound);
-            if (rBound == lBound) {
-              t = 0;
+          int rBound = 0;
+          int lBound = 0;
+          ndcToScreen(pRight.x, resolution.x, &rBound);
+          ndcToScreen(pLeft.x, resolution.x, &lBound);
+          for (currX = lBound; currX >= rBound; currX--) {
+            if (currX >= 0 && currX < resolution.x) {
+              screenToNDC(currX, resolution.x, &currNDCx);
+              // interpolate color, normal, and position
+              float t = (currX - lBound) / (float) (rBound - lBound);
+              if (rBound == lBound) {
+                t = 0;
+              }
+              fragment frag;
+              frag.position = (1 - t) * pLeft + t * pRight;
+              frag.normal = (1 - t) * nLeft + t * nRight;
+              frag.color = (1 - t) * cLeft + t * cRight;
+              writeToDepthbuffer(currX, currY, frag, depthbuffer, resolution);
             }
-            fragment frag;
-            frag.position = (1 - t) * pLeft + t * pRight;
-            frag.normal = (1 - t) * nLeft + t * nRight;
-            frag.color = (1 - t) * cLeft + t * cRight;
-            writeToDepthbuffer(currX, currY, frag, depthbuffer, resolution);
           }
         }
+        currY++;
+        screenToNDC(currY, resolution.y, &currNDCy);
       }
-      currY++;
-      screenToNDC(currY, resolution.y, &currNDCy);
+    } else if (mode == 1) { // draw wireframe
+      
+    } else if (mode == 2) { // draw vertices
+      int x, y;
+      ndcToScreen(primitives[index].p0.x, resolution.x, &x);
+      ndcToScreen(primitives[index].p0.y, resolution.y, &y);
+            
+      fragment frag;
+      frag.color = primitives[index].c0;
+      frag.normal = primitives[index].n0;
+      frag.position = primitives[index].p0;
+      writeToDepthbuffer(x, y, frag, depthbuffer, resolution);
+    
+      ndcToScreen(primitives[index].p1.x, resolution.x, &x);
+      ndcToScreen(primitives[index].p1.y, resolution.y, &y);
+            
+      frag.color = primitives[index].c1;
+      frag.normal = primitives[index].n1;
+      frag.position = primitives[index].p1;
+      writeToDepthbuffer(x, y, frag, depthbuffer, resolution);
+    
+      ndcToScreen(primitives[index].p2.x, resolution.x, &x);
+      ndcToScreen(primitives[index].p2.y, resolution.y, &y);
+            
+      frag.color = primitives[index].c2;
+      frag.normal = primitives[index].n2;
+      frag.position = primitives[index].p2;
+      writeToDepthbuffer(x, y, frag, depthbuffer, resolution);
     }
   }
 }
@@ -374,11 +375,11 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 //TODO: Implement a fragment shader
 // Modifies the .color value per fragment.
 // Simple Blinn-Phong shading, light needs to be transformed into clip coordinates.
-__global__ void fragmentShadeKernel(fragment* depthbuffer, glm::vec2 resolution, light light, glm::mat4 matVPinv){
+__global__ void fragmentShadeKernel(fragment* depthbuffer, glm::vec2 resolution, light light, glm::mat4 matVPinv, int drawmode){
   int x = (blockIdx.x * blockDim.x) + threadIdx.x;
   int y = (blockIdx.y * blockDim.y) + threadIdx.y;
   int index = x + (y * resolution.x);
-  if(x<=resolution.x && y<=resolution.y){
+  if(x<=resolution.x && y<=resolution.y && drawmode == 0){
     fragment f = depthbuffer[index];
     if (f.position.z > 0) { //ignore all the empty space (z = -10000)
       glm::vec4 origPos = matVPinv * glm::vec4(f.position,1);
@@ -392,20 +393,24 @@ __global__ void fragmentShadeKernel(fragment* depthbuffer, glm::vec2 resolution,
 }
 
 //Writes fragment colors to the framebuffer
-__global__ void render(glm::vec2 resolution, fragment* depthbuffer, glm::vec3* framebuffer){
+__global__ void render(glm::vec2 resolution, fragment* depthbuffer, glm::vec3* framebuffer, int colormode){
 
   int x = (blockIdx.x * blockDim.x) + threadIdx.x;
   int y = (blockIdx.y * blockDim.y) + threadIdx.y;
   int index = x + (y * resolution.x);
 
   if(x<=resolution.x && y<=resolution.y){
-    // Color
-    framebuffer[index] = depthbuffer[index].color;
-    // Normal
-    //framebuffer[index] = depthbuffer[index].normal;
-    //framebuffer[index] = glm::normalize(glm::vec3(depthbuffer[index].normal.r, depthbuffer[index].normal.g, 0));
-    // Distance
-    //framebuffer[index] = glm::vec3(depthbuffer[index].position.z);
+    if (colormode == 0) {
+      // Color
+      framebuffer[index] = depthbuffer[index].color;
+    } else if (colormode == 1) {
+      // Normal
+      framebuffer[index] = depthbuffer[index].normal;
+      //framebuffer[index] = glm::normalize(glm::vec3(depthbuffer[index].normal.r, depthbuffer[index].normal.g, 0));
+    } else if (colormode == 2) {
+      // Distance
+      framebuffer[index] = glm::vec3(depthbuffer[index].position.z);
+    }
   }
 }
 
@@ -422,7 +427,7 @@ struct clippingOrBackface {
 };
 
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
-void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float* vbo, int vbosize, float* nbo, int nbosize, float* cbo, int cbosize, int* ibo, int ibosize, glm::mat4 view, glm::mat4 projection){
+void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float* vbo, int vbosize, float* nbo, int nbosize, float* cbo, int cbosize, int* ibo, int ibosize, glm::mat4 view, glm::mat4 projection, int drawmode, int colormode){
 
   // set up crucial magic
   int tileSize = 8;
@@ -494,35 +499,38 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
 
   cudaDeviceSynchronize();
 
-  //------------------------------
-  //ez backface culling and clipping
-  //------------------------------
-	thrust::device_ptr<triangle> primitivesStart(primitives);
+  float numPrimitives = ibosize / 3;
+  if (drawmode == 0) {
+    //------------------------------
+    //ez backface culling and clipping
+    //------------------------------
+	  thrust::device_ptr<triangle> primitivesStart(primitives);
 
-	float numRemoved = thrust::count_if(primitivesStart, primitivesStart + ibosize / 3, clippingOrBackface());
-	thrust::remove_if(primitivesStart, primitivesStart + ibosize / 3, clippingOrBackface());
-	float numPrimitives = ibosize / 3 - numRemoved;
-  primitiveBlocks = ceil(((float)numPrimitives)/((float)tileSize));
+	  float numRemoved = thrust::count_if(primitivesStart, primitivesStart + ibosize / 3, clippingOrBackface());
+	  thrust::remove_if(primitivesStart, primitivesStart + ibosize / 3, clippingOrBackface());
+	  numPrimitives = ibosize / 3 - numRemoved;
+    primitiveBlocks = ceil(((float)numPrimitives)/((float)tileSize));
 
-  cudaDeviceSynchronize();
-  //float numPrimitives = ibosize/3;
+    cudaDeviceSynchronize();
+  }
+
   //------------------------------
   //rasterization
   //------------------------------
-  rasterizationKernel<<<primitiveBlocks, tileSize>>>(primitives, numPrimitives, depthbuffer, resolution);
+  rasterizationKernel<<<primitiveBlocks, tileSize>>>(primitives, numPrimitives, depthbuffer, resolution, drawmode);
 
   cudaDeviceSynchronize();
   //------------------------------
   //fragment shader
   //------------------------------
   glm::mat4 matMVPinv = glm::inverse(matVP);
-  fragmentShadeKernel<<<fullBlocksPerGrid, threadsPerBlock>>>(depthbuffer, resolution, light, matMVPinv);
+  fragmentShadeKernel<<<fullBlocksPerGrid, threadsPerBlock>>>(depthbuffer, resolution, light, matMVPinv, drawmode);
 
   cudaDeviceSynchronize();
   //------------------------------
   //write fragments to framebuffer
   //------------------------------
-  render<<<fullBlocksPerGrid, threadsPerBlock>>>(resolution, depthbuffer, framebuffer);
+  render<<<fullBlocksPerGrid, threadsPerBlock>>>(resolution, depthbuffer, framebuffer, colormode);
   sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, resolution, framebuffer);
 
   cudaDeviceSynchronize();

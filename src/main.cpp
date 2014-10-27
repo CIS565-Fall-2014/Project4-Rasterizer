@@ -29,6 +29,8 @@ int main(int argc, char** argv){
     return 0;
   }
 
+  drawmode = FACES;
+  colormode = COLOR;
   frame = 0;
   seconds = time (NULL);
   fpstracker = 0;
@@ -109,7 +111,7 @@ void runCuda(){
   glm::mat4 matView = glm::lookAt(camera.pos, camera.pos + camera.view, camera.up);
 
   cudaGLMapBufferObject((void**)&dptr, pbo);
-  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, nbo, nbosize, cbo, cbosize, ibo, ibosize, matView, matProj);
+  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, nbo, nbosize, cbo, cbosize, ibo, ibosize, matView, matProj, drawmode, colormode);
   cudaGLUnmapBufferObject(pbo);
 
   vbo = NULL;
@@ -299,6 +301,18 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     glfwSetWindowShouldClose(window, GL_TRUE);
   } else if(key == GLFW_KEY_P && action == GLFW_PRESS) {
     // print current image, with iteration_#
+  } else if(key == GLFW_KEY_Z && action == GLFW_PRESS) {
+    drawmode = FACES;
+  } else if(key == GLFW_KEY_X && action == GLFW_PRESS) {
+    drawmode = WIREFRAME;
+  } else if(key == GLFW_KEY_C && action == GLFW_PRESS) {
+    drawmode = VERTICES;
+  } else if(key == GLFW_KEY_A && action == GLFW_PRESS) {
+    colormode = COLOR;
+  } else if(key == GLFW_KEY_S && action == GLFW_PRESS) {
+    colormode = NORMAL;
+  } else if(key == GLFW_KEY_D && action == GLFW_PRESS) {
+    colormode = DEPTH;
   }
 }
 
@@ -329,20 +343,17 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
     } else if (mouse.state == LEFT_MOUSE){
       mouse.state = NONE;
     }
-    cout << "m1"<<endl;
   } else if (button == GLFW_MOUSE_BUTTON_2) {
     if (action == GLFW_PRESS) {
       mouse.state = RIGHT_MOUSE;
     } else if (mouse.state == RIGHT_MOUSE){
       mouse.state = NONE;
     }
-    cout << "m2"<<endl;
   } else if (button == GLFW_MOUSE_BUTTON_3) {
     if (action == GLFW_PRESS) {
       mouse.state = MIDDLE_MOUSE;
     } else if (mouse.state == MIDDLE_MOUSE){
       mouse.state = NONE;
     }
-    cout << "m3"<<endl;
   }
 }

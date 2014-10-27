@@ -127,4 +127,20 @@ struct Mouse {
 };
 
 Mouse mouse;
+
+enum drawMode {
+  FACES,
+  WIREFRAME,
+  VERTICES
+};
+
+drawMode drawmode;
+
+enum colorMode {
+  COLOR,
+  NORMAL,
+  DEPTH
+};
+
+colorMode colormode;
 #endif
