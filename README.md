@@ -20,6 +20,9 @@ Features Implemented
     * Model-view-projection transformation
 * Primitive Assembly with support for triangle VBOs/IBOs
 * **Backface culling**
+* **Geometry shader**
+    * Maps 1 triangle to 0-4 triangles.
+    * Tried implementing backface culling here, but it was very inefficient.
 * Basic scanline rasterization into a fragment buffer
     * Depth-testing
     * Barycentric **interpolation of vertex data**
@@ -51,4 +54,4 @@ Feature Performance
 | Lambert shading   |    8.29 ms |    0.52 ms |      6.69% |
 | Geometry shader   |    8.82 ms |    0.53 ms |      6.39% | Maximum 4 output tris per input tri
 | Tessellation GS   |    8.66 ms |   -0.16 ms |     -1.81% | Splits each tri into 3 tris, colors one red
-| Backface GS       |         ms |         ms |          % | Moved backface culling to inside the GS
+| Backface GS       |   10.23 ms |    1.57 ms |     18.13% | Moved backface culling to inside the GS. Apparently not a great idea.
