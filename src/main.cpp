@@ -45,7 +45,7 @@ int main(int argc, char** argv){
 void mainLoop() {
   while(!glfwWindowShouldClose(window)){
     glfwPollEvents();
-	//alpha=alpha+1;
+	alpha=alpha+1;
 	//camera data
   cam.view=glm::vec3(0.0f,0.0f,0.0f);
   cam.up=glm::vec3(0.0,1.0,0.0);

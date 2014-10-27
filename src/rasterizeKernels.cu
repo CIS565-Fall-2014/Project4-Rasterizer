@@ -235,12 +235,12 @@ __global__ void fragmentShadeKernel(fragment* depthbuffer, glm::vec2 resolution,
 	  glm::vec3 V=glm::normalize(eye-p);
 	  glm::vec3 H=glm::normalize(L+V);
 	  //light color
-	  glm::vec3 diffuse_color=glm::vec3(0.8,0.2,0.2);
+	  glm::vec3 diffuse_color=glm::vec3(0.2,0.6,0.2);
 	  glm::vec3 specular_color=glm::vec3(1.0,1.0,1.0);
 	  //Blinn-Phong lighting
 	  float diffuse=glm::clamp(glm::dot(L,n),0.0f,1.0f);
 	  float specular=glm::clamp(glm::pow(glm::dot(H,n),100.0f),0.0f,1.0f);
-	  //depthbuffer[index].color=glm::clamp(diffuse*diffuse_color+specular*specular_color,0.0f,1.0f);
+	  depthbuffer[index].color=glm::clamp(diffuse*diffuse_color+specular*specular_color,0.0f,1.0f);
   }
 }
 
@@ -345,7 +345,8 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
   //------------------------------
   //fragment shader
   //------------------------------
-  glm::vec3 light=glm::vec3(0.0f,2.0f,1.0f);
+  //glm::vec3 light=glm::vec3(0.0f,2.0f,1.0f);
+  glm::vec3 light=glm::vec3(0.0f,2.0f,-1.0f);
  /* glm::vec4 light_p=multiplyMV(*MVP,glm::vec4(light,1.0f));
   light.x=light_p.x/light_p.w;
   light.y=light_p.y/light_p.w;
