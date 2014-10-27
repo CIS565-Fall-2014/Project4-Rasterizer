@@ -204,8 +204,8 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
         // Find the AABB of the tri on the screen
         glm::vec3 minp, maxp;
         getAABBForTriangle(tri, minp, maxp);
-        glm::vec2 minc = (glm::vec2(minp) + 1.f) * 0.5f * resolution;
-        glm::vec2 maxc = (glm::vec2(maxp) + 1.f) * 0.5f * resolution;
+        glm::vec2 minc = glm::max(glm::vec2(), (glm::vec2(minp) + 1.f) * 0.5f * resolution);
+        glm::vec2 maxc = glm::min(resolution , (glm::vec2(maxp) + 1.f) * 0.5f * resolution);
 
         // Depth-buffer-ize pixels within the triangle
         for (int x = minc.x; x < maxc.x; ++x) {
@@ -215,7 +215,7 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
                         (y * 2 - resolution.y) / resolution.y);
                 glm::vec3 bary = calculateBarycentricCoordinate(tri, ndc);
                 if (isBarycentricCoordInBounds(bary)) {
-                    int i = (int) ((resolution.y - y) * resolution.x + x);
+                    int i = (int) ((resolution.y - y - 1) * resolution.x + x);
                     fragment frag = depthbuffer[i];
                     float depthold = frag.pn.z;
                     float depthnew = getZAtCoordinate(bary, tri);
