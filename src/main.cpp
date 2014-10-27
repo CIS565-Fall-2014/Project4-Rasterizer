@@ -83,15 +83,18 @@ void runCuda(){
 
   vbo = mesh->getVBO();
   vbosize = mesh->getVBOsize();
-
-  nbo = mesh->getNBO();
-  nbosize = mesh->getNBOsize();
-
-  float newcbo[] = {0.0, 1.0, 0.0, 
-                    0.0, 0.0, 1.0, 
-                    1.0, 0.0, 0.0};
+  
+  cbosize = vbosize;
+  float* newcbo = new float[cbosize];
+  for (int i = 0; i < cbosize; i+=3) {
+    newcbo[i] = .5;
+    newcbo[i + 1] = .5;
+    newcbo[i + 2] = .4;
+    /*newcbo[i] = ((i + 1) * 3 % 10) / (float) 10;
+    newcbo[i + 1] = ((i + 1) * 25 % 10) / (float) 10;
+    newcbo[i + 2] = ((i + 1) * 57 % 10) / (float) 10;*/
+  }
   cbo = newcbo;
-  cbosize = 9;
 
   ibo = mesh->getIBO();
   ibosize = mesh->getIBOsize();
