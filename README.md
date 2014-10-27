@@ -50,5 +50,5 @@ Feature Performance
 | VS transforms     |    7.77 ms |    0.64 ms |      8.98% | Note that the change in screen size of the model affects the performance
 | Lambert shading   |    8.29 ms |    0.52 ms |      6.69% |
 | Geometry shader   |    8.82 ms |    0.53 ms |      6.39% | Maximum 4 output tris per input tri
-| Tessellation GS   |         ms |         ms |          % | Splits each tri into 3 tris, colors one red
+| Tessellation GS   |    8.66 ms |   -0.16 ms |     -1.81% | Splits each tri into 3 tris, colors one red
 | Backface GS       |         ms |         ms |          % | Moved backface culling to inside the GS

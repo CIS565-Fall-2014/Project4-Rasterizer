@@ -197,6 +197,49 @@ __global__ void geometryShadeKernel(geomU *gunifs,
     int index = (blockIdx.x * blockDim.x) + threadIdx.x;
     if (index < tricount) {
         triangle prim = prims[index * stride];
+        vertO v0 = prim.v[0];
+        vertO v1 = prim.v[1];
+        vertO v2 = prim.v[2];
+
+        vertO v01;
+        v01.pn = (v0.pn + v1.pn) * .5f;
+        v01.pw = (v0.pw + v1.pw) * .5f;
+        v01.nw = (v0.nw + v1.nw) * .5f;
+        v01.c  = (v0.c  + v1.c ) * .5f;
+        vertO v12;
+        v12.pn = (v1.pn + v2.pn) * .5f;
+        v12.pw = (v1.pw + v2.pw) * .5f;
+        v12.nw = (v1.nw + v2.nw) * .5f;
+        v12.c  = (v1.c  + v2.c ) * .5f;
+        vertO v20;
+        v20.pn = (v2.pn + v0.pn) * .5f;
+        v20.pw = (v2.pw + v0.pw) * .5f;
+        v20.nw = (v2.nw + v0.nw) * .5f;
+        v20.c  = (v2.c  + v0.c ) * .5f;
+
+        if (stride >= 4) {
+            prim.v[0] = v0;
+            prim.v[1] = v01;
+            prim.v[2] = v20;
+            prims[index * stride + 0] = prim;
+
+            prim.v[0] = v1;
+            prim.v[1] = v12;
+            prim.v[2] = v01;
+            prims[index * stride + 1] = prim;
+
+            prim.v[0] = v2;
+            prim.v[1] = v20;
+            prim.v[2] = v12;
+            prims[index * stride + 2] = prim;
+
+            // this one is red for visualization
+            prim.v[0] = v01;
+            prim.v[1] = v12;
+            prim.v[2] = v20;
+            prim.v[0].c = prim.v[1].c = prim.v[2].c = glm::vec3(1, 0, 0);
+            prims[index * stride + 3] = prim;
+        }
     }
 }
 
