@@ -10,10 +10,17 @@
 #include "cudaMat4.h"
 
 
-struct uniforms {
+struct vertU {
     cudaMat4 model;
     cudaMat4 modelinvtr;
     cudaMat4 viewproj;
+};
+
+struct fragU {
+    glm::vec3 eye;
+    glm::vec3 lightpos;
+    glm::vec3 lightcol;
+    glm::vec3 ambcol;
 };
 
 struct vertI {
