@@ -302,10 +302,10 @@ void rasterizationKernel( triangle *primitives,
 
 				// Update depth buffer atomically.
 				if ( current_z < buffer_z ) {
-					//int current_index = ( y * resolution.x ) + x;
-					//bool is_waiting_to_update = true;
-					//while ( is_waiting_to_update ) {
-					//	if ( atomicExch( &lock_buffer[current_index], 1 ) == 0 ) {
+					int current_index = ( y * resolution.x ) + x;
+					bool is_waiting_to_update = true;
+					while ( is_waiting_to_update ) {
+						if ( atomicExch( &lock_buffer[current_index], 1 ) == 0 ) {
 							fragment f;
 							//f.color = ( tri.c0 * barycentric_coordinates.x ) + ( tri.c1 * barycentric_coordinates.y ) + ( tri.c2 * barycentric_coordinates.z );
 							f.color = glm::vec3( 0.5f, 0.5f, 0.5f );
@@ -313,11 +313,11 @@ void rasterizationKernel( triangle *primitives,
 							f.position = ( tri.p0 * barycentric_coordinates.x ) + ( tri.p1 * barycentric_coordinates.y ) + ( tri.p2 * barycentric_coordinates.z );
 							writeToDepthbuffer( x, y, f, depthbuffer, resolution );
 
-					//		// Release lock.
-					//		atomicExch( &lock_buffer[current_index], 0 );
-					//		is_waiting_to_update = false;
-					//	}
-					//}
+							// Release lock.
+							atomicExch( &lock_buffer[current_index], 0 );
+							is_waiting_to_update = false;
+						}
+					}
 				}
 			}
 		}
@@ -327,6 +327,7 @@ void rasterizationKernel( triangle *primitives,
 
 // Compute light interaction with fragments.
 // Write fragment colors to frame buffer.
+// Diffuse Lambertian shading.
 __global__
 void fragmentShadeKernel( fragment *depthbuffer,
 						  glm::vec2 resolution )
@@ -335,12 +336,19 @@ void fragmentShadeKernel( fragment *depthbuffer,
 	int y = ( blockIdx.y * blockDim.y ) + threadIdx.y;
 	int index = x + ( y * resolution.x );
 	if ( x <= resolution.x && y <= resolution.y ) {
-		glm::vec3 light_pos( -10.0f, 0.0f, 10.0f );
-		float light_intensity = 2.0f;
 		fragment f = depthbuffer[index];
 
-		// Diffuse Lambertian shading.
-		depthbuffer[index].color = max( glm::dot( f.normal, glm::normalize( light_pos - f.position )), 0.0f ) * depthbuffer[index].color * light_intensity;
+		glm::vec3 light_pos_1( -10.0f, 0.0f, 10.0f );
+		float light_intensity_1 = 2.0f;
+		glm::vec3 light_1_contribution = max( glm::dot( f.normal, glm::normalize( light_pos_1 - f.position )), 0.0f ) * depthbuffer[index].color * light_intensity_1;
+
+		glm::vec3 light_pos_2( 10.0f, 0.0f, -10.0f );
+		float light_intensity_2 = 2.0f;
+		glm::vec3 light_2_contribution = max( glm::dot( f.normal, glm::normalize( light_pos_2 - f.position )), 0.0f ) * depthbuffer[index].color * light_intensity_2;
+		
+		depthbuffer[index].color = light_1_contribution + light_2_contribution;
+
+		//depthbuffer[index].color = max( glm::dot( f.normal, glm::normalize( light_pos - f.position )), 0.0f ) * depthbuffer[index].color * light_intensity;
 	}
 }
 
@@ -429,6 +437,7 @@ void antiAliasingPostProcess( fragment *depthbuffer,
 				}
 			}
 			depthbuffer[index].color = glm::vec3( sum.x / pixel_count, sum.y / pixel_count, sum.z / pixel_count );
+			//depthbuffer[index].color = glm::vec3( 1.0f, 0.0f, 0.0f );
 		}
 	}
 }
@@ -540,8 +549,8 @@ void cudaRasterizeCore( uchar4 *PBOpos,
 	//------------------------------
 	// initialize lock buffer
 	//------------------------------
-	clearLockBuffer<<< primitiveBlocks, tileSize >>>( camera.resolution,
-													  device_lock_buffer );
+	clearLockBuffer<<< fullBlocksPerGrid, threadsPerBlock >>>( camera.resolution,
+															   device_lock_buffer );
 	cudaDeviceSynchronize();
 
 	//------------------------------
@@ -550,7 +559,8 @@ void cudaRasterizeCore( uchar4 *PBOpos,
 
 	// Define model matrix.
 	// Transforms from object-space to world-space.
-	glm::mat4 model_matrix( 1.0f ); // Identity matrix.
+	//glm::mat4 model_matrix( 1.0f ); // Identity matrix.
+	glm::mat4 model_matrix = glm::rotate( glm::mat4( 1.0f ), frame * 2, glm::vec3( 0.0f, 1.0f, 0.0f ));
 	
 	// Define view matrix.
 	// Transforms from world-space to camera-space.
