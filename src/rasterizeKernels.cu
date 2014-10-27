@@ -208,6 +208,8 @@ __global__ void geometryShadeKernel(geomU *gunifs,
             return;
         }
 
+#if 1
+        // Tessellation
         vertO v01;
         v01.pn = (v0.pn + v1.pn) * .5f;
         v01.pw = (v0.pw + v1.pw) * .5f;
@@ -247,6 +249,7 @@ __global__ void geometryShadeKernel(geomU *gunifs,
             prim.v[0].c = prim.v[1].c = prim.v[2].c = glm::vec3(1, 0, 0);
             prims[index * stride + 3] = prim;
         }
+#endif
     }
 }
 
@@ -465,9 +468,11 @@ void cudaRasterizeCore(
     geometryShadeKernel<<<primitiveBlocks, tileSize>>>(
             device_gunifs, primitives, tricount, geomstride);
 
+#if 0
     triangle *lastprim = thrust::remove_if(thrust::device,
             primitives, &primitives[tricount * geomstride], is_discard());
     tricount = lastprim - primitives;
+#endif
 
     cudaDeviceSynchronize();
     //------------------------------

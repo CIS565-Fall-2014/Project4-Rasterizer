@@ -69,12 +69,22 @@ Feature Performance
 | Depth buf optim   |    7.13 ms |   -0.08 ms |     -1.11% | Remove some unnecessary depth checks.
 | VS transforms     |    7.77 ms |    0.64 ms |      8.98% | Note that the change in screen size of the model affects the performance.
 | Lambert shading   |    8.29 ms |    0.52 ms |      6.69% |
-| Geometry shader   |    8.82 ms |    0.53 ms |      6.39% | Maximum 4 output tris per input tri. Stream compaction is used after this stage.
+| GS w/ compaction  |    8.82 ms |    0.53 ms |      6.39% | Maximum 4 output tris per input tri. Stream compaction is used after this stage.
 | Tessellation GS   |    8.66 ms |   -0.16 ms |     -1.81% | Splits each tri into 3 tris, colors one red.
 |                   |            |            |            |
-| Geometry shader   |    9.69 ms |            |            | (This series of runs gave different results since I did them at a different time.)
-| Tessellation GS   |    9.35 ms |   -0.34 ms |     -3.51% | Tessellation reduces the number of wasted iterations in the rasterization step by decreasing the number of rasterized pixels outside of triangles.
-| Backface GS       |    9.19 ms |   -0.16 ms |     -1.71% | Moved backface culling to inside the GS. Apparently this does not perform nicely.
+| GS w/ compaction  |    9.69 ms |            |            | (This series of runs gave overall different results since I did them at a different time.)
+| GS w/o compaction |    8.57 ms |   -1.12 ms |    -11.56% | 
+| Tessellation GS   |    8.12 ms |   -0.45 ms |     -5.25% | Tessellation reduces the number of wasted iterations in the rasterization step by decreasing the number of rasterized pixels outside of triangles.
+| Backface GS       |    7.91 ms |   -0.21 ms |     -2.59% | Moved backface culling to inside the GS. This performs a bit better and benefits from the stream compaction already being done for the GS stage.
+
+Stream compaction seems to be quite costly.
+With tessellation, only about 1/2 of the triangles would be removed.
+The performance drop without tessellation is less sharp, since it removes 7/8
+of the triangles; but compaction still doesn't improve overall performance.
+
+|                    | With tessellation | Without tessellation |
+| Without compaction |           7.91 ms |              9.48 ms |
+| With    compaction |           9.17 ms |              8.57 ms |
 
 
 Tile size performance
