@@ -10,6 +10,12 @@
 #include "cudaMat4.h"
 
 
+struct uniforms {
+    cudaMat4 model;
+    cudaMat4 modelinvtr;
+    cudaMat4 viewproj;
+};
+
 struct vertI {
     glm::vec3 pw;  // pos world
     glm::vec3 nw;  // nor world

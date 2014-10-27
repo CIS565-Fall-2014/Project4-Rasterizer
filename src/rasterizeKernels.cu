@@ -9,7 +9,9 @@
 #include "rasterizeTools.h"
 
 #define GLM_FORCE_RADIANS
-#include <glm/gtx/rotate_vector.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
+using namespace utilityCore;
 
 glm::vec3* framebuffer;
 fragment* depthbuffer;
@@ -143,27 +145,25 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 }
 
 //TODO: Implement a vertex shader
-__global__ void vertexShadeKernel(int vbocount,
+__global__ void vertexShadeKernel(uniforms *unifs, int vbocount,
         const float *pbo, const float *nbo, const float *cbo, vertO *vbo)
 {
     int index = (blockIdx.x * blockDim.x) + threadIdx.x;
     if (index < vbocount) {
-        glm::vec3 p(pbo[index * 3], pbo[index * 3 + 1], pbo[index * 3 + 2]);
-        glm::vec3 n(nbo[index * 3], nbo[index * 3 + 1], nbo[index * 3 + 2]);
+        uniforms u = *unifs;
+        glm::vec4 p(pbo[index * 3], pbo[index * 3 + 1], pbo[index * 3 + 2], 1);
+        glm::vec4 n(nbo[index * 3], nbo[index * 3 + 1], nbo[index * 3 + 2], 0);
         glm::vec3 c(cbo[index * 3], cbo[index * 3 + 1], cbo[index * 3 + 2]);
 
         vertO v;
 
-        // Apply modelview
-        //p = glm::rotate(p, 1.f, glm::vec3(0, 1, 0));
-        //p = glm::rotate(p, 1.f, glm::vec3(1, 0, 0));
+        // Apply model
+        v.pw = multiplyMV(u.model, p);
+        v.nw = multiplyMV(u.modelinvtr, n);
 
-        v.pw = p;
+        // Apply viewproj
+        v.pn = multiplyMV(u.viewproj, glm::vec4(v.pw, 1));
 
-        // Apply projection
-
-        v.pn = p;
-        v.nw = n;
         v.c = c;
         vbo[index] = v;
     }
@@ -246,10 +246,10 @@ __global__ void fragmentShadeKernel(fragment* depthbuffer, glm::vec2 resolution)
         //frag.c = ndc2norm(glm::vec3(frag.pn.z));
 
         // Render normals
-        //frag.c = ndc2norm(frag.nw);
+        frag.c = ndc2norm(frag.nw);
 
         // Render world position
-        frag.c = ndc2norm(frag.pw);
+        //frag.c = ndc2norm(frag.pw);
 
         depthbuffer[index] = frag;
     }
@@ -328,9 +328,32 @@ void cudaRasterizeCore(
     //------------------------------
     //vertex shader
     //------------------------------
+    uniforms *device_unifs;
+    cudaMalloc((void **) &device_unifs, sizeof(uniforms));
+    {
+        float fovy = glm::radians(60.f);
+        float aspect = resolution.x / resolution.y;
+        glm::vec3 eye(1.5f, 1, 2);
+        glm::vec3 center(0, 1, 0);
+        glm::vec3 up(0, 1, 0);
+
+        glm::mat4 model;
+        //glm::mat4 model = glm::rotate(glm::mat4(), glm::radians(30.f), glm::vec3(1, 1, 0));
+        glm::mat4 modelinvtr = glm::inverse(glm::transpose(model));
+        glm::mat4 view = glm::lookAt(eye, center, up);
+        glm::mat4 proj = glm::perspective(fovy, aspect, 0.1f, 100.f);
+        glm::mat4 viewproj = proj * view;
+
+        uniforms unifs;
+        unifs.model = glmMat4ToCudaMat4(model);
+        unifs.modelinvtr = glmMat4ToCudaMat4(modelinvtr);
+        unifs.viewproj = glmMat4ToCudaMat4(viewproj);
+        cudaMemcpy(device_unifs, &unifs, sizeof(uniforms), cudaMemcpyHostToDevice);
+    }
+
     device_vbo = NULL;
     cudaMalloc((void **) &device_vbo, vbocount * sizeof(vertO));
-    vertexShadeKernel<<<primitiveBlocks, tileSize>>>(vbocount,
+    vertexShadeKernel<<<primitiveBlocks, tileSize>>>(device_unifs, vbocount,
             device_pbo, device_nbo, device_cbo, device_vbo);
 
     cudaDeviceSynchronize();
@@ -364,6 +387,7 @@ void cudaRasterizeCore(
 
     cudaDeviceSynchronize();
 
+    cudaFree(device_unifs);
     kernelCleanup();
 
     checkCUDAError("Kernel failed!");
