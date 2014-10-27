@@ -62,12 +62,15 @@ Renderings
 ----------
 
 Diffuse shading:
+
 ![](progress/06_diffuse.png)
 
 Diffuse shading showing normal interpolation:
+
 ![](progress/07_working_perspective.png)
 
 Tessellation in geometry shader:
+
 ![](progress/08_tessellation.png)
 
 
@@ -75,16 +78,21 @@ Debug/Progress Renderings (chronological)
 -----------------------------------------
 
 Rasterization test:
+
 ![](progress/01_cow.png)
 
 Depth buffer test (no locks):
+
 ![](progress/02_flicker.png)
 
 Face normals:
+
 ![](progress/03_normals.png)
 
 Backface culling (reduces flickering due to race conditions):
+
 ![](progress/04_backface_culling.png)
 
 World-space positions:
+
 ![](progress/05_worldspace_positions.png)
