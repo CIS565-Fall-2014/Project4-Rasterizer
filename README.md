@@ -42,6 +42,8 @@ After I implemented the fragment shader with to add light effect. The diffuse an
 By using the Barycentric interpolation, I get this correct color interpolation between points on a primitive by setting the vertices' color to be red, green and blue in each triangle:
 ![alt tag](https://github.com/jianqiaol/Project4-Rasterizer/blob/master/color_interpolation.png)
 
+I then added the mouse based interactive camera. The model is rotating slowly by default.You can change the view angle by holding left button. You can change the distance between the camera and the object by holding right button. A demo can be found here:
+
 * A brief description of the project and the specific features you implemented.
 * At least one screenshot of your project running.
 * A 30 second or longer video of your project running.  To create the video you
