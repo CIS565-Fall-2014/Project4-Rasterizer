@@ -20,9 +20,9 @@
 #include <time.h>
 #include <glm/gtc/matrix_transform.hpp>
 
-
 #include "rasterizeKernels.h"
 #include "utilities.h"
+
 
 using namespace std;
 
@@ -59,17 +59,20 @@ float fovy = 60.0f;
 float depth_near = 0.1f;
 float depth_far = 100.0f;
 
-glm::vec3 Veye(0.2f, 0.6f, 1.5f);
-glm::vec3 Vcenter(0, 0, 0);
+
+//glm::vec3 Veye(0, 0.5, 2.8f);
+glm::vec3 Veye(0, 0.8, 1.0f);
+//glm::vec3 Vcenter(0, 1.0f, 0);
+glm::vec3 Vcenter(0, 0.3f, 0);
 glm::vec3 Vup(0, 1.0f, 0);
-//glm::vec3 Vlightpos(0, 5, 3);
+
 
 glm::mat4 Mmodel;
 glm::mat4 Mprojection;
 glm::mat4 Mview;
 
-//output image
-glm::vec3* VimageBuffer;
+int mode = 2;
+
 
 //-------------------------------
 //----------CUDA STUFF-----------

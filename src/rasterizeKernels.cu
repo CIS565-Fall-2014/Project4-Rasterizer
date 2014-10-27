@@ -12,7 +12,7 @@
 #define BLINN_PHONG 1
 #define BACKFACECULL 0 
 #define ANTI_ALIASING 1
-#define TEXTURE 1
+#define SCISSOR_TEST 0
 //////////////////////////////////////////////////////////
 
 #define LIGHTNUM    3
@@ -244,12 +244,10 @@ __global__ void primitiveAssemblyKernel(float* vbo, int vbosize, float* cbo, int
   }
 }
 
-__device__ void scanlineIntersection(glm::vec2 jmin, glm::vec2 jmax, glm::vec2 pp0, glm::vec2 pp1, glm::vec2 pp2, float& tmin, float& tmax)
-{
 
-}
+
 //TODO: Implement a rasterization method, such as scanline.
-__global__ void rasterizationKernel(triangle* primitives, int primitivesCount, fragment* depthbuffer, glm::vec2 resolution, float depth_near, float depth_far){
+__global__ void rasterizationKernel(triangle* primitives, int primitivesCount, fragment* depthbuffer, glm::vec2 resolution, float depth_near, float depth_far, int mode){
   int index = (blockIdx.x * blockDim.x) + threadIdx.x;
   if(index<primitivesCount){	  
 
@@ -260,6 +258,21 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 	  ////// http://fgiesen.wordpress.com/2013/02/08/triangle-rasterization-in-practice/  /////////////
 	  triangle myTri = primitives[index];
 
+	  if(mode == 0)  // vertice mode
+	   {
+		   int id0 = resolution.x - (int)myTri.p0.x - 1 + (resolution.y - (int)myTri.p0.y - 1) * resolution.x;
+		   int id1 = resolution.x - (int)myTri.p1.x - 1 + (resolution.y - (int)myTri.p1.y - 1) * resolution.x;
+		   int id2 = resolution.x - (int)myTri.p2.x - 1 + (resolution.y - (int)myTri.p2.y - 1) * resolution.x;
+
+	//	   printf("%d  ", id0);
+		   depthbuffer[id0].color = myTri.c0;
+		   depthbuffer[id1].color = myTri.c1;
+		   depthbuffer[id2].color = myTri.c2;
+
+		   return;
+		 }
+	 
+	
 	  // Compute triangle bounding box
 	  glm::vec3 min(0,0,0);
 	  glm::vec3 max(0,0,0);
@@ -270,6 +283,17 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 	  max.x = (int) (max.x < resolution.x-1) ? max.x : resolution.x-1;
 	  min.y = (int) (min.y < 0) ? 0 : min.y;
 	  max.y = (int) (max.y < resolution.y-1) ? max.y : resolution.y-1;
+
+#if SCISSOR_TEST == 1
+	  glm::vec4 scissorWindow = glm::vec4(100,100,650,650);
+	  min.x = (int) (min.x < scissorWindow[0]) ? scissorWindow[0] : min.x;
+	  max.x = (int) (max.x < scissorWindow[2]) ? max.x : scissorWindow[2];
+	  min.y = (int) (min.y < 0) ? (scissorWindow[1]) : min.y;
+	  max.y = (int) (max.y < scissorWindow[3]) ? max.y : scissorWindow[3];
+
+#endif
+	  //used for edge mode
+	   float offset = 0.04f;
 
 	  // Rasterize
 	  for(int j = min.y; j <= max.y; j++)
@@ -286,23 +310,35 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 		  {
 			  int depthIndex = ((resolution.y - j -1) * resolution.x) + (resolution.x - i - 1);	
 			  glm::vec2 myPixel = glm::vec2(i,j);
-			
-			  glm::vec3 myBC = calculateBarycentricCoordinate(primitives[index], myPixel);
+			  			
+			  glm::vec3 myBC = calculateBarycentricCoordinate(myTri, myPixel);
+			 // glm::vec3 myBC_core = calculateBarycentricCoordinate(myTriCore, myPixel);
+
 			  //check if pixel is within the triangle
 			  if(isBarycentricCoordInBounds(myBC))
 			  {
-				  float depth = getZAtCoordinate(myBC, primitives[index]);
+				   float depth = getZAtCoordinate(myBC, primitives[index]);
 
-				  fragment myFrag;
-				  myFrag.position = glm::vec3(myPixel.x, myPixel.y, depth);
-				  myFrag.color =  glm::vec3(0.1f,0.1f,0.1f);	
-				  //myFrag.color = glm::vec3(1,0,0);
-				  myFrag.normal = glm::normalize((myTri.n0 + myTri.n1 + myTri.n2)/3.0f);
-				  
+				   fragment myFrag;
+				   myFrag.position = glm::vec3(myPixel.x, myPixel.y, depth);
+				   myFrag.normal = glm::normalize((myTri.n0 + myTri.n1 + myTri.n2)/3.0f);
 
-				  if (depthbuffer[depthIndex].position.z  < myFrag.position.z && myFrag.position.z < -depth_near && myFrag.position.z > -depth_far)
-				  {
-						depthbuffer[depthIndex] = myFrag;
+				  if(mode == 1) //edge mode
+				  {					
+						if(abs(myBC.x)  < offset || abs(myBC.y)  < offset || abs(myBC.z)  < offset)
+						{
+							myFrag.color = glm::vec3(0.5f, 1.0f, 1.0f);
+							depthbuffer[depthIndex] = myFrag;
+						}
+
+				  }else// face mode
+				  {						 				  
+					  myFrag.color =  glm::vec3(0.1f,0.1f,0.1f);	
+
+					  if (depthbuffer[depthIndex].position.z  < myFrag.position.z && myFrag.position.z < -depth_near && myFrag.position.z > -depth_far)
+					  {
+							depthbuffer[depthIndex] = myFrag;
+					  }
 				  }
 			 }
 
@@ -310,6 +346,7 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 	  }//y
   }
 }
+
 
 __device__ glm::vec3 myNormalize(glm::vec3 norm)
 {
@@ -367,15 +404,15 @@ __global__ void fragmentShadeKernel(fragment* depthbuffer, glm::vec2 resolution,
 }
 
 //Writes fragment colors to the framebuffer
-__global__ void render(glm::vec2 resolution, fragment* depthbuffer, glm::vec3* framebuffer){
+__global__ void render(glm::vec2 resolution, fragment* depthbuffer, glm::vec3* framebuffer, int mode){
 
   int x = (blockIdx.x * blockDim.x) + threadIdx.x;
   int y = (blockIdx.y * blockDim.y) + threadIdx.y;
   int index = x + (y * resolution.x);
 
   #if ANTI_ALIASING == 1
-
-		glm::vec3 colorSum(0,0,0);
+  if(mode == 2) //only apply to face mode
+	{	glm::vec3 colorSum(0,0,0);
 		for(int i = -1; i<=1; i++)
 		{
 			for(int j = -1; j<=1; j++)
@@ -389,7 +426,7 @@ __global__ void render(glm::vec2 resolution, fragment* depthbuffer, glm::vec3* f
 			}
 		}
 		framebuffer[index] = colorSum / 9.0f;
-
+  }
 	
 #endif
 
@@ -400,7 +437,7 @@ __global__ void render(glm::vec2 resolution, fragment* depthbuffer, glm::vec3* f
 
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float* vbo, int vbosize, float* cbo, int cbosize, int* ibo, int ibosize, float* nbo, int nbosize, glm::vec3 Veye,
-	                               glm::mat4 Mmodel, glm::mat4 Mview, glm::mat4 Mprojection, float depth_near, float depth_far){
+	                               glm::mat4 Mmodel, glm::mat4 Mview, glm::mat4 Mprojection, float depth_near, float depth_far, int mode){
 
   // set up crucial magic
   int tileSize = 8;
@@ -462,6 +499,8 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
   cudaMalloc((void**)&device_nbo, nbosize*sizeof(float));
   cudaMemcpy( device_nbo, nbo, nbosize*sizeof(float), cudaMemcpyHostToDevice);
 
+
+
   tileSize = 32;
   int primitiveBlocks = ceil(((float)vbosize/3)/((float)tileSize));
 
@@ -489,19 +528,21 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
   //------------------------------
   //rasterization
   //------------------------------
-  rasterizationKernel<<<primitiveBlocks, tileSize>>>(primitives, ibosize/3, depthbuffer, resolution, depth_near, depth_far);
+  rasterizationKernel<<<primitiveBlocks, tileSize>>>(primitives, ibosize/3, depthbuffer, resolution, depth_near, depth_far, mode);
 
   cudaDeviceSynchronize();
   //------------------------------
   //fragment shader
   //------------------------------
+  if(mode == 2) {//face mode
   fragmentShadeKernel<<<fullBlocksPerGrid, threadsPerBlock>>>(depthbuffer, resolution, device_lights, Veye, Mmodel, Mprojection, Mview);
+  }
 
   cudaDeviceSynchronize();
   //------------------------------
   //write fragments to framebuffer
   //------------------------------
-  render<<<fullBlocksPerGrid, threadsPerBlock>>>(resolution, depthbuffer, framebuffer);
+  render<<<fullBlocksPerGrid, threadsPerBlock>>>(resolution, depthbuffer, framebuffer, mode);
   sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, resolution, framebuffer);
 
   cudaDeviceSynchronize();
