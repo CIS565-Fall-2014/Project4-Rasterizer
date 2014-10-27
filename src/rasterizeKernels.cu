@@ -474,8 +474,8 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
   //------------------------------
   //camera setup
   //------------------------------
-  glm::vec3 eye (0, 0, 3);
-  glm::vec3 center (0, 0, 0);
+  glm::vec3 eye (0, .5, 2);
+  glm::vec3 center (0, .5, 0);
   glm::vec3 up (0, 1, 0);
   glm::mat4 matView = glm::lookAt(eye, center, up);
   float fovy, aspect, znear, zfar;
@@ -492,7 +492,7 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
   //----------------------------
   light light;
   light.color = glm::vec3(1, 1, 1);
-  light.position = glm::vec3(5, 0, 0);
+  light.position = glm::vec3(5, 5, 5);
 
   //------------------------------
   //vertex shader
