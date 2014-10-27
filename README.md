@@ -30,6 +30,9 @@ Progress:
 -------------------------------------------------------------------------------
 I started this project by first implement the standard vertex shader. I find this blog really helpful for explaining the whole vertex operation and primitive assembly operation, especially for the projection transformation: http://www.songho.ca/opengl/gl_transform.html
 
+After the vertex shader and primitiveAssemblyKernel are done, here is the rasterized cow without light:
+![alt tag](https://github.com/jianqiaol/Project4-Rasterizer/blob/master/without_light.png)
+
 * A brief description of the project and the specific features you implemented.
 * At least one screenshot of your project running.
 * A 30 second or longer video of your project running.  To create the video you
