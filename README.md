@@ -33,6 +33,9 @@ I started this project by first implement the standard vertex shader. I find thi
 After the vertex shader and primitiveAssemblyKernel are done, here is the rasterized cow without light:
 ![alt tag](https://github.com/jianqiaol/Project4-Rasterizer/blob/master/without_light.png)
 
+By setting the color of the fragment as its normal, I get this debug picture:
+![alt tag](https://github.com/jianqiaol/Project4-Rasterizer/blob/master/debug_normal.png)
+
 * A brief description of the project and the specific features you implemented.
 * At least one screenshot of your project running.
 * A 30 second or longer video of your project running.  To create the video you
