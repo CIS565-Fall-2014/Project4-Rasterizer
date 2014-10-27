@@ -1,4 +1,4 @@
-![AntiAliasing Level 3](https://raw.githubusercontent.com/RTCassidy1/Project4-Rasterizer/master/renders/AALevel3.tiff)
+![AntiAliasing Level 3](https://raw.githubusercontent.com/RTCassidy1/Project4-Rasterizer/master/renders/AALevel3.png)
 -------------------------------------------------------------------------------
 CIS565: Project 4: CUDA Rasterizer
 -------------------------------------------------------------------------------
