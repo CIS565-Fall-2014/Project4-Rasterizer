@@ -288,13 +288,14 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
         nRight = (1 - tRight) * top.normal + tRight * pointRight.normal;
         cRight = (1 - tRight) * top.color + tRight * pointRight.color;
         int rBound = 0;
-        ndcToScreen(pLeft.x, resolution.x, &rBound);
-        ndcToScreen(pRight.x, resolution.x, &currX);
-        for (; currX >= rBound; currX--) {
+        int lBound = 0;
+        ndcToScreen(pRight.x, resolution.x, &rBound);
+        ndcToScreen(pLeft.x, resolution.x, &lBound);
+        for (currX = lBound; currX >= rBound; currX--) {
           if (currX >= 0 && currX < resolution.x) {
             screenToNDC(currX, resolution.x, &currNDCx);
             // interpolate color, normal, and position
-            float t = (currNDCx - pLeft.x) / (pRight.x - pLeft.x);
+            float t = (currX - lBound) / (rBound - lBound);
             if (pRight.x == pLeft.x) {
               t = 0;
             }
@@ -339,14 +340,16 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
         pRight = (1 - tRight) * pointRight.position + tRight * bottom.position;
         nRight = (1 - tRight) * pointRight.normal + tRight * bottom.normal;
         cRight = (1 - tRight) * pointRight.color + tRight * bottom.color;
+
         int rBound = 0;
+        int lBound = 0;
         ndcToScreen(pRight.x, resolution.x, &rBound);
-        ndcToScreen(pLeft.x, resolution.x, &currX);
-        for (; currX >= rBound; currX--) {
+        ndcToScreen(pLeft.x, resolution.x, &lBound);
+        for (currX = lBound; currX >= rBound; currX--) {
           if (currX >= 0 && currX < resolution.x) {
             screenToNDC(currX, resolution.x, &currNDCx);
             // interpolate color, normal, and position
-            float t = (currNDCx - pLeft.x) / (pRight.x - pLeft.x);
+            float t = (currX - lBound) / (rBound - lBound);
             if (pRight.x == pLeft.x) {
               t = 0;
             }
