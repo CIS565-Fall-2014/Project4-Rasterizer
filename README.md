@@ -77,6 +77,17 @@ Feature Performance
 | Backface GS       |    9.19 ms |   -0.16 ms |     -1.71% | Moved backface culling to inside the GS. Apparently this does not perform nicely.
 
 
+Tile size performance
+---------------------
+
+| Tile size | Frame time |
+| ---------:| ----------:|
+|        16 |    9.50 ms |
+|        32 |    9.17 ms |
+|        64 |    9.19 ms |
+|       128 |    9.27 ms |
+
+
 Debug/Progress Renderings (chronological)
 -----------------------------------------
 
