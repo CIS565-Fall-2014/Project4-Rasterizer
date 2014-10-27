@@ -36,6 +36,10 @@ After the vertex shader and primitiveAssemblyKernel are done, here is the raster
 By setting the color of the fragment as its normal, I get this debug picture:
 ![alt tag](https://github.com/jianqiaol/Project4-Rasterizer/blob/master/debug_normal.png)
 
+After I implemented the fragment shader with to add light effect. The diffuse and specular color are calculated based on Blinn-Phong mode:http://en.wikipedia.org/wiki/Blinn%E2%80%93Phong_shading_model. The cow now looks like this:
+![alt tag](https://github.com/jianqiaol/Project4-Rasterizer/blob/master/with_light.png)
+
+
 * A brief description of the project and the specific features you implemented.
 * At least one screenshot of your project running.
 * A 30 second or longer video of your project running.  To create the video you
