@@ -327,7 +327,13 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 	if(key == GLFW_KEY_LEFT){
 		theTa-=0.1f;
     }
-	
+	if(key == GLFW_KEY_UP && action == GLFW_PRESS){
+		alpha+=0.1f;
+    }
+
+	if(key == GLFW_KEY_DOWN && action == GLFW_PRESS){
+		alpha-=0.1f;
+    }
 	if(key == GLFW_KEY_A && action == GLFW_PRESS){
 		line = !line;
     }

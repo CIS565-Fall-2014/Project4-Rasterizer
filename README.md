@@ -28,7 +28,7 @@ CONTROL
 Press 'left' and 'right' to rotate the camera
 Press 'A' to enable and disable line drawing
 Press 'S' to enable and disable points drawing
-Press 'S' to enable and disable back face culling
+Press 'D' to enable and disable back face culling
 
 -------------------------------------------------------------------------------
 RESULTS
@@ -49,9 +49,17 @@ Points Rasterization
 ![](https://github.com/DiracSea3921/Project4-Rasterizer/blob/master/cow4.png)
 
 Texture mapping with texture filtering, bilinear interpolation
+-------------------------------------------------------------------------------
+PERFORMANCE ANALYSIS
+-------------------------------------------------------------------------------
 
 ![](https://github.com/DiracSea3921/Project4-Rasterizer/blob/master/chart.png)
 
 With back face culling enabled the fps can be improved from 30 to 40. The expected performance impact is reduce half of the rasterization stage. The test result has proven this assumption.
+
+![](https://github.com/DiracSea3921/Project4-Rasterizer/blob/master/chart2.png)
+
+With different camera distances the fps will change dramatically. This is because in the rasterization stage each thread needs to rasterize one triangle. If the distance is too short, the triangle will be very large in the screen space. So each thread will need more time to resterize that triangle.
+ 
 
 
