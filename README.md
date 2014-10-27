@@ -20,7 +20,7 @@ I have implemented the following stages of the graphics pipeline and basic featu
 -------------------------------------------------------------------------------
 Demo
 -------------------------------------------------------------------------------
-[![ScreenShot](https://github.com/liying3/Project4-Rasterizer/blob/master/result/video.JPG)](https://github.com/liying3/Project4-Rasterizer/blob/master/result/PROJ4_Rasterizer.wmv)
+[![ScreenShot](https://github.com/liying3/Project4-Rasterizer/blob/master/result/video.JPG)](http://youtu.be/Kxfwf9KqjOw)
 -------------------------------------------------------------------------------
 Extra Features:
 -------------------------------------------------------------------------------
@@ -45,11 +45,9 @@ A simple anti-aliasing method is to sum the color of the neighbouring positions 
 
 The left image is without anti-aliasing and the right one is after anti aliasing. It makes the edge smoother but also makes the other part of the image a little blurred.
 
-![ScreenShot](https://github.com/liying3/Project4-Rasterizer/blob/master/result/color%20interpolate.PNG)
 ![ScreenShot](https://github.com/liying3/Project4-Rasterizer/blob/master/result/antialiasing2.PNG)
-
-![ScreenShot](https://github.com/liying3/Project4-Rasterizer/blob/master/result/beforeAnti.PNG)
 ![ScreenShot](https://github.com/liying3/Project4-Rasterizer/blob/master/result/antialias.PNG)
+
 -------------------------------------------------------------------------------
 PERFORMANCE EVALUATION
 -------------------------------------------------------------------------------
