@@ -251,21 +251,12 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 
     // "left" and "right" are relative to each other, not top.
     point pointLeft, pointRight;    // used for interpolation
-    float dLeft, dRight;
-    // let's assume top-left is 0,0 (it might be top-right)
-    float d1, d2;
-    d1 = -(middle.position.x - top.position.x) / (middle.position.y - top.position.y);
-    d2 = -(bottom.position.x - top.position.x) / (bottom.position.y - top.position.y);
 
     if (bottom.position.x > middle.position.x) {  // top->middle is on the left
-      dLeft = d1;
       pointLeft = middle;
-      dRight = d2;
       pointRight = bottom;
     } else {        // top->bottom is on left
-      dLeft = d2;
       pointLeft = bottom;
-      dRight = d1;
       pointRight = middle;
     }
     
@@ -274,8 +265,6 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
     int currY, currX;
     ndcToScreen(currNDCx, resolution.x, &currX);
     ndcToScreen(currNDCy, resolution.y, &currY);
-    float left = top.position.x;
-    float right = top.position.x;
 
     while (currNDCy > middle.position.y && currNDCy > -1) {
       // only perform these operations if the current y coordinate is in the screen.
@@ -299,14 +288,14 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
         nRight = (1 - tRight) * top.normal + tRight * pointRight.normal;
         cRight = (1 - tRight) * top.color + tRight * pointRight.color;
         int rBound = 0;
-        ndcToScreen(right, resolution.x, &rBound);
-        ndcToScreen(left, resolution.x, &currX);
+        ndcToScreen(pLeft.x, resolution.x, &rBound);
+        ndcToScreen(pRight.x, resolution.x, &currX);
         for (; currX >= rBound; currX--) {
           if (currX >= 0 && currX < resolution.x) {
             screenToNDC(currX, resolution.x, &currNDCx);
             // interpolate color, normal, and position
-            float t = (currNDCx - left) / (right - left);
-            if (right == left) {
+            float t = (currNDCx - pLeft.x) / (pRight.x - pLeft.x);
+            if (pRight.x == pLeft.x) {
               t = 0;
             }
             fragment frag;
@@ -317,26 +306,16 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
           }
         }
       }
-      left += dLeft / resolution.y * 2;
-      right += dRight / resolution.y * 2;
       currY++;
       screenToNDC(currY, resolution.y, &currNDCy);
     }
     
-    d1 = -(bottom.position.x - middle.position.x) / (bottom.position.y - middle.position.y);
-    d2 = -(bottom.position.x - top.position.x) / (bottom.position.y - top.position.y);
     if (middle.position.x < top.position.x) {
-      dLeft = d1;
       pointLeft = middle;
-      left = middle.position.x;
-      dRight = d2;
       pointRight = top;
     } else {
-      dLeft = d2;
       pointLeft = top;
-      dRight = d1;
       pointRight = middle;
-      right = middle.position.x;
     }
 
     while (currNDCy > bottom.position.y && currNDCy > -1) {
@@ -361,14 +340,14 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
         nRight = (1 - tRight) * pointRight.normal + tRight * bottom.normal;
         cRight = (1 - tRight) * pointRight.color + tRight * bottom.color;
         int rBound = 0;
-        ndcToScreen(right, resolution.x, &rBound);
-        ndcToScreen(left, resolution.x, &currX);
+        ndcToScreen(pRight.x, resolution.x, &rBound);
+        ndcToScreen(pLeft.x, resolution.x, &currX);
         for (; currX >= rBound; currX--) {
           if (currX >= 0 && currX < resolution.x) {
             screenToNDC(currX, resolution.x, &currNDCx);
             // interpolate color, normal, and position
-            float t = (currNDCx - left) / (right - left);
-            if (right == left) {
+            float t = (currNDCx - pLeft.x) / (pRight.x - pLeft.x);
+            if (pRight.x == pLeft.x) {
               t = 0;
             }
             fragment frag;
@@ -379,8 +358,6 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
           }
         }
       }
-      left += dLeft / resolution.y * 2;
-      right += dRight / resolution.y * 2;
       currY++;
       screenToNDC(currY, resolution.y, &currNDCy);
     }
@@ -480,7 +457,7 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
   //------------------------------
   //camera setup
   //------------------------------
-  glm::vec3 eye (0, 2, 2);
+  glm::vec3 eye (0, 0, 2);
   glm::vec3 center (0, 0, 0);
   glm::vec3 up (0, 1, 0);
   glm::mat4 matView = glm::lookAt(eye, center, up);
