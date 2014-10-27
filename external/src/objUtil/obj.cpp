@@ -93,7 +93,9 @@ void obj::buildVBOs(){
 	for(int i=0; i<IBOvec.size(); i++){
 		ibo[i] = IBOvec[i];
 	}
-	setColor(glm::vec3(.4,.4,.4));
+	setColor(glm::vec3(.5,.5,.4));
+  // For technicolor goodness
+  //randomizeColors();
 }
 
 void obj::compareMaxMin(float x, float y, float z){
@@ -259,6 +261,16 @@ void obj::setColor(glm::vec3 newColor){
 		//cbo[j+0] = newColor[0]; cbo[j+1] = newColor[1]; cbo[j+2] = newColor[2];
 	}
 	defaultColor = newColor;
+}
+
+void obj::randomizeColors(){
+  cbosize = ibosize*3;
+  cbo = new float[cbosize];
+  for (int i = 0; i < cbosize; i+=3) {
+    cbo[i] = (rand() % 100) / 100.f;
+    cbo[i + 1] = (rand() % 100) / 100.f;
+    cbo[i + 2] = (rand() % 100) / 100.f;
+  }
 }
 
 vector<glm::vec4>* obj::getPoints(){

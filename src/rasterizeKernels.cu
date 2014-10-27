@@ -14,6 +14,7 @@
 glm::vec3* framebuffer;
 fragment* depthbuffer;
 float* device_vbo;
+float* device_nbo;
 float* device_cbo;
 int* device_ibo;
 triangle* primitives;
@@ -152,24 +153,27 @@ __global__ void vertexShadeKernel(float* vbo, int vbosize, glm::mat4 mvp){
 }
 
 //TODO: Implement primative assembly
-__global__ void primitiveAssemblyKernel(float* vbo, int vbosize, float* cbo, int cbosize, int* ibo, int ibosize, triangle* primitives){
+__global__ void primitiveAssemblyKernel(float* vbo, int vbosize, float* nbo, int nbosize, float* cbo, int cbosize, int* ibo, int ibosize, triangle* primitives){
   int index = (blockIdx.x * blockDim.x) + threadIdx.x;
   int primitivesCount = ibosize/3;
   if(index<primitivesCount){
     triangle tri;
     int i = ibo[index * 3] * 3;
     tri.p0 = glm::vec3(vbo[i], vbo[i + 1], vbo[i + 2]);
+    tri.n0 = glm::vec3(nbo[i], nbo[i + 1], nbo[i + 2]);
     tri.c0 = glm::vec3(cbo[i], cbo[i + 1], cbo[i + 2]);
     i = ibo[index * 3 + 1] * 3;
     tri.p1 = glm::vec3(vbo[i], vbo[i + 1], vbo[i + 2]);
+    tri.n1 = glm::vec3(nbo[i], nbo[i + 1], nbo[i + 2]);
     tri.c1 = glm::vec3(cbo[i], cbo[i + 1], cbo[i + 2]);
     i = ibo[index * 3 + 2] * 3;
     tri.p2 = glm::vec3(vbo[i], vbo[i + 1], vbo[i + 2]);
+    tri.n2 = glm::vec3(nbo[i], nbo[i + 1], nbo[i + 2]);
     tri.c2 = glm::vec3(cbo[i], cbo[i + 1], cbo[i + 2]);
-    glm::vec3 normal = glm::normalize(glm::cross(tri.p1 - tri.p0, tri.p2 - tri.p0) +
+    /*glm::vec3 normal = glm::normalize(glm::cross(tri.p1 - tri.p0, tri.p2 - tri.p0) +
                                       glm::cross(tri.p2 - tri.p1, tri.p0 - tri.p1) +
                                       glm::cross(tri.p0 - tri.p2, tri.p1 - tri.p2));
-    tri.n0 = tri.n1 = tri.n2 = normal;
+    tri.n0 = tri.n1 = tri.n2 = normal;*/
     primitives[index] = tri;
   }
 }
@@ -324,7 +328,7 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
       if (currNDCy <= 1) {
         // interpolate along the edges
         float tLeft = (pointLeft.position.y - currNDCy) / (pointLeft.position.y - bottom.position.y);
-        if (top.position.y == pointLeft.position.y) {
+        if (pointLeft.position.y == bottom.position.y) {
           tLeft = 0;
         }
         float tRight = (pointRight.position.y - currNDCy) / (pointRight.position.y - bottom.position.y);
@@ -370,15 +374,15 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 //TODO: Implement a fragment shader
 // Modifies the .color value per fragment.
 // Simple Blinn-Phong shading, light needs to be transformed into clip coordinates.
-__global__ void fragmentShadeKernel(fragment* depthbuffer, glm::vec2 resolution, light light, glm::mat4 matVP){
+__global__ void fragmentShadeKernel(fragment* depthbuffer, glm::vec2 resolution, light light, glm::mat4 matVPinv){
   int x = (blockIdx.x * blockDim.x) + threadIdx.x;
   int y = (blockIdx.y * blockDim.y) + threadIdx.y;
   int index = x + (y * resolution.x);
   if(x<=resolution.x && y<=resolution.y){
-    glm::vec3 lpos (matVP * glm::vec4(light.position, 1));
     fragment f = depthbuffer[index];
-    if (f.position.z > 0) {
-      float diffuse = glm::dot(f.normal, glm::normalize(light.position - f.position));
+    if (f.position.z > 0) { //ignore all the empty space (z = -10000)
+      glm::vec4 origPos = matVPinv * glm::vec4(f.position,1);
+      float diffuse = glm::dot(f.normal, glm::normalize(light.position - glm::vec3(origPos / origPos.w)));
       if (diffuse < 0) {
         diffuse = 0;
       }
@@ -399,20 +403,26 @@ __global__ void render(glm::vec2 resolution, fragment* depthbuffer, glm::vec3* f
     framebuffer[index] = depthbuffer[index].color;
     // Normal
     //framebuffer[index] = depthbuffer[index].normal;
+    //framebuffer[index] = glm::normalize(glm::vec3(depthbuffer[index].normal.r, depthbuffer[index].normal.g, 0));
     // Distance
     //framebuffer[index] = glm::vec3(depthbuffer[index].position.z);
   }
 }
 
-struct isBackface {
+struct clippingOrBackface {
   __host__ __device__
     bool operator() (const triangle t) {
-      return t.n0.z < 0;
+      glm::vec3 normal = glm::normalize(glm::cross(t.p1 - t.p0, t.p2 - t.p0) +
+                                      glm::cross(t.p2 - t.p1, t.p0 - t.p1) +
+                                      glm::cross(t.p0 - t.p2, t.p1 - t.p2));
+      return (normal.z < 0) || ((t.p0.x > 1 || t.p0.x < -1) && (t.p0.y > 1 || t.p0.y < -1) &&
+                              (t.p1.x > 1 || t.p1.x < -1) && (t.p1.y > 1 || t.p1.y < -1) &&
+                              (t.p2.x > 1 || t.p2.x < -1) && (t.p2.y > 1 || t.p2.y < -1));
   }
 };
 
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
-void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float* vbo, int vbosize, float* cbo, int cbosize, int* ibo, int ibosize){
+void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float* vbo, int vbosize, float* nbo, int nbosize, float* cbo, int cbosize, int* ibo, int ibosize){
 
   // set up crucial magic
   int tileSize = 8;
@@ -450,6 +460,10 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
   cudaMalloc((void**)&device_vbo, vbosize*sizeof(float));
   cudaMemcpy( device_vbo, vbo, vbosize*sizeof(float), cudaMemcpyHostToDevice);
 
+  device_nbo = NULL;
+  cudaMalloc((void**)&device_nbo, nbosize*sizeof(float));
+  cudaMemcpy( device_nbo, nbo, nbosize*sizeof(float), cudaMemcpyHostToDevice);
+
   device_cbo = NULL;
   cudaMalloc((void**)&device_cbo, cbosize*sizeof(float));
   cudaMemcpy( device_cbo, cbo, cbosize*sizeof(float), cudaMemcpyHostToDevice);
@@ -460,15 +474,15 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
   //------------------------------
   //camera setup
   //------------------------------
-  glm::vec3 eye (0, 0, 2);
+  glm::vec3 eye (0, 0, 3);
   glm::vec3 center (0, 0, 0);
   glm::vec3 up (0, 1, 0);
   glm::mat4 matView = glm::lookAt(eye, center, up);
   float fovy, aspect, znear, zfar;
   fovy = 45;
   aspect = 1.0;
-  znear = .2;
-  zfar = 10;
+  znear = .01;
+  zfar = 5;
   glm::mat4 matProj = glm::perspective(fovy, aspect, znear, zfar);
 
   glm::mat4 matVP = matProj * matView;
@@ -478,7 +492,7 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
   //----------------------------
   light light;
   light.color = glm::vec3(1, 1, 1);
-  light.position = glm::vec3(5, 5, 5);
+  light.position = glm::vec3(5, 0, 0);
 
   //------------------------------
   //vertex shader
@@ -490,22 +504,22 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
   //primitive assembly
   //------------------------------
   primitiveBlocks = ceil(((float)ibosize/3)/((float)tileSize));
-  primitiveAssemblyKernel<<<primitiveBlocks, tileSize>>>(device_vbo, vbosize, device_cbo, cbosize, device_ibo, ibosize, primitives);
+  primitiveAssemblyKernel<<<primitiveBlocks, tileSize>>>(device_vbo, vbosize, device_nbo, nbosize, device_cbo, cbosize, device_ibo, ibosize, primitives);
 
   cudaDeviceSynchronize();
 
   //------------------------------
-  //ez backface culling
+  //ez backface culling and clipping
   //------------------------------
 	thrust::device_ptr<triangle> primitivesStart(primitives);
 
-	float numRemoved = thrust::count_if(primitivesStart, primitivesStart + ibosize / 3, isBackface());
-	thrust::remove_if(primitivesStart, primitivesStart + ibosize / 3, isBackface());
+	float numRemoved = thrust::count_if(primitivesStart, primitivesStart + ibosize / 3, clippingOrBackface());
+	thrust::remove_if(primitivesStart, primitivesStart + ibosize / 3, clippingOrBackface());
 	float numPrimitives = ibosize / 3 - numRemoved;
   primitiveBlocks = ceil(((float)numPrimitives)/((float)tileSize));
 
   cudaDeviceSynchronize();
-
+  //float numPrimitives = ibosize/3;
   //------------------------------
   //rasterization
   //------------------------------
@@ -534,6 +548,7 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
 void kernelCleanup(){
   cudaFree( primitives );
   cudaFree( device_vbo );
+  cudaFree( device_nbo );
   cudaFree( device_cbo );
   cudaFree( device_ibo );
   cudaFree( framebuffer );
