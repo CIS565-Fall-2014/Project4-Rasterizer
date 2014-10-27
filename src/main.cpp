@@ -19,6 +19,7 @@ int main(int argc, char** argv){
       mesh = new obj();
       objLoader* loader = new objLoader(data, mesh);
       mesh->buildVBOs();
+	  meshes.push_back(mesh);
       delete loader;
       loadedScene = true;
     }
@@ -26,6 +27,7 @@ int main(int argc, char** argv){
 
   if(!loadedScene){
     cout << "Usage: mesh=[obj file]" << endl;
+	system("PAUSE");
     return 0;
   }
 
@@ -39,6 +41,7 @@ int main(int argc, char** argv){
     mainLoop();
   }
 
+  system("PAUSE");
   return 0;
 }
 
@@ -90,11 +93,16 @@ void runCuda(){
   cbo = newcbo;
   cbosize = 9;
 
+  glm::mat4 rotationM = glm::rotate(glm::mat4(1.0f), 0.0f, glm::vec3(1.0f, 0.0f, 0.0f))*glm::rotate(glm::mat4(1.0f), 20.0f-0.5f*frame, glm::vec3(0.0f, 1.0f, 0.0f))*glm::rotate(glm::mat4(1.0f), 0.0f, glm::vec3(0.0f, 0.0f, 1.0f));
+
   ibo = mesh->getIBO();
   ibosize = mesh->getIBOsize();
 
+  nbo = mesh->getNBO();
+  nbosize = mesh->getNBOsize();
+
   cudaGLMapBufferObject((void**)&dptr, pbo);
-  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize);
+  cudaRasterizeCore(dptr, glm::vec2(width, height), rotationM, frame, vbo, vbosize, cbo, cbosize, ibo, ibosize, nbo, nbosize, eye, center, view, lightpos, mode, barycenter);
   cudaGLUnmapBufferObject(pbo);
 
   vbo = NULL;
@@ -126,6 +134,9 @@ bool init(int argc, char* argv[]) {
   }
   glfwMakeContextCurrent(window);
   glfwSetKeyCallback(window, keyCallback);
+  glfwSetMouseButtonCallback(window,MouseClickCallback);
+  glfwSetCursorEnterCallback(window,CursorEnterCallback);
+  glfwSetCursorPosCallback(window,CursorCallback);
 
   // Set up GL context
   glewExperimental = GL_TRUE;
@@ -281,4 +292,102 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     if(key == GLFW_KEY_ESCAPE && action == GLFW_PRESS){
         glfwSetWindowShouldClose(window, GL_TRUE);
     }
+	if(key == GLFW_KEY_W && action == GLFW_PRESS){
+		eye.y += 0.1f;
+	}
+	if(key == GLFW_KEY_S && action == GLFW_PRESS){
+		eye.y -= 0.1f;
+	}
+	if(key == GLFW_KEY_A && action == GLFW_PRESS){
+		eye.x += 0.1f;
+	}
+	if(key == GLFW_KEY_D && action == GLFW_PRESS){
+		eye.x -= 0.1f;
+	}
+	if(key == GLFW_KEY_Q && action == GLFW_PRESS){
+		eye.z += 0.1f;
+	}
+	if(key == GLFW_KEY_E && action == GLFW_PRESS){
+		eye.z -= 0.1f;
+	}
+	if(key == GLFW_KEY_N && action == GLFW_PRESS){
+		mode++;
+		if(mode > 2)
+			mode = 0;
+	}
+	if(key == GLFW_KEY_M && action == GLFW_PRESS){
+		if(barycenter)
+			barycenter = false;
+		else barycenter = true;
+	}
+}
+
+
+//mouse functions, changing view matrix and eyepos
+void CursorEnterCallback(GLFWwindow *window,int entered){
+    if(entered == GL_TRUE)
+		inwindow = true;
+	else
+		inwindow = false;
+}
+
+void MouseClickCallback(GLFWwindow *window, int button, int action, int mods){
+	if(action == GLFW_PRESS && button == GLFW_MOUSE_BUTTON_LEFT){
+	    glfwGetCursorPos(window,&MouseX,&MouseY);
+		LB = true;
+	}
+
+	if(action == GLFW_PRESS && button == GLFW_MOUSE_BUTTON_RIGHT){
+		glfwGetCursorPos(window,&MouseX,&MouseY);
+		RB = true;
+	}
+
+	if(action == GLFW_PRESS && button == GLFW_MOUSE_BUTTON_MIDDLE){
+		glfwGetCursorPos(window,&MouseX,&MouseY);
+		MB = true;
+	}
+
+	if(action == GLFW_RELEASE && button == GLFW_MOUSE_BUTTON_LEFT)
+		LB = false;
+
+	if(action == GLFW_RELEASE && button == GLFW_MOUSE_BUTTON_RIGHT)
+		RB = false;
+
+	if(action == GLFW_RELEASE && button == GLFW_MOUSE_BUTTON_MIDDLE)
+		MB = false;
+
+}
+
+void CursorCallback(GLFWwindow *window, double x, double y){
+	x = glm::max(0.0, x);
+	x = glm::min(x, (double)width);
+	y = glm::max(0.0, y);
+	y = glm::min(y, (double)height);
+
+	int changeX = x - MouseX;
+	int changeY = y - MouseY;
+
+	if(LB&&inwindow){ //camera rotate
+		vPhi -= changeX * MOUSE_SPEED;
+		vTheta -= changeY * MOUSE_SPEED;
+		vTheta = glm::clamp(vTheta, float(1e-6), float(PI-(1e-6)));	
+	}
+
+	if(RB&&inwindow){ //zoom in and out
+		float scale = -changeX/MouseX + changeY/MouseY;
+		R = (1.0f + 0.003f * scale * ZOOM_SPEED) * R;
+		R = glm::clamp(R,zNear,zFar);
+	}
+
+	if(MB&&inwindow)
+	{
+		eye -= glm::vec3(0.00001 * MIDDLE_SPEED, 0, 0) * (float)changeX ;
+		eye += glm::vec3(0,0.00001 * MIDDLE_SPEED, 0) * (float)changeY;
+		center -= glm::vec3(0.00001 * MIDDLE_SPEED, 0, 0) * (float)changeX;
+		center += glm::vec3(0,0.00001 * MIDDLE_SPEED, 0) * (float)changeY;
+		view = glm::lookAt(eye, center, glm::vec3(0,1,0));
+	}
+
+	eye = glm::vec3(R*sin(vTheta)*sin(vPhi), R*cos(vTheta) + center.y, R*sin(vTheta)*cos(vPhi));
+	view = glm::lookAt(eye, center, glm::vec3(0,1,0));
 }

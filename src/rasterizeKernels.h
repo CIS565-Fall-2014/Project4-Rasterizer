@@ -11,6 +11,6 @@
 #include "glm/glm.hpp"
 
 void kernelCleanup();
-void cudaRasterizeCore(uchar4* pos, glm::vec2 resolution, float frame, float* vbo, int vbosize, float* cbo, int cbosize, int* ibo, int ibosize);
+void cudaRasterizeCore(uchar4* pos, glm::vec2 resolution, glm::mat4 rotationM,float frame, float* vbo, int vbosize, float* cbo, int cbosize, int* ibo, int ibosize, float* nbo, int nbosize, glm::vec3, glm::vec3, glm::mat4 view, glm::vec3 lightpos, int mode, bool barycenter);
 
 #endif //RASTERIZEKERNEL_H

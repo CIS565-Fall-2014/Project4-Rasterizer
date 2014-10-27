@@ -18,7 +18,11 @@
 #include <stdlib.h>
 #include <string>
 #include <time.h>
+#include "glm\gtc\matrix_transform.hpp"
 
+#define MOUSE_SPEED 1.2*0.0001f
+#define ZOOM_SPEED 3
+#define MIDDLE_SPEED 3
 
 #include "rasterizeKernels.h"
 #include "utilities.h"
@@ -42,6 +46,10 @@ uchar4 *dptr;
 GLFWwindow *window;
 
 obj* mesh;
+vector <obj*> meshes;
+
+int mode=0;
+bool barycenter = false;
 
 float* vbo;
 int vbosize;
@@ -49,18 +57,30 @@ float* cbo;
 int cbosize;
 int* ibo;
 int ibosize;
+float* nbo;
+int nbosize;
 
 //-------------------------------
 //----------CUDA STUFF-----------
 //-------------------------------
 
 int width = 800; int height = 800;
+glm::vec3 eye(0.0f, 0.8f, 3.0f);
+glm::vec3 center(0.0f, 0.4f, 0.0f);
+float zNear = 0.001;
+float zFar = 10000;
+glm::mat4 projection = glm::perspective(60.0f, (float)(width) / (float)(height), zNear, zFar);
+glm::mat4 model = glm::mat4();
+glm::mat4 view = glm::lookAt(eye,center , glm::vec3(0, 1, 0));
+glm::mat4 modelview = view * glm::mat4();
+glm::vec3 lightpos = glm::vec3(0, 2.0f, 2.0f);
 
 //-------------------------------
 //-------------MAIN--------------
 //-------------------------------
 
 int main(int argc, char** argv);
+
 
 //-------------------------------
 //---------RUNTIME STUFF---------
@@ -99,5 +119,19 @@ void deleteTexture(GLuint* tex);
 void mainLoop();
 void errorCallback(int error, const char *description);
 void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods);
+//Add mouse control
+double MouseX = 0.0;
+double MouseY = 0.0;
+bool LB = false;
+bool RB = false;
+bool MB = false;
+bool inwindow = false;
+void MouseClickCallback(GLFWwindow *window, int button, int action, int mods);
+void CursorCallback(GLFWwindow *window, double x,double y);
+void CursorEnterCallback(GLFWwindow *window,int entered);
+//Make the camera move on the surface of sphere
+float vPhi = 0.0f;
+float vTheta = 3.14105926f/2.0f;
+float R = glm::length(eye);
 
 #endif
