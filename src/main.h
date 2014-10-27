@@ -22,7 +22,7 @@
 
 #include "rasterizeKernels.h"
 #include "utilities.h"
-
+#include "Camera.h"
 using namespace std;
 
 //-------------------------------
@@ -56,6 +56,7 @@ int ibosize;
 
 int width = 800; int height = 800;
 
+Camera mainCamera;
 //-------------------------------
 //-------------MAIN--------------
 //-------------------------------
