@@ -28,6 +28,8 @@ struct triangle {
 	glm::vec3 locn0;
 	glm::vec3 locn1;
 	glm::vec3 locn2;
+
+	bool CFlag;
 };
 
 struct fragment{
@@ -36,6 +38,12 @@ struct fragment{
 	glm::vec3 position;
 };
 
+struct CFlagTrue{
+	__host__ __device__ bool operator()(const triangle tri){
+		return tri.CFlag;
+	}
+
+};
 //Multiplies a cudaMat4 matrix and a vec4
 __host__ __device__ glm::vec3 multiplyMV(cudaMat4 m, glm::vec4 v);
 
@@ -112,6 +120,14 @@ struct Camera
 		//////translate
 		////ViewMat[3] = glm::vec4(pos, 1.0f);
 		////inverse to get world to local matrix
+		World2LocalMat = glm::lookAt(pos, view*depth.x + pos, up);
+		local2WorldMat = glm::inverse(World2LocalMat);
+		//glm::vec3 viewport = depth.x*view*glm::vec3(tan(fov.x*PI/180.f),tan(fov.y*PI/180.0f),0.0f);
+		PMat = glm::perspective(fov.y, float(reso.x / reso.y), depth.x, depth.y);//utilityCore::cudaMat4ToGlmMat4(myFrustum(-viewport.x, viewport.x, -viewport.y, viewport.y, depth.x, depth.y));
+		PMat_inv = glm::inverse(PMat);
+	}
+
+	__host__ __device__ void update(){
 		World2LocalMat = glm::lookAt(pos, view*depth.x + pos, up);
 		local2WorldMat = glm::inverse(World2LocalMat);
 		//glm::vec3 viewport = depth.x*view*glm::vec3(tan(fov.x*PI/180.f),tan(fov.y*PI/180.0f),0.0f);

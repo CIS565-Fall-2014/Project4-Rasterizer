@@ -12,6 +12,8 @@
 #include "rasterizeKernels.h"
 //#include "rasterizeTools.h"
 
+#define CullingFlag
+
 glm::vec3* framebuffer;
 fragment* depthbuffer;
 float* device_vbo;
@@ -88,6 +90,38 @@ __host__ __device__ glm::vec3 getFromFramebuffer(int x, int y, glm::vec3* frameb
 	else{
 		return glm::vec3(0, 0, 0);
 	}
+}
+
+__host__ __device__ float lcalculateSignedArea(triangle tri){
+	return 0.5*((tri.p2.x - tri.p0.x)*(tri.p1.y - tri.p0.y) - (tri.p1.x - tri.p0.x)*(tri.p2.y - tri.p0.y));
+}
+
+__host__ __device__ float lcalculateBarycentricCoordinateValue(glm::vec2 a, glm::vec2 b, glm::vec2 c, triangle tri){
+	triangle baryTri;
+	baryTri.p0 = glm::vec3(a, 0); baryTri.p1 = glm::vec3(b, 0); baryTri.p2 = glm::vec3(c, 0);
+	return lcalculateSignedArea(baryTri) / lcalculateSignedArea(tri);
+}
+
+__host__ __device__ glm::vec3 lcalculateBarycentricCoordinate(triangle tri, glm::vec2 point){
+	float beta = lcalculateBarycentricCoordinateValue(glm::vec2(tri.p0.x, tri.p0.y), point, glm::vec2(tri.p2.x, tri.p2.y), tri);
+	float gamma = lcalculateBarycentricCoordinateValue(glm::vec2(tri.p0.x, tri.p0.y), glm::vec2(tri.p1.x, tri.p1.y), point, tri);
+	float alpha = 1.0 - beta - gamma;
+	return glm::vec3(alpha, beta, gamma);
+}
+
+__host__ __device__ bool lisBarycentricCoordInBounds(glm::vec3 barycentricCoord){
+	return barycentricCoord.x >= 0.0 && barycentricCoord.x <= 1.0 &&
+		barycentricCoord.y >= 0.0 && barycentricCoord.y <= 1.0 &&
+		barycentricCoord.z >= 0.0 && barycentricCoord.z <= 1.0;
+}
+
+__host__ __device__ void lgetAABBForTriangle(triangle tri, glm::vec3& minpoint, glm::vec3& maxpoint){
+	minpoint = glm::vec3(min(min(tri.p0.x, tri.p1.x), tri.p2.x),
+		min(min(tri.p0.y, tri.p1.y), tri.p2.y),
+		min(min(tri.p0.z, tri.p1.z), tri.p2.z));
+	maxpoint = glm::vec3(max(max(tri.p0.x, tri.p1.x), tri.p2.x),
+		max(max(tri.p0.y, tri.p1.y), tri.p2.y),
+		max(max(tri.p0.z, tri.p1.z), tri.p2.z));
 }
 
 //Kernel that clears a given pixel buffer with a given color
@@ -176,7 +210,7 @@ __global__ void vertexShadeKernel(Camera cam, float* vbo, int vbosize, float* nb
 }
 
 //TODO: Implement primative assembly
-__global__ void primitiveAssemblyKernel(float* vbo, int vbosize, float* cbo, int cbosize, int* ibo, int ibosize, triangle* primitives, float * locvbo, float*nbo){
+__global__ void primitiveAssemblyKernel(float* vbo, int vbosize, float* cbo, int cbosize, int* ibo, int ibosize, triangle* primitives, float * locvbo, float*nbo,Camera cam){
 	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 	int primitivesCount = ibosize / 3;
 	if (index < primitivesCount){
@@ -230,42 +264,28 @@ __global__ void primitiveAssemblyKernel(float* vbo, int vbosize, float* cbo, int
 		primitives[index].c2.y = cbo[7];
 		primitives[index].c2.z = cbo[8];
 
+#ifdef CullingFlag
+		if (DevepsilonCheck(lcalculateSignedArea(primitives[index]), 0)) primitives[index].CFlag = true; // back facing triangles
+		else    // triangles totally outside of screen
+		{
+			glm::vec3 tMin, tMax;
+			glm::vec2 resolution(cam.reso);
+			lgetAABBForTriangle(primitives[index], tMin, tMax);
+			if (tMin.x > resolution.x ||
+				tMin.y > resolution.y ||
+				tMin.z > cam.depth.y ||
+				tMax.x < 0 ||
+				tMax.y < 0 ||
+				tMax.z < cam.depth.x)
+				primitives[index].CFlag = 1;
+		}
+#endif
 	}
 }
 
 
 
-__host__ __device__ float lcalculateSignedArea(triangle tri){
-	return 0.5*((tri.p2.x - tri.p0.x)*(tri.p1.y - tri.p0.y) - (tri.p1.x - tri.p0.x)*(tri.p2.y - tri.p0.y));
-}
 
-__host__ __device__ float lcalculateBarycentricCoordinateValue(glm::vec2 a, glm::vec2 b, glm::vec2 c, triangle tri){
-	triangle baryTri;
-	baryTri.p0 = glm::vec3(a, 0); baryTri.p1 = glm::vec3(b, 0); baryTri.p2 = glm::vec3(c, 0);
-	return lcalculateSignedArea(baryTri) / lcalculateSignedArea(tri);
-}
-
-__host__ __device__ glm::vec3 lcalculateBarycentricCoordinate(triangle tri, glm::vec2 point){
-	float beta = lcalculateBarycentricCoordinateValue(glm::vec2(tri.p0.x, tri.p0.y), point, glm::vec2(tri.p2.x, tri.p2.y), tri);
-	float gamma = lcalculateBarycentricCoordinateValue(glm::vec2(tri.p0.x, tri.p0.y), glm::vec2(tri.p1.x, tri.p1.y), point, tri);
-	float alpha = 1.0 - beta - gamma;
-	return glm::vec3(alpha, beta, gamma);
-}
-
-__host__ __device__ bool lisBarycentricCoordInBounds(glm::vec3 barycentricCoord){
-	return barycentricCoord.x >= 0.0 && barycentricCoord.x <= 1.0 &&
-		barycentricCoord.y >= 0.0 && barycentricCoord.y <= 1.0 &&
-		barycentricCoord.z >= 0.0 && barycentricCoord.z <= 1.0;
-}
-
-__host__ __device__ void lgetAABBForTriangle(triangle tri, glm::vec3& minpoint, glm::vec3& maxpoint){
-	minpoint = glm::vec3(min(min(tri.p0.x, tri.p1.x), tri.p2.x),
-		min(min(tri.p0.y, tri.p1.y), tri.p2.y),
-		min(min(tri.p0.z, tri.p1.z), tri.p2.z));
-	maxpoint = glm::vec3(max(max(tri.p0.x, tri.p1.x), tri.p2.x),
-		max(max(tri.p0.y, tri.p1.y), tri.p2.y),
-		max(max(tri.p0.z, tri.p1.z), tri.p2.z));
-}
 
 //TODO: Implement a rasterization method, such as scanline.
 __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, fragment* depthbuffer, Camera cam, float* dBuff, int* dBuffLock){
@@ -490,9 +510,20 @@ void cudaRasterizeCore(uchar4* PBOpos, Camera cam, float frame, float* vbo, int 
 	//primitive assembly
 	//------------------------------
 	primitiveBlocks = ceil(((float)ibosize / 3) / ((float)tileSize));
-	primitiveAssemblyKernel << <primitiveBlocks, tileSize >> >(device_vbo, vbosize, device_cbo, cbosize, device_ibo, ibosize, primitives, locvbo, device_nbo);
+	primitiveAssemblyKernel << <primitiveBlocks, tileSize >> >(device_vbo, vbosize, device_cbo, cbosize, device_ibo, ibosize, primitives, locvbo, device_nbo,cam);
 
 	cudaDeviceSynchronize();
+
+#ifdef CullingFlag
+	thrust::device_ptr<triangle> primitive_first = thrust::device_pointer_cast(primitives);
+	thrust::device_ptr<triangle> primitive_last = thrust::remove_if(primitive_first, primitive_first + ibosize / 3, CFlagTrue());
+	printf("Before Culling: %d\n", ibosize / 3);
+	int triCount = thrust::distance(primitive_first, primitive_last);
+	printf("After Culling: %d\n", triCount);
+	cudaDeviceSynchronize();
+#endif
+
+
 	//------------------------------
 	//rasterization
 	//------------------------------

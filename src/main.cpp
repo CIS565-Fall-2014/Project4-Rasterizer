@@ -85,13 +85,14 @@ void runCuda(){
 	vbo = mesh->getVBO();
 	vbosize = mesh->getVBOsize();
 
-	/*float newcbo[] = {	0.0, 1.0, 0.0,
+	float newcbo[] = {	0.0, 1.0, 0.0,
 						0.0, 0.0, 1.0,
-						1.0, 0.0, 0.0 };*/
+						1.0, 0.0, 0.0 };
 
-	float newcbo[] = {	1.0f, 1.0f, 1.0f,
+	/*float newcbo[] = {	1.0f, 1.0f, 1.0f,
 						1.0f, 1.0f, 1.0f,
-						1.0f, 1.0f, 1.0f };
+						1.0f, 1.0f, 1.0f };*/
+
 	cbo = newcbo;
 	cbosize = 9;
 
@@ -101,7 +102,7 @@ void runCuda(){
 	nbo = mesh->getNBO();
 	nbosize = mesh->getNBOsize();
 	cudaGLMapBufferObject((void**)&dptr, pbo);
-	Camera cam(glm::vec2(width, height));
+	
 	//cam.PMat = glm::perspective(cam.fov.y, float(width / height), cam.depth.x, cam.depth.y);
 	cudaRasterizeCore(dptr, cam, frame, vbo, vbosize, cbo, cbosize, ibo, ibosize,nbo,nbosize);
 	cudaGLUnmapBufferObject(pbo);
@@ -135,7 +136,8 @@ bool init(int argc, char* argv[]) {
 	}
 	glfwMakeContextCurrent(window);
 	glfwSetKeyCallback(window, keyCallback);
-
+	glfwSetMouseButtonCallback(window,mouseClick);
+	
 	// Set up GL context
 	glewExperimental = GL_TRUE;
 	if (glewInit() != GLEW_OK){
@@ -290,4 +292,71 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS){
 		glfwSetWindowShouldClose(window, GL_TRUE);
 	}
+}
+
+void mouseClick(GLFWwindow* window, int button, int action, int mods)
+{
+	double xpos, ypos;
+	glfwGetCursorPos(window, &xpos, &ypos);
+	double dx, dy;
+	dx = (double)(xpos - mouse_old_x);
+	dy = (double)(ypos - mouse_old_y);
+	if (action == GLFW_PRESS){
+		switch (button)
+		{
+		case GLFW_MOUSE_BUTTON_LEFT:
+			viewPhi -= dx * 0.002;
+			viewTheta -= dy * 0.002;
+			viewTheta = glm::clamp(viewTheta, float(1e-6), float(PI - (1e-6)));
+			cam.pos = glm::vec3(r*cos(viewTheta)*cos(viewPhi), r*sin(viewTheta), r*cos(viewTheta)*sin(viewPhi));
+			cam.update();
+			break;
+		case GLFW_MOUSE_BUTTON_RIGHT:
+			cam.pos.z += 0.002*dy;
+			cam.pos.z += 0.002*dy;
+			cam.update();
+			break;
+
+		default:
+			break;
+		}
+	}
+	mouse_old_x = xpos;
+	mouse_old_y = ypos;
+	//mouse_old_x = x;
+	//mouse_old_y = y;
+}
+
+void mouseMotion(int x, int y)
+{
+	float dx, dy;
+	dx = (float)(x - mouse_old_x);
+	dy = (float)(y - mouse_old_y);
+
+	if (button_mask & 0x01)
+	{// left button
+		viewPhi -= dx * 0.002f;
+		viewTheta -= dy * 0.002f;
+		viewTheta = glm::clamp(viewTheta, float(1e-6), float(PI - (1e-6)));
+		cam.pos = glm::vec3(r*sin(viewTheta)*sin(viewPhi), r*cos(viewTheta) + (cam.view.y*cam.depth.x+cam.pos.y), r*sin(viewTheta)*cos(viewPhi));
+		cam.update();
+		
+	}
+	if (button_mask & 0x02)
+	{// middle button
+		cam.pos.y += 0.02f*dy;
+		cam.pos.y += 0.02f*dy;
+		cam.update();
+	}
+
+	mouse_old_x = x;
+	mouse_old_y = y;
+}
+
+void mouseWheel(int button, int dir, int x, int y)
+{
+	r -= dir>0 ? 0.1f : -0.1f;
+	r = glm::clamp(r, cam.depth.x, cam.depth.y);
+	cam.pos = glm::vec3(r*sin(viewTheta)*sin(viewPhi), r*cos(viewTheta) + (cam.view.y*cam.depth.x + cam.pos.y), r*sin(viewTheta)*cos(viewPhi));
+	cam.update();
 }
