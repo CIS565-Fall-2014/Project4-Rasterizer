@@ -6,21 +6,26 @@ Fall 2014
 Jiatong He
 -------------------------------------------------------------------------------
 Base code by Karl Li
--------------------------------------------------------------------------------
 
 Implemented Features:
 ---------------------
 ### Vertex Shader
+Implemented a basic vertex shader that takes the vertices, and a model-view-projection matrix, and transforms each vertex into clip space.
 
-### Primitive Assembly for triangles
+### Primitive Assembly for Triangles
+Assembles triangles from vertex, color, and normal buffer objects using the index buffer.  Triangles store color, normal, and position for each vertex.  The position is in clip space, but the normal is in world space.
 
 ### Backface Culling and Clipping
+Simple triangle backface culling using a calculated normal from the vertices (since the stored normal is in world space), and clipping that removes triangles that are outside of the (1, 1) to (-1, -1) box.
 
 ### Rasterization
+Rasterization implemented as a scanline algorithm.  This section currently takes the most time, and large triangles (in screen space) will slow down the program significantly or even crash it.  For every triangle, we begin by sorting the vertices from top to bottom.  Then, starting from the top, we render it in two steps--top to middle, and middle to bottom (note that either of these may have 0 height, if the top and middle, or middle and bottom are at the same height).
 
 #### Color & Normal Interpolation
+I use double linear interpolation to calculate the appropriate depth, color, and normal for each fragment.  I did not use the provided code for barycentric coordinates.  Instead, I LERP first along the edges to find a left fragment and right fragment, then LERP between them to fill in the shape.  I am fairly certain that this method gives the correct color, though it might favor colors horizontally.  I will have to check later.  Normal interpolation comes for free as well, but the OBJ's I am using have uniform normals on each face, so it doesn't change anything.
 
 ### Fragment Shading (Blinn-Phong Shader)
+Simple fragment shader that takes in a light, fragments, and the inverse of the model-view-projection matrix.  This inverse is multiplied with the position of the fragment in order to get the position in world-space.  The world-space coordinate is then used, along with the normal and light position, to calculate shading using a Blinn-Phong shader.  Objects do not obscure each other yet.  So long as a plane has a normal towards the light, it will be lit.
 
 -------------------------------------------------------------------------------
 REQUIREMENTS:
