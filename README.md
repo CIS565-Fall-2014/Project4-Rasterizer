@@ -27,74 +27,36 @@ I use double linear interpolation to calculate the appropriate depth, color, and
 ### Fragment Shading (Blinn-Phong Shader)
 Simple fragment shader that takes in a light, fragments, and the inverse of the model-view-projection matrix.  This inverse is multiplied with the position of the fragment in order to get the position in world-space.  The world-space coordinate is then used, along with the normal and light position, to calculate shading using a Blinn-Phong shader.  Objects do not obscure each other yet.  So long as a plane has a normal towards the light, it will be lit.
 
--------------------------------------------------------------------------------
-REQUIREMENTS:
--------------------------------------------------------------------------------
-In this project, you are given code for:
+### Mouse Control
+Use the mouse to rotate, pan, and zoom the camera.  LMB rotates, RMB pans, and middle mouse button zooms.  Note that zooming too far in will cause the code to crash due to excessively large triangles.
 
-* A library for loading/reading standard Alias/Wavefront .obj format mesh files and converting them to OpenGL style VBOs/IBOs
-* A suggested order of kernels with which to implement the graphics pipeline
-* Working code for CUDA-GL interop
+### Key Control
+Pressing 'z' will draw faces.  Pressing 'c' will draw only vertices.  'x' is supposed to draw a wireframe but it's not done yet.
+Pressing 'a' will use Blinn-Phong lighting.  's' will color by normals.  'd' will color by depth (not really working).
 
-You will need to implement the following stages of the graphics pipeline and features:
+Missing Features
+----------------
+### Depth buffer testing
+I did not have time to do proper depth checking, so you can see depth errors such as in the following image, where the cow's tail is visible through its body.  Each fragment does have a depth value, it's just a matter of setting up atomics and locking the fragment properly.
 
-* Vertex Shading
-* Primitive Assembly with support for triangle VBOs/IBOs
-* Perspective Transformation
-* Rasterization through either a scanline or a tiled approach
-* Fragment Shading
-* A depth buffer for storing and depth testing fragments
-* Fragment to framebuffer writing
-* A simple lighting/shading scheme, such as Lambert or Blinn-Phong, implemented in the fragment shader
+Back-Face Culling Performance Analysis
+--------------------------------------
+### Expectations
 
-You are also required to implement at least 3 of the following features:
+### Performance Impact
 
-* Additional pipeline stages. Each one of these stages can count as 1 feature:
-   * Geometry shader
-   * Transformation feedback
-   * Back-face culling
-   * Scissor test
-   * Stencil test
-   * Blending
+Clipping Performance Analysis
+-----------------------------
+### Expectations
 
-IMPORTANT: For each of these stages implemented, you must also add a section to your README stating what the expected performance impact of that pipeline stage is, and real performance comparisons between your rasterizer with that stage and without.
+### Performance Impact
 
-* Correct color interpolation between points on a primitive
-* Texture mapping WITH texture filtering and perspective correct texture coordinates
-* Support for additional primitices. Each one of these can count as HALF of a feature.
-   * Lines
-   * Line strips
-   * Triangle fans
-   * Triangle strips
-   * Points
-* Anti-aliasing
-* Order-independent translucency using a k-buffer
-* MOUSE BASED interactive camera support. Interactive camera support based only on the keyboard is not acceptable for this feature.
+Performance Evaluation--A Better Linear Interpolation?
+------------------------------------------------------
+The current bottleneck in the code is rasterizationKernel (though the fragment shader and clearDepthBuffer take up considerable time as well).  When a single triangle takes up a significant part of the screen (maybe 10%), the program slows to a crawl and can crash.  This is caused by a single thread trying to process a large amount of fragments.  The image below shows an example of the runtime of my code while zoomed out, and zoomed in.
 
--------------------------------------------------------------------------------
-README
--------------------------------------------------------------------------------
-All students must replace or augment the contents of this Readme.md in a clear 
-manner with the following:
 
-* A brief description of the project and the specific features you implemented.
-* At least one screenshot of your project running.
-* A 30 second or longer video of your project running.  To create the video you
-  can use http://www.microsoft.com/expression/products/Encoder4_Overview.aspx 
-* A performance evaluation (described in detail below).
+As such, I will be addressing the rasterization kernel for improving performance.
 
--------------------------------------------------------------------------------
-PERFORMANCE EVALUATION
--------------------------------------------------------------------------------
-The performance evaluation is where you will investigate how to make your CUDA
-programs more efficient using the skills you've learned in class. You must have
-performed at least one experiment on your code to investigate the positive or
-negative effects on performance. 
-
-We encourage you to get creative with your tweaks. Consider places in your code
-that could be considered bottlenecks and try to improve them. 
-
-Each student should provide no more than a one page summary of their
-optimizations along with tables and or graphs to visually explain any
-performance differences.
+As mentioned above, I use linear interpolation to calculate coordinates/interpolate color&normals for my geometry rather than using barycentric coordinates.  However, I am recalculating the interpolation every fragment.  Since it's linear, each step should have a constant change.  What if I replaced the calculations with dNorm, dCol, dPos values, and added those to the current left, right, or center points?  This would add several variables to the kernel, but should require fewer calculations per triangle.
 
