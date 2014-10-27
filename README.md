@@ -1,7 +1,5 @@
 -------------------------------------------------------------------------------
-CIS565: Project 4: CUDA Rasterizer
--------------------------------------------------------------------------------
-Fall 2014
+CIS565: Project 4: CUDA Rasterizer [Fall 2014]
 -------------------------------------------------------------------------------
 
 video demo: http://youtu.be/kjV3lIKWtjY
@@ -10,13 +8,13 @@ video demo: http://youtu.be/kjV3lIKWtjY
 ![alt tag](https://github.com/radiumyang/Project4-Rasterizer/blob/master/dragon_blinn_0.JPG)
 ![alt tag](https://github.com/radiumyang/Project4-Rasterizer/blob/master/cow_blinn_1.JPG)
 -------------------------------------------------------------------------------
-INTRODUCTION:
+INTRODUCTION
 -------------------------------------------------------------------------------
 In this project, I implemented a simplified CUDA based implementation of a standard rasterized graphics pipeline, including vertex shading, primitive assembly, perspective transformation, rasterization, fragment shading, testing and rendering. This project is based on the basecode provided at class.
 
 
 -------------------------------------------------------------------------------
-FEATURES:
+FEATURES
 -------------------------------------------------------------------------------
 I implemented following stages of the graphics pipeline and features:
 
@@ -50,17 +48,53 @@ Screen interation:
 -------------------------------------------------------------------------------
 PERFORMANCE EVALUATION
 -------------------------------------------------------------------------------
-The performance evaluation is where you will investigate how to make your CUDA
-programs more efficient using the skills you've learned in class. You must have
-performed at least one experiment on your code to investigate the positive or
-negative effects on performance. 
+###PRIMITICES RENDERING MODE
+* Blinn-Phong Shader
+![alt tag](https://github.com/radiumyang/Project4-Rasterizer/blob/master/buddha_blinn_1.JPG)
+* Flat
+![alt tag](https://github.com/radiumyang/Project4-Rasterizer/blob/master/dragon_flat_0.JPG)
+* LINE
+![alt tag](https://github.com/radiumyang/Project4-Rasterizer/blob/master/cow_wire_0.JPG)
 
-We encourage you to get creative with your tweaks. Consider places in your code
-that could be considered bottlenecks and try to improve them. 
+* POINT
+![alt tag](https://github.com/radiumyang/Project4-Rasterizer/blob/master/buddha_dot_0.JPG)
+To implement Point Mode, when rasterizing the triangle, just show the correspondent triangle vertices, no need to check whether one pixel is inside or outside the triangle. Thus, Point Mode has the highest FPS.
 
-Each student should provide no more than a one page summary of their
-optimizations along with tables and or graphs to visually explain any
-performance differences.
+FPS Comparison between different modes:
+
+![alt tag](https://github.com/radiumyang/Project4-Rasterizer/blob/master/chart_modes.JPG)
+
+###BACK-FACE CULLING
+without backcull:
+
+![alt tag](https://github.com/radiumyang/Project4-Rasterizer/blob/master/back00.JPG)
+
+with backcull:
+
+![alt tag](https://github.com/radiumyang/Project4-Rasterizer/blob/master/back01.JPG)
+
+
+###ANTI-ALIASING
+without anti-aliasing:
+
+![alt tag](https://github.com/radiumyang/Project4-Rasterizer/blob/master/antia_03.JPG)
+
+with anti-aliasing:
+
+![alt tag](https://github.com/radiumyang/Project4-Rasterizer/blob/master/antia_04.JPG)
+
+For pixel(i,j), I use the average color value of points from pixel(i-2, j-2) to pixel(i+2, j+2) as the color of current pixel(i,j). 
+
+###SCISSOR TEST
+
+The Scissor Test is a Per-Sample Processing operation that discards Fragments that fall outside of a certain rectangular portion of the screen.
+
+When rasterizing the triangles, I set the scissor window as bounding box to limit the pixels that we need to process, which can help save efficiency on checking useless out-of-bound points.
+
+![alt tag](https://github.com/radiumyang/Project4-Rasterizer/blob/master/scissor.JPG)
+
+
+
 
 -------------------------------------------------------------------------------
 References
