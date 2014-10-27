@@ -58,19 +58,22 @@ This is done by checking the normal of current triangle face, if the normal is p
 
 Different Shading mode 
 -------------------------------------------------------------------------------
-* Points
+* Points  
+This is done after fragment shader, by selecting visible vertex from "vbo". When including points raster, the time consumption increases by similar amount of time used in vertex shader.  
 ![](FinalImgs/cow_point_raster.png)
-* Lines
+* Lines  
+This is done after in rasterization, by determining whether current fragment is on the edges of the triangle face. When including lines raster, the time consumption increases by a significant amount. 
+This is because the line raster lines in the body of naive scanline, which needs to be parallelized.  
 ![](FinalImgs/cube_line_raster.png)
-* normal based shading
+* normal based shading  
 ![](FinalImgs/cow_shade_by_normal.png)
-* face orientation shading (Correct color interpolation between points on a primitive)
+* face orientation shading (Correct color interpolation between points on a primitive)  
 ![](FinalImgs/bunny_vertex_shade.png)
-* diffuse shading
+* diffuse shading  
 ![](FinalImgs/cow_diffuse_shade.png)
-* blinn shading
+* blinn shading  
 ![](FinalImgs/cow_blinn_shade.png)
-* texture map (WITH texture filtering and perspective correct texture coordinates)
+* texture map (WITH texture filtering and perspective correct texture coordinates)  
 Reading a texture image is completed with the support of "FreeImage". TODO, the perspectively correct texture map is not finished yet.
 
 
@@ -80,10 +83,10 @@ PERFORMANCE EVALUATION
 -------------------------------------------------------------------------------
 I noticed that when the camera zooms in, the rasterizer fps drops significantly. So I started the comparison between camera zoom-out and camera zoom-in, with other set up exactly same.  
 The pictures below describes the camera zoom distance, and the corresponding performance analysis.  
-* Time Consumption Pie Chart for Pipeline (zoom-out, cow model)
+* Time Consumption Pie Chart for Pipeline (zoom-out, cow model)  
 ![](FinalImgs/performance_zoom_out.png)
 ![](FinalImgs/performance_zoom_out_pieChart.png)
-* Time Consumption Pie Chart for Pipeline (zoom-in, cow model)
+* Time Consumption Pie Chart for Pipeline (zoom-in, cow model)  
 ![](FinalImgs/performance_zoom_in.png)
 ![](FinalImgs/performance_zoom_in_pieChart.png)
 
