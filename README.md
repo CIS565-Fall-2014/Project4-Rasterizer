@@ -26,10 +26,9 @@ Following features are implemented as additional features:
 * MOUSE BASED interactive camera support. Interactive camera support based only on the keyboard is not acceptable for this feature.
 
 -------------------------------------------------------------------------------
-README
+Progress:
 -------------------------------------------------------------------------------
-All students must replace or augment the contents of this Readme.md in a clear 
-manner with the following:
+I started this project by first implement the standard vertex shader. I find this blog really helpful for explaining the whole vertex operation and primitive assembly operation, especially for the projection transformation: http://www.songho.ca/opengl/gl_transform.html
 
 * A brief description of the project and the specific features you implemented.
 * At least one screenshot of your project running.
