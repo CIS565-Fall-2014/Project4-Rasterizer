@@ -5,7 +5,7 @@ Fall 2014
 -------------------------------------------------------------------------------
 Due Monday 10/27/2014 @ 12 PM
 -------------------------------------------------------------------------------
-![alt tag](https://github.com/jianqiaol/Project4-Rasterizer/blob/master/with_light.png)
+![alt tag](https://github.com/jianqiaol/Project4-Rasterizer/blob/master/one_more_light.png)
 -------------------------------------------------------------------------------
 Project Overview:
 -------------------------------------------------------------------------------
