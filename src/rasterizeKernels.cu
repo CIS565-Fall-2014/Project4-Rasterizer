@@ -14,6 +14,7 @@
 glm::vec3* framebuffer;
 fragment* depthbuffer;
 float* device_vbo;
+float* device_nbo;
 float* device_cbo;
 int* device_ibo;
 triangle* primitives;
@@ -154,7 +155,12 @@ __global__ void vertexShadeKernel(float* vbo, int vbosize)
     }
 }
 
-__global__ void primitiveAssemblyKernel(float* vbo, int vbosize, float* cbo, int cbosize, int* ibo, int ibosize, triangle* primitives)
+__global__ void primitiveAssemblyKernel(
+        float* vbo, int vbosize,
+        float *nbo, int nbosize,
+        float* cbo, int cbosize,
+        int* ibo, int ibosize,
+        triangle* primitives)
 {
     int index = (blockIdx.x * blockDim.x) + threadIdx.x;
     int primitivesCount = ibosize / 3;
@@ -162,13 +168,21 @@ __global__ void primitiveAssemblyKernel(float* vbo, int vbosize, float* cbo, int
         int i0 = ibo[3 * index + 0];
         int i1 = ibo[3 * index + 1];
         int i2 = ibo[3 * index + 2];
+
         triangle prim;
+
         prim.p0 = glm::vec3(vbo[3 * i0], vbo[3 * i0 + 1], vbo[3 * i0 + 2]);
         prim.p1 = glm::vec3(vbo[3 * i1], vbo[3 * i1 + 1], vbo[3 * i1 + 2]);
         prim.p2 = glm::vec3(vbo[3 * i2], vbo[3 * i2 + 1], vbo[3 * i2 + 2]);
+
+        prim.n0 = glm::vec3(nbo[3 * i0], nbo[3 * i0 + 1], nbo[3 * i0 + 2]);
+        prim.n1 = glm::vec3(nbo[3 * i1], nbo[3 * i1 + 1], nbo[3 * i1 + 2]);
+        prim.n2 = glm::vec3(nbo[3 * i2], nbo[3 * i2 + 1], nbo[3 * i2 + 2]);
+
         prim.c0 = glm::vec3(cbo[3 * i0], cbo[3 * i0 + 1], cbo[3 * i0 + 2]);
         prim.c1 = glm::vec3(cbo[3 * i1], cbo[3 * i1 + 1], cbo[3 * i1 + 2]);
         prim.c2 = glm::vec3(cbo[3 * i2], cbo[3 * i2 + 1], cbo[3 * i2 + 2]);
+
         primitives[index] = prim;
     }
 }
@@ -196,9 +210,8 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
                     float depthold = frag.position.z;
                     float depthnew = getZAtCoordinate(bary, tri);
                     if (depthnew < 1 && depthnew > depthold) {
-                        //frag.color = glm::vec3((depthnew + 1) * 0.5f);
-                        frag.color = bary.x * tri.c0 + bary.y * tri.c1 + bary.z * tri.c2;
-                        frag.normal = glm::vec3(0, 0, 0);
+                        frag.color  = bary.x * tri.c0 + bary.y * tri.c1 + bary.z * tri.c2;
+                        frag.normal = bary.x * tri.n0 + bary.y * tri.n1 + bary.z * tri.n2;
                         frag.position = glm::vec3(ndc, depthnew);
                         depthbuffer[i] = frag;
                     }
@@ -235,7 +248,12 @@ __global__ void render(glm::vec2 resolution, fragment* depthbuffer, glm::vec3* f
 }
 
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
-void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float* vbo, int vbosize, float* cbo, int cbosize, int* ibo, int ibosize)
+void cudaRasterizeCore(
+        uchar4* PBOpos, glm::vec2 resolution, float frame,
+        float* vbo, int vbosize,
+        float *nbo, int nbosize,
+        float* cbo, int cbosize,
+        int* ibo, int ibosize)
 {
     // set up crucial magic
     int tileSize = 8;
@@ -273,6 +291,10 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
     cudaMalloc((void**)&device_vbo, vbosize * sizeof(float));
     cudaMemcpy(device_vbo, vbo, vbosize * sizeof(float), cudaMemcpyHostToDevice);
 
+    device_nbo = NULL;
+    cudaMalloc((void**)&device_nbo, nbosize * sizeof(float));
+    cudaMemcpy(device_nbo, nbo, nbosize * sizeof(float), cudaMemcpyHostToDevice);
+
     device_cbo = NULL;
     cudaMalloc((void**)&device_cbo, cbosize * sizeof(float));
     cudaMemcpy(device_cbo, cbo, cbosize * sizeof(float), cudaMemcpyHostToDevice);
@@ -290,7 +312,12 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
     //primitive assembly
     //------------------------------
     primitiveBlocks = ceil(((float)ibosize / 3) / ((float)tileSize));
-    primitiveAssemblyKernel<<<primitiveBlocks, tileSize>>>(device_vbo, vbosize, device_cbo, cbosize, device_ibo, ibosize, primitives);
+    primitiveAssemblyKernel<<<primitiveBlocks, tileSize>>>(
+            device_vbo, vbosize,
+            device_nbo, nbosize,
+            device_cbo, cbosize,
+            device_ibo, ibosize,
+            primitives);
 
     cudaDeviceSynchronize();
     //------------------------------
@@ -322,6 +349,7 @@ void kernelCleanup()
 {
     cudaFree(primitives);
     cudaFree(device_vbo);
+    cudaFree(device_nbo);
     cudaFree(device_cbo);
     cudaFree(device_ibo);
     cudaFree(framebuffer);

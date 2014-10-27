@@ -88,6 +88,9 @@ void runCuda(){
   cbo = mesh->getCBO();
   cbosize = mesh->getCBOsize();
 
+  nbo = mesh->getNBO();
+  nbosize = mesh->getNBOsize();
+
   ibo = mesh->getIBO();
   ibosize = mesh->getIBOsize();
 
@@ -98,7 +101,11 @@ void runCuda(){
   struct timespec ts1, ts2;
   clock_gettime(CLOCK_MONOTONIC, &ts1);
 #endif
-  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize);
+  cudaRasterizeCore(dptr, glm::vec2(width, height), frame,
+          vbo, vbosize,
+          nbo, nbosize,
+          cbo, cbosize,
+          ibo, ibosize);
 #ifdef __linux__
   cudaDeviceSynchronize();
   clock_gettime(CLOCK_MONOTONIC, &ts2);
