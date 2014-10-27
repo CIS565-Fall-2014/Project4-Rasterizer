@@ -22,7 +22,8 @@ Features Implemented
 * **Backface culling**
 * **Geometry shader**
     * Maps 1 triangle to 0-4 triangles.
-    * Tried implementing backface culling here, but it was very inefficient.
+    * Tried implementing backface culling here, but my quick implementation was
+      very inefficient.
 * Basic scanline rasterization into a fragment buffer
     * Depth-testing
     * Barycentric **interpolation of vertex data**
@@ -41,17 +42,49 @@ Feature Performance
 
 | Feature           | Frame time | Added time | Added time | Notes
 |:-------           | ----------:| ----------:| ----------:|:-----
-| Nothing           |    4.17 ms |            |            | Base code
-| Prim asm          |    4.22 ms |    0.05 ms |      1.20% | Copying data, handling IBO
-| Rast+render       |    4.77 ms |    0.55 ms |     13.03% | No locking
-| Normal buffer     |    4.84 ms |    0.07 ms |      1.47% | Using normals from mesh
-| Basic frag shad   |    5.80 ms |    0.96 ms |     19.83% | Renders model normals
+| Nothing           |    4.17 ms |            |            | Base code.
+| Prim asm          |    4.22 ms |    0.05 ms |      1.20% | Copying data, handling IBO.
+| Rast+render       |    4.77 ms |    0.55 ms |     13.03% | No locking.
+| Normal buffer     |    4.84 ms |    0.07 ms |      1.47% | Using normals from mesh.
+| Basic frag shad   |    5.80 ms |    0.96 ms |     19.83% | Renders model normals.
 | Backface cull     |    5.76 ms |   -0.04 ms |     -0.69% | 6.13ms using stream compaction to remove backfaces
-| Vert/frag structs |    5.78 ms |    0.02 ms |      0.35% | Small performance change
-| World-space pos   |    7.21 ms |    1.43 ms |     24.74% | Extra fragment input, extra interpolation of that input
-| Depth buf optim   |    7.13 ms |   -0.08 ms |     -1.11% | Remove some unnecessary depth checks
-| VS transforms     |    7.77 ms |    0.64 ms |      8.98% | Note that the change in screen size of the model affects the performance
+| Vert/frag structs |    5.78 ms |    0.02 ms |      0.35% | Small performance change.
+| World-space pos   |    7.21 ms |    1.43 ms |     24.74% | Extra fragment input, extra interpolation of that input.
+| Depth buf optim   |    7.13 ms |   -0.08 ms |     -1.11% | Remove some unnecessary depth checks.
+| VS transforms     |    7.77 ms |    0.64 ms |      8.98% | Note that the change in screen size of the model affects the performance.
 | Lambert shading   |    8.29 ms |    0.52 ms |      6.69% |
-| Geometry shader   |    8.82 ms |    0.53 ms |      6.39% | Maximum 4 output tris per input tri
-| Tessellation GS   |    8.66 ms |   -0.16 ms |     -1.81% | Splits each tri into 3 tris, colors one red
+| Geometry shader   |    8.82 ms |    0.53 ms |      6.39% | Maximum 4 output tris per input tri. Stream compaction is used after this stage.
+| Tessellation GS   |    8.66 ms |   -0.16 ms |     -1.81% | Splits each tri into 3 tris, colors one red.
 | Backface GS       |   10.23 ms |    1.57 ms |     18.13% | Moved backface culling to inside the GS. Apparently not a great idea.
+
+
+Renderings
+----------
+
+Diffuse shading:
+![](progress/06_diffuse.png)
+
+Diffuse shading showing normal interpolation:
+![](progress/07_working_perspective.png)
+
+Tessellation in geometry shader:
+![](progress/08_tessellation.png)
+
+
+Debug/Progress Renderings (chronological)
+-----------------------------------------
+
+Rasterization test:
+![](progress/01_cow.png)
+
+Depth buffer test (no locks):
+![](progress/02_flicker.png)
+
+Face normals:
+![](progress/03_normals.png)
+
+Backface culling (reduces flickering due to race conditions):
+![](progress/04_backface_culling.png)
+
+World-space positions:
+![](progress/05_worldspace_positions.png)
