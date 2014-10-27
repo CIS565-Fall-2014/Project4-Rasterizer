@@ -26,8 +26,11 @@ Extra features:
 CONTROL
 -------------------------------------------------------------------------------
 Press 'left' and 'right' to rotate the camera
+
 Press 'A' to enable and disable line drawing
+
 Press 'S' to enable and disable points drawing
+
 Press 'D' to enable and disable back face culling
 
 -------------------------------------------------------------------------------
