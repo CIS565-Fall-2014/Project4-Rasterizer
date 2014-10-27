@@ -28,7 +28,7 @@ Extra Features:
 * Back-face culling
 
 Back-face culling removes the primitives which are not invisible. The process makes rendering objects quicker and more efficient by reducing the number of polygons. 
-To determine wheteher the face is invisible, just to calculate the dot multiplication of the view direction and the normal of face. If the value is greate than zero, it means it is to be culled.
+To determine whether the face is invisible, just to calculate the dot multiplication of the view direction and the normal of face. If the value is greater than zero, it means it is to be culled. And use string compaction to kill the threads with back-face primitive.
 
 * Correct color interpolation between points on a primitive
 
@@ -41,7 +41,7 @@ Following the the color interpolation result for a triangle primitive.
 
 * Anti-aliasing
 
-A simple anti-aliasing method is to sum the color of the neighbouring positions and set the average value as the anti-aliasing result. In the program, I used the original pixel and its 8 surronding neighbours to perform anti aliasing.
+A simple anti-aliasing method is to sum the color of the neighbouring positions and set the average value as the anti-aliasing result. In the program, I used the original pixel and its 8 surrounding neighbours to perform anti aliasing.
 
 The left image is without anti-aliasing and the right one is after anti aliasing. It makes the edge smoother but also makes the other part of the image a little blurred.
 
@@ -53,4 +53,42 @@ The left image is without anti-aliasing and the right one is after anti aliasing
 -------------------------------------------------------------------------------
 PERFORMANCE EVALUATION
 -------------------------------------------------------------------------------
-While using multithreads to rasterize the objects, there may exist read and write conflict. Back-face culling helps solve some conflictions, but it's not guarantee for it.
+
+* Visual Performance
+
+
+When using multi threads to raster the objects, there may exist read and write conflict.
+
+Here is a cube without lock. In the image, some back-face color substitute the front-face color.
+
+![video](https://github.com/liying3/Project4-Rasterizer/blob/master/result/PROJ4_Rasterizer.wmv)
+
+Back-face culling helps solve some conflict ions, but it's not guarantee for it. Because for the face with perpendicular normal to the view direction, it cannot determine whether it is visible or not.
+
+Here is a cube with back-face culling. From the image, we can see that the top and bottom base substitute the front-face color.
+
+![ScreenShot](https://github.com/liying3/Project4-Rasterizer/blob/master/result/backFace.PNG)
+
+So, the lock or atomic function should be implemented. In my program, I add an attribute isLocked in fragment. But my function is not guaranteed to lock each pixel, so my cube is still not totally correct.
+
+![ScreenShot](https://github.com/liying3/Project4-Rasterizer/blob/master/result/lockCube.PNG)
+
+* Time Efficiency
+The histogram shows the timing and FPS.
+
+
+-------------------------------------------------------------------------------
+Rendering Result
+-------------------------------------------------------------------------------
+
+In the following image, color represents the face normal:
+
+![ScreenShot](https://github.com/liying3/Project4-Rasterizer/blob/master/result/normal.PNG)
+
+Add shading to it:
+
+![ScreenShot](https://github.com/liying3/Project4-Rasterizer/blob/master/result/shading.PNG)
+
+Add color to each vertices:
+
+![ScreenShot](https://github.com/liying3/Project4-Rasterizer/blob/master/result/withut%20light.PNG)
