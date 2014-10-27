@@ -131,7 +131,7 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
   }
 }
 //Gaussian Kernel
-__device__ float gaussSample(float inX, float inY, float sigma){
+__host__ __device__ float gaussSample(float inX, float inY, float sigma){
   float xSquared = inX * inX;
   float ySquared = inY * inY;
   float sigmaSquared = sigma * sigma;
@@ -218,6 +218,7 @@ __global__ void primitiveAssemblyKernel(float* vbo, int vbosize, float* cbo, int
     ////////////////////
     //Back Face Culling!
     ////////////////////
+    
     bool back0;
     bool back1;
     bool back2;
@@ -228,6 +229,7 @@ __global__ void primitiveAssemblyKernel(float* vbo, int vbosize, float* cbo, int
       primitives[index].culled = true;
       return;//no need to do more work
     }
+    
     
     //transform points into clip space
     p0 = projection * p0;
@@ -338,30 +340,38 @@ __global__ void fragmentShadeKernel(fragment* depthbuffer, glm::vec2 resolution,
 
 
 //MODIFIED  Downsamples and then prints
-__global__ void render(glm::vec2 resolution, fragment* depthbuffer, glm::vec3* framebuffer){
+__global__ void render(glm::vec2 resolution, fragment* depthbuffer, glm::vec3* framebuffer, float AALevel){
 
   int x = (blockIdx.x * blockDim.x) + threadIdx.x;
   int y = (blockIdx.y * blockDim.y) + threadIdx.y;
   int index = x + (y * resolution.x);
 
   if(x<=resolution.x && y<=resolution.y){
-    float dbX = x * 3 + 3;
-    float dbY = y * 3 + 3;
+    if(AALevel == 1.0f){
+      framebuffer[index] = depthbuffer[index].color;
+      return;
+    }
+    float dbX = x * AALevel + AALevel;
+    float dbY = y * AALevel + AALevel;
+    float tot = 0.0f;
     glm::vec2 dbRes = resolution;
-    dbRes.x = resolution.x * 3 + 6;
-    dbRes.y = resolution.y * 3 + 6;
+    dbRes.x = resolution.x * AALevel + 2*AALevel;
+    dbRes.y = resolution.y * AALevel + 2*AALevel;
     glm::vec3 color = glm::vec3(0,0,0);
-    for(int i = int(dbX) - 3; i < int(dbX) + 4; i++){
-      for(int j = int(dbY) - 3; j < int(dbY) + 4; j ++){
+    for(int i = int(dbX) - int(AALevel); i < int(dbX) + int(AALevel) +1; i++){
+      for(int j = int(dbY) - int(AALevel); j < int(dbY) + int(AALevel) + 1; j ++){
         if(i == int(dbX) && j == int(dbY)){
-          float gauss = gaussSample(EPSILON, EPSILON, 1.0f); //sigma = 1
+          float gauss = gaussSample(0, 0, (AALevel)/3.0f); 
+          tot += gauss;
           color += depthbuffer[i + (j * int(dbRes.x))].color * gauss;
         }else{
-          color += depthbuffer[i + (j * int(dbRes.x))].color * gaussSample((float(i) - dbX), (float(j) - dbY), 1.0f); //sigma = 1
+          float gauss = gaussSample((float(i) - dbX), (float(j) - dbY),  (AALevel)/3.0f);
+          color += depthbuffer[i + (j * int(dbRes.x))].color * gauss; 
+          tot += gauss;
         }
       }
     }
-    framebuffer[index] = color;
+    framebuffer[index] = color * (1.0f / tot);
   }
 }
 
@@ -369,7 +379,12 @@ __global__ void render(glm::vec2 resolution, fragment* depthbuffer, glm::vec3* f
 
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float* vbo, int vbosize, float* cbo, int cbosize, int* ibo, int ibosize, float* nbo, int nbosize, camera cam){
-
+  
+  //---------------
+  //AA level
+  //---------------
+  int AALevel = 3;
+  
   //set up framebuffer
   framebuffer = NULL;
   cudaMalloc((void**)&framebuffer, (int)resolution.x*(int)resolution.y*sizeof(glm::vec3));
@@ -382,11 +397,13 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
   //kernel launches to black out accumulated/unaccumlated pixel buffers and clear our scattering states
   clearImage<<<fullBlocksPerGrid, threadsPerBlock>>>(resolution, framebuffer, glm::vec3(0,0,0));
   
+  glm::vec2 screenRes;
   //superscale:
-  glm::vec2 screenRes = resolution;
-  resolution.x = resolution.x * 3 + 6;
-  resolution.y = resolution.y * 3 + 6;
-
+  if (AALevel > 1){
+    screenRes = resolution;
+    resolution.x = resolution.x * AALevel + 2*AALevel;
+    resolution.y = resolution.y * AALevel + 2*AALevel;
+  }
   // set up crucial magic
   tileSize = 8;
   threadsPerBlock = dim3(tileSize, tileSize);
@@ -443,7 +460,7 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
   float aspectRatio = (float)resolution.x / (float)resolution.y;
   glm::mat4 Projection = glm::perspective(cam.fovy, aspectRatio, cam.nearClip, cam.farClip);
   
-  // model transform matrix?
+  // model transform matrix
   glm::vec3 translation  = glm::vec3(0.0f,0.0f,0.0f);
   glm::vec3 rotation     = glm::vec3(0.0f,frame,0.0f);
   glm::vec3 scale        = glm::vec3(1.0f,1.0f,1.0f);
@@ -468,7 +485,7 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
 
   //------------------------------
   //vertex shader 
-  // convert to clip coordinates
+  // convert to view coordinates
   // displacement mapping
   //------------------------------
   vertexShadeKernel<<<primitiveBlocks, tileSize>>>(device_vbo, vbosize, device_nbo, nbosize, View, modelTransform);
@@ -477,6 +494,7 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
   //------------------------------
   //primitive assembly
   // assign points & colors to triangle vertices
+  // backface culling
   //------------------------------
   primitiveBlocks = ceil(((float)ibosize/3)/((float)tileSize));
   primitiveAssemblyKernel<<<primitiveBlocks, tileSize>>>(device_vbo, vbosize, device_cbo, cbosize, device_ibo, ibosize, device_nbo, nbosize, primitives, Projection);
@@ -521,10 +539,6 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
   cudaMalloc((void**)&dev_bbox, 2*sizeof(glm::vec3));
   */
   
-  /////////////////////////
-  //clip stage goes here!!!  measure performance gains when addded
-  /////////////////////////
-  
   //------------------------------
   //rasterization
   //------------------------------
@@ -552,11 +566,11 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
   //------------------------------
   //write fragments to framebuffer
   //------------------------------
-  //Downscale:
-  resolution = screenRes;
-  tileSize = 8;
-  fullBlocksPerGrid = dim3((int)ceil(float(resolution.x)/float(tileSize)), (int)ceil(float(resolution.y)/float(tileSize)));
-  render<<<fullBlocksPerGrid, threadsPerBlock>>>(resolution, depthbuffer, framebuffer);
+  //Downample:
+  if (AALevel > 1){
+    resolution = screenRes;
+  }
+  render<<<fullBlocksPerGrid, threadsPerBlock>>>(resolution, depthbuffer, framebuffer, float(AALevel));
   sendImageToPBO<<<fullBlocksPerGrid, threadsPerBlock>>>(PBOpos, resolution, framebuffer);
 
   cudaDeviceSynchronize();
