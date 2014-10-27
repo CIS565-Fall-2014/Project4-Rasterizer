@@ -47,23 +47,33 @@ This method is parallelized per primitive rather than per scanline, so each thre
 
 My pipeline applies a simple diffuse Lambertain shading to each fragment stored in my depth buffer. Each fragment knows its world-space position, color, and normal. Those three pieces of information, along with a light position and light intensity, are all that are needed to compute a diffuse lighting coefficient and perform Lambertian shading.
 
-[Add pics.]
+![alt tag](https://raw.githubusercontent.com/drerucha/Project4-Rasterizer/master/renders/cow_flat_with_aa.jpg)
+
+![alt tag](https://raw.githubusercontent.com/drerucha/Project4-Rasterizer/master/renders/cow_diffuse_with_aa.jpg)
+
+![alt tag](https://raw.githubusercontent.com/drerucha/Project4-Rasterizer/master/renders/cow_flat_colored.jpg)
+
+![alt tag](https://raw.githubusercontent.com/drerucha/Project4-Rasterizer/master/renders/cow_diffuse_colored.jpg)
 
 ## BARYCENTRIC COLOR INTERPOLATION
 
-[Add pics.]
+![alt tag](https://raw.githubusercontent.com/drerucha/Project4-Rasterizer/master/renders/tri_gray.jpg)
+
+![alt tag](https://raw.githubusercontent.com/drerucha/Project4-Rasterizer/master/renders/tri_colored.jpg)
 
 ## BACKFACE CULLING
 
-[TODO]
+[Add text.]
 
 An performance analysis comparing frame rates with and without backface culling is included below in the section named "Performance analysis".
 
 ## ANTI-ALIASING AS A POST-PROCESS
 
-Coming soon.
+[Add text.]
 
-[Add pics.]
+An performance analysis comparing frame rates with and without anti-aliasing is included below in the section named "Performance analysis".
+
+![alt tag](https://raw.githubusercontent.com/drerucha/Project4-Rasterizer/master/renders/cow_diffuse_outlined.jpg)
 
 ## VIDEO DEMO
 
@@ -71,7 +81,7 @@ Coming soon.
 
 ## PERFORMANCE ANALYSIS
 
-Coming soon.
+[Add text.]
 
 [Add graphs.]
 
