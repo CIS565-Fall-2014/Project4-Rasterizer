@@ -71,7 +71,10 @@ Feature Performance
 | Lambert shading   |    8.29 ms |    0.52 ms |      6.69% |
 | Geometry shader   |    8.82 ms |    0.53 ms |      6.39% | Maximum 4 output tris per input tri. Stream compaction is used after this stage.
 | Tessellation GS   |    8.66 ms |   -0.16 ms |     -1.81% | Splits each tri into 3 tris, colors one red.
-| Backface GS       |    8.86 ms |    1.57 ms |     18.13% | Moved backface culling to inside the GS. Apparently this does not perform nicely.
+|                   |            |            |            |
+| Geometry shader   |    9.69 ms |            |            | (This series of runs gave different results since I did them at a different time.)
+| Tessellation GS   |    9.35 ms |   -0.34 ms |     -3.51% | Tessellation reduces the number of wasted iterations in the rasterization step by decreasing the number of rasterized pixels outside of triangles.
+| Backface GS       |    9.19 ms |   -0.16 ms |     -1.71% | Moved backface culling to inside the GS. Apparently this does not perform nicely.
 
 
 Debug/Progress Renderings (chronological)
