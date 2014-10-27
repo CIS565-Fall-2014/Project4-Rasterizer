@@ -208,9 +208,9 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 					  current_frag.originial_position=B_p.x*current_tri.old_p0+B_p.y*current_tri.old_p1+B_p.z*current_tri.old_p2;
 					  current_frag.normal=B_p.x*current_tri.n0+B_p.y*current_tri.n1+B_p.z*current_tri.n2;
 					  //current_frag.color=glm::vec3(1.0,1.0,1.0);
-					  //current_frag.color=glm::vec3(B_p.x,B_p.y,B_p.z);
+					  current_frag.color=glm::vec3(B_p.x,B_p.y,B_p.z);
 					  //current_frag.color=glm::clamp((current_tri.n0+current_tri.n1+current_tri.n2)/3.0f,0.0f,1.0f);
-					  current_frag.color=(current_tri.c0+current_tri.c1+current_tri.c2)/3.0f;
+					  //current_frag.color=(current_tri.c0+current_tri.c1+current_tri.c2)/3.0f;
 					  //current_frag.color=B_p.x*current_tri.c0+B_p.y*current_tri.c1+B_p.z*current_tri.c2;
 					  if(depthbuffer[int((resolution.y-j)*resolution.x+resolution.x-i)].position.z>current_frag.position.z &&current_frag.position.z>z_near &&current_frag.position.z<z_far)
 					  {
@@ -240,7 +240,7 @@ __global__ void fragmentShadeKernel(fragment* depthbuffer, glm::vec2 resolution,
 	  //Blinn-Phong lighting
 	  float diffuse=glm::clamp(glm::dot(L,n),0.0f,1.0f);
 	  float specular=glm::clamp(glm::pow(glm::dot(H,n),100.0f),0.0f,1.0f);
-	  depthbuffer[index].color=glm::clamp(diffuse*diffuse_color+specular*specular_color,0.0f,1.0f);
+	  //depthbuffer[index].color=glm::clamp(diffuse*diffuse_color+specular*specular_color,0.0f,1.0f);
   }
 }
 
@@ -345,7 +345,7 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
   //------------------------------
   //fragment shader
   //------------------------------
-  glm::vec3 light=glm::vec3(0.0f,3.0f,1.0f);
+  glm::vec3 light=glm::vec3(0.0f,2.0f,1.0f);
  /* glm::vec4 light_p=multiplyMV(*MVP,glm::vec4(light,1.0f));
   light.x=light_p.x/light_p.w;
   light.y=light_p.y/light_p.w;

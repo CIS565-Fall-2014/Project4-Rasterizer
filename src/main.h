@@ -68,8 +68,8 @@ glm::mat4 n_modelview;
 glm::mat4 M;
 glm::vec3 light;
 float alpha=90;
-float beta=30;
-float D=1;
+float beta=50;
+float D=1.5;
 
 //-------------------------------
 //----------CUDA STUFF-----------

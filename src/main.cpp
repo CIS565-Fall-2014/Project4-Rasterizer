@@ -45,17 +45,17 @@ int main(int argc, char** argv){
 void mainLoop() {
   while(!glfwWindowShouldClose(window)){
     glfwPollEvents();
-	alpha=alpha+1;
+	//alpha=alpha+1;
 	//camera data
   cam.view=glm::vec3(0.0f,0.0f,0.0f);
   cam.up=glm::vec3(0.0,1.0,0.0);
   cam.position.x=D*cos(beta*PI/180.0f)*cos(alpha*PI/180.0f);
-  cam.position.y=D*sin(beta*PI/180.0f);
+  cam.position.y=D*sin(beta*PI/180.0f)-0.5f;
   cam.position.z=D*cos(beta*PI/180.0f)*sin(alpha*PI/180.0f);
   glm::vec3 temp_lateral=glm::normalize(glm::cross(cam.view-cam.position,cam.up));
   cam.up=glm::normalize(glm::cross(temp_lateral,cam.view-cam.position));
 
-  cam.FOV=90.0f;
+  cam.FOV=80.0f;
   z_near=0.1f;
   z_far=100.0f;
   //Transform points from model to clip coordinates	
