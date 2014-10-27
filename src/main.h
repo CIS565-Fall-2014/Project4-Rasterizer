@@ -23,6 +23,8 @@
 #include "rasterizeKernels.h"
 #include "utilities.h"
 
+
+
 using namespace std;
 
 //-------------------------------
@@ -49,6 +51,11 @@ float* cbo;
 int cbosize;
 int* ibo;
 int ibosize;
+float* nbo;   //added
+int nbosize;  //added
+
+//newstuff:
+camera cam;
 
 //-------------------------------
 //----------CUDA STUFF-----------

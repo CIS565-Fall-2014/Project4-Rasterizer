@@ -16,6 +16,10 @@ struct triangle {
   glm::vec3 c0;
   glm::vec3 c1;
   glm::vec3 c2;
+  glm::vec3 n0;
+  glm::vec3 n1;
+  glm::vec3 n2;
+  bool culled;
 };
 
 struct fragment{
@@ -23,6 +27,8 @@ struct fragment{
   glm::vec3 normal;
   glm::vec3 position;
 };
+
+
 
 //Multiplies a cudaMat4 matrix and a vec4
 __host__ __device__ glm::vec3 multiplyMV(cudaMat4 m, glm::vec4 v){
@@ -73,6 +79,27 @@ __host__ __device__ bool isBarycentricCoordInBounds(glm::vec3 barycentricCoord){
 //LOOK: for a given barycentric coordinate, return the corresponding z position on the triangle
 __host__ __device__ float getZAtCoordinate(glm::vec3 barycentricCoord, triangle tri){
   return -(barycentricCoord.x*tri.p0.z + barycentricCoord.y*tri.p1.z + barycentricCoord.z*tri.p2.z);
+}
+
+//convert clip coordinates to screen coordinates
+__host__ __device__ void clipToScreen(triangle& tri, glm::vec2 resolution){
+  tri.p0.x = ((tri.p0.x + 1) / 2) * resolution.x;
+  tri.p0.y = ((tri.p0.y + 1) / 2) * resolution.y;
+  
+  tri.p1.x = ((tri.p1.x + 1) / 2) * resolution.x;
+  tri.p1.y = ((tri.p1.y + 1) / 2) * resolution.y;
+  
+  tri.p2.x = ((tri.p2.x + 1) / 2) * resolution.x;
+  tri.p2.y = ((tri.p2.y + 1) / 2) * resolution.y; 
+}
+
+//convert screen coordinates to clip coordinates
+__host__ __device__ glm::vec3 screenToClip(glm::vec3 pos, glm::vec2 resolution){
+  glm::vec3 newPos;
+  newPos.x = (pos.x / resolution.x) * 2 - 1;
+  newPos.y = (pos.y / resolution.y) * 2 - 1;
+  newPos.z = pos.z;
+  return newPos;
 }
 
 #endif

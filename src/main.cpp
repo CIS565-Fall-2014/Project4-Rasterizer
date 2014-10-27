@@ -28,6 +28,9 @@ int main(int argc, char** argv){
     cout << "Usage: mesh=[obj file]" << endl;
     return 0;
   }
+  
+  //Setup Camera
+  cam = camera();
 
   frame = 0;
   seconds = time (NULL);
@@ -57,7 +60,7 @@ void mainLoop() {
     }
 
     string title = "CIS565 Rasterizer | " + utilityCore::convertIntToString((int)fps) + " FPS";
-		glfwSetWindowTitle(window, title.c_str());
+    glfwSetWindowTitle(window, title.c_str());
     
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
     glBindTexture(GL_TEXTURE_2D, displayImage);
@@ -92,9 +95,12 @@ void runCuda(){
 
   ibo = mesh->getIBO();
   ibosize = mesh->getIBOsize();
+  
+  nbo = mesh->getNBO();//get normals
+  nbosize = mesh->getNBOsize();//get normal length
 
   cudaGLMapBufferObject((void**)&dptr, pbo);
-  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize);
+  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize, nbo, nbosize, cam);
   cudaGLUnmapBufferObject(pbo);
 
   vbo = NULL;
