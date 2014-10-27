@@ -4,8 +4,6 @@ CIS565: Project 4: CUDA Rasterizer
 -------------------------------------------------------------------------------
 Fall 2014
 -------------------------------------------------------------------------------
-Due Monday 10/27/2014 @ 12 PM
--------------------------------------------------------------------------------
 
 -------------------------------------------------------------------------------
 INTRODUCTION:
@@ -58,19 +56,6 @@ ADDITIONAL FEATURES TOUR:
 	* In the Rasterization Kernel if a triangle has been culled the Kernel returns immediately.
 * Anti-Aliasing
 	* This is the most in depth feature.  In the cudaRasterizeCore() method there is a variable where you can set the Anti-Aliasing level.  If you leave this as 1 the rasterizer will act as normal, however setting this to a value larger than one will supersample the entire rasterization process by that many times in both the x and y direction.  When it comes to the Render Kernel it will downsample the fragments back to the given resolution using a gaussian distribution.
-
-
--------------------------------------------------------------------------------
-README
--------------------------------------------------------------------------------
-All students must replace or augment the contents of this Readme.md in a clear 
-manner with the following:
-
-* A brief description of the project and the specific features you implemented.
-* At least one screenshot of your project running.
-* A 30 second or longer video of your project running.  To create the video you
-  can use http://www.microsoft.com/expression/products/Encoder4_Overview.aspx 
-* A performance evaluation (described in detail below).
 
 -------------------------------------------------------------------------------
 PERFORMANCE EVALUATION
