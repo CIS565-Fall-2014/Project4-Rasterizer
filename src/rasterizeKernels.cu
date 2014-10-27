@@ -93,7 +93,7 @@ __host__ __device__ glm::vec3 getFromFramebuffer(int x, int y, glm::vec3* frameb
 }
 
 __host__ __device__ float lcalculateSignedArea(triangle tri){
-	return 0.5*((tri.p2.x - tri.p0.x)*(tri.p1.y - tri.p0.y) - (tri.p1.x - tri.p0.x)*(tri.p2.y - tri.p0.y));
+	return 0.5*((tri.p1.x - tri.p0.x)*(tri.p2.y - tri.p0.y) - (tri.p2.x - tri.p0.x)*(tri.p1.y - tri.p0.y));
 }
 
 __host__ __device__ float lcalculateBarycentricCoordinateValue(glm::vec2 a, glm::vec2 b, glm::vec2 c, triangle tri){
@@ -264,8 +264,10 @@ __global__ void primitiveAssemblyKernel(float* vbo, int vbosize, float* cbo, int
 		primitives[index].c2.y = cbo[7];
 		primitives[index].c2.z = cbo[8];
 
+		primitives[index].CFlag = false;
+
 #ifdef CullingFlag
-		if (DevepsilonCheck(lcalculateSignedArea(primitives[index]), 0)) primitives[index].CFlag = true; // back facing triangles
+		if (lcalculateSignedArea(primitives[index])< -1e-6) primitives[index].CFlag = true; // back facing triangles
 		else    // triangles totally outside of screen
 		{
 			glm::vec3 tMin, tMax;
@@ -277,7 +279,7 @@ __global__ void primitiveAssemblyKernel(float* vbo, int vbosize, float* cbo, int
 				tMax.x < 0 ||
 				tMax.y < 0 ||
 				tMax.z < cam.depth.x)
-				primitives[index].CFlag = 1;
+				primitives[index].CFlag = true;
 		}
 #endif
 	}

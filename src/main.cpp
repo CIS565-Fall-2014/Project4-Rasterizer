@@ -137,7 +137,7 @@ bool init(int argc, char* argv[]) {
 	glfwMakeContextCurrent(window);
 	glfwSetKeyCallback(window, keyCallback);
 	glfwSetMouseButtonCallback(window,mouseClick);
-	
+	glfwSetScrollCallback(window, mouseWheel);
 	// Set up GL context
 	glewExperimental = GL_TRUE;
 	if (glewInit() != GLEW_OK){
@@ -301,30 +301,33 @@ void mouseClick(GLFWwindow* window, int button, int action, int mods)
 	double dx, dy;
 	dx = (double)(xpos - mouse_old_x);
 	dy = (double)(ypos - mouse_old_y);
-	if (action == GLFW_PRESS){
-		switch (button)
-		{
-		case GLFW_MOUSE_BUTTON_LEFT:
-			viewPhi -= dx * 0.002;
-			viewTheta -= dy * 0.002;
-			viewTheta = glm::clamp(viewTheta, float(1e-6), float(PI - (1e-6)));
-			cam.pos = glm::vec3(r*cos(viewTheta)*cos(viewPhi), r*sin(viewTheta), r*cos(viewTheta)*sin(viewPhi));
-			cam.update();
-			break;
-		case GLFW_MOUSE_BUTTON_RIGHT:
-			cam.pos.z += 0.002*dy;
-			cam.pos.z += 0.002*dy;
-			cam.update();
-			break;
-
-		default:
-			break;
-		}
+	if (action == GLFW_RELEASE&&button == GLFW_MOUSE_BUTTON_LEFT){
+		viewPhi += dx * 0.002;
+		viewTheta -= dy * 0.002;
+		viewTheta = glm::clamp(viewTheta, float(1e-6), float(PI - (1e-6)));
+		cam.pos = glm::vec3(r*sin(viewTheta)*cos(viewPhi), r*cos(viewTheta), r*sin(viewTheta)*sin(viewPhi));
+		cam.view = glm::normalize(-cam.pos);
+		cam.update();
 	}
+	else if (action == GLFW_RELEASE&&button == GLFW_MOUSE_BUTTON_RIGHT){
+			cam.pos.z += 0.002*dy;
+			cam.pos.z += 0.002*dy;
+			cam.update();
+
+	}
+
 	mouse_old_x = xpos;
 	mouse_old_y = ypos;
 	//mouse_old_x = x;
 	//mouse_old_y = y;
+}
+
+void mouseWheel(GLFWwindow* window, double x, double y){
+	r -= y>0 ? 0.1f : -0.1f;
+	r = glm::clamp(r, cam.depth.x, cam.depth.y);
+	cam.pos = glm::vec3(r*sin(viewTheta)*cos(viewPhi), r*cos(viewTheta), r*sin(viewTheta)*sin(viewPhi));
+	cam.view = glm::normalize(-cam.pos);
+	cam.update();
 }
 
 void mouseMotion(int x, int y)
@@ -353,10 +356,10 @@ void mouseMotion(int x, int y)
 	mouse_old_y = y;
 }
 
-void mouseWheel(int button, int dir, int x, int y)
-{
-	r -= dir>0 ? 0.1f : -0.1f;
-	r = glm::clamp(r, cam.depth.x, cam.depth.y);
-	cam.pos = glm::vec3(r*sin(viewTheta)*sin(viewPhi), r*cos(viewTheta) + (cam.view.y*cam.depth.x + cam.pos.y), r*sin(viewTheta)*cos(viewPhi));
-	cam.update();
-}
+//void mouseWheel(int button, int dir, int x, int y)
+//{
+//	r -= dir>0 ? 0.1f : -0.1f;
+//	r = glm::clamp(r, cam.depth.x, cam.depth.y);
+//	cam.pos = glm::vec3(r*sin(viewTheta)*sin(viewPhi), r*cos(viewTheta) + (cam.view.y*cam.depth.x + cam.pos.y), r*sin(viewTheta)*cos(viewPhi));
+//	cam.update();
+//}
