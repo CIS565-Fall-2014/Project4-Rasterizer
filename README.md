@@ -7,6 +7,8 @@ Jiatong He
 -------------------------------------------------------------------------------
 Base code by Karl Li
 
+![cow render](https://raw.githubusercontent.com/JivingTechnostic/Project4-Rasterizer/master/renders/2.png)
+
 Implemented Features:
 ---------------------
 ### Vertex Shader
@@ -22,6 +24,8 @@ Simple triangle backface culling using a calculated normal from the vertices (si
 Rasterization implemented as a scanline algorithm.  This section currently takes the most time, and large triangles (in screen space) will slow down the program significantly or even crash it.  For every triangle, we begin by sorting the vertices from top to bottom.  Then, starting from the top, we render it in two steps--top to middle, and middle to bottom (note that either of these may have 0 height, if the top and middle, or middle and bottom are at the same height).
 
 #### Color & Normal Interpolation
+![color interpolation](https://raw.githubusercontent.com/JivingTechnostic/Project4-Rasterizer/master/renders/3.png)
+
 I use double linear interpolation to calculate the appropriate depth, color, and normal for each fragment.  I did not use the provided code for barycentric coordinates.  Instead, I LERP first along the edges to find a left fragment and right fragment, then LERP between them to fill in the shape.  I am fairly certain that this method gives the correct color, though it might favor colors horizontally.  I will have to check later.  Normal interpolation comes for free as well, but the OBJ's I am using have uniform normals on each face, so it doesn't change anything.
 
 ### Fragment Shading (Blinn-Phong Shader)
@@ -32,12 +36,17 @@ Use the mouse to rotate, pan, and zoom the camera.  LMB rotates, RMB pans, and m
 
 ### Key Control
 Pressing 'z' will draw faces.  Pressing 'c' will draw only vertices.  'x' is supposed to draw a wireframe but it's not done yet.
+![vertices](https://raw.githubusercontent.com/JivingTechnostic/Project4-Rasterizer/master/renders/6.png)
 Pressing 'a' will use Blinn-Phong lighting.  's' will color by normals.  'd' will color by depth (not really working).
+![normal colors](https://raw.githubusercontent.com/JivingTechnostic/Project4-Rasterizer/master/renders/7.png)
 
 Missing Features
 ----------------
 ### Depth buffer testing
-I did not have time to do proper depth checking, so you can see depth errors such as in the following image, where the cow's tail is visible through its body.  Each fragment does have a depth value, it's just a matter of setting up atomics and locking the fragment properly.
+I did not have time to do proper depth checking, so you can see depth errors such as in the following image, where the cow's tail is visible through its body.
+![depth errors](https://raw.githubusercontent.com/JivingTechnostic/Project4-Rasterizer/master/renders/4.png)
+
+Each fragment does have a depth value, it's just a matter of setting up atomics and locking the fragment properly.
 
 Back-Face Culling and Clipping Performance Analysis
 --------------------------------------
@@ -56,10 +65,18 @@ So as you can see, it does produce some level of speedup, but not much.  In addi
 
 Performance Evaluation--A Better Linear Interpolation?
 ------------------------------------------------------
-The current bottleneck in the code is rasterizationKernel (though the fragment shader and clearDepthBuffer take up considerable time as well).  When a single triangle takes up a significant part of the screen (maybe 10%), the program slows to a crawl and can crash.  This is caused by a single thread trying to process a large amount of fragments.  The image below shows an example of the runtime of my code while zoomed out, and zoomed in.
-[image]
+The current bottleneck in the code is rasterizationKernel (though the fragment shader and clearDepthBuffer take up considerable time as well).  When a single triangle takes up a significant part of the screen (maybe 10%), the program slows to a crawl and can crash.  This is caused by a single thread trying to process a large amount of fragments.  The image below shows an example of the runtime of my code while zoomed out (top), and zoomed in (the other one).
+![triangle size runtime comparison](https://raw.githubusercontent.com/JivingTechnostic/Project4-Rasterizer/master/renders/rasterization_comparison.png)
 
 As such, I will be addressing the rasterization kernel for improving performance.
 
 As mentioned above, I use linear interpolation to calculate coordinates/interpolate color&normals for my geometry rather than using barycentric coordinates.  However, I am recalculating the interpolation every fragment.  Since it's linear, each step should have a constant change.  What if I replaced the calculations with dNorm, dCol, dPos values, and added those to the current left, right, or center points?  This would add several variables to the kernel, but should require fewer calculations per triangle and speed up the processing time for large triangles.
+
+#### Results
+To put things simply, it didn't work.  There were too many values to keep track of, and too much going on between them, that I don't think it was any faster to take out a few adds and multiply's.  In the end, the number of operations turned out to be nearly equal.  I had hoped that, since you're fetching a constant value and adding it to the same address over and over again, that it would save time by not needing deeper memory access and fewer calculations, but I was wrong.
+
+Sampled over 10 frames, the performance compares as such:
+
+![rasterization runtime graph](https://raw.githubusercontent.com/JivingTechnostic/Project4-Rasterizer/master/renders/5.png)
+
 
