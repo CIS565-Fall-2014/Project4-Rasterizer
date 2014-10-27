@@ -559,8 +559,8 @@ void cudaRasterizeCore( uchar4 *PBOpos,
 
 	// Define model matrix.
 	// Transforms from object-space to world-space.
-	//glm::mat4 model_matrix( 1.0f ); // Identity matrix.
-	glm::mat4 model_matrix = glm::rotate( glm::mat4( 1.0f ), frame * 2, glm::vec3( 0.0f, 1.0f, 0.0f ));
+	glm::mat4 model_matrix( 1.0f ); // Identity matrix.
+	//glm::mat4 model_matrix = glm::rotate( glm::mat4( 1.0f ), frame * 2, glm::vec3( 0.0f, 1.0f, 0.0f ));
 	
 	// Define view matrix.
 	// Transforms from world-space to camera-space.
@@ -613,9 +613,9 @@ void cudaRasterizeCore( uchar4 *PBOpos,
 	//------------------------------
 	// anti-aliasing
 	//------------------------------
-	antiAliasingPostProcess<<< fullBlocksPerGrid, threadsPerBlock >>>( depthbuffer,
-																	   camera.resolution );
-	cudaDeviceSynchronize();
+	//antiAliasingPostProcess<<< fullBlocksPerGrid, threadsPerBlock >>>( depthbuffer,
+	//																   camera.resolution );
+	//cudaDeviceSynchronize();
 
 	//------------------------------
 	// write fragments to framebuffer

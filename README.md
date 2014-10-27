@@ -5,49 +5,65 @@ CIS 565 project 04 : CUDA software rasterizer
 
 This project is an implementation of a simplified, CUDA-based rasterized graphics pipeline, similar to OpenGL's pipeline. I implemented vertex shading, primitive assembly, perspective transformation, rasterization, and fragment shading, and wrote the resulting fragments to a framebuffer for display.
 
-With the exception of the lighting calculations in my fragment shader, no other raycasting/raytracing is used in this project to generate graphics. The purpose of this project is to see how a rasterization pipeline can generate graphics without the use of raycasting.
-
-Additionally, with the exception of  drawing pixels to the screen after all stages of my rasterization pipeline have completed execution, OpenGL is not used anywhere else in this project. Again, the purpose of this project is to see how a rasterization pipeline generates graphics. The purpose is not to generate graphics using OpenGL.
+With the exception of the lighting calculations in my fragment shader, no other raycasting/raytracing is used in this project to generate graphics. Additionally, with the exception of drawing pixels to the screen after all stages of my rasterization pipeline have completed execution, OpenGL is not used anywhere else in this project. The purpose of this project is to see how a rasterization pipeline can generate graphics without the use of raycasting or OpenGL.
 
 ## BASECODE
 
-The basecode provided to me included an OBJ loader and most of the I/O and bookkeeping code. The basecode also included a few useful helper functions for things like computing Barycentric coordinates and AABB bounding boxes of triangles. The core rasterization pipeline was my responsibility to implement.
+The basecode provided to me included an OBJ loader and most of the I/O and bookkeeping code. The basecode also included a few helper functions for things like computing Barycentric coordinates and AABB bounding boxes for triangles. I implemented the core rasterization pipeline.
 
 ## VERTEX SHADING
 
-My vertex shader is responsible for transforming vertices from object-space into screen-space. This transformation requires three matrices to complete. First, a model matrix must be computed that transforms vertices from object-space into world-space. Second, a view matrix must be computed that transforms vertices from world-space into camera-space. Finally, a projection matrix must be computed that transforms vertices from camera-space into clip-space.
+My vertex shader is responsible for transforming vertices from object-space into screen-space. This transformation requires three matrices to complete. First, a model matrix is used to transform vertices from object-space to world-space. Second, a view matrix is used to transform vertices from world-space to camera-space. Finally, a projection matrix is used to transform vertices from camera-space to clip-space.
 
-The wrapper function that calls my vertex shader kernel computes the model, view, and projection matrices, multiplies them together, and then passes the composite matrix on to my vertex shader. (I used glm's built-in lookAt() and perspective() functions to compute my view and projection matrices.) My vertex shader then multiplies every vertex with this passed-in composite matrix to convert the vertex from object-space to clip-space. Once in clip space, a perspective transformation is performed by dividing the x-, y-, and z-components by the w-component (the transformed vertex is homogeneous). This division puts the vertex in NDC-space (normalized device coordinate). This NDC vertex is of the range [-1, 1]. I then transform the x- and y-value ranges from [-1, 1] to [0, 1] by adding 1 and dividing by 2. I want x and y in the [0, 1] range so they can be easily converted to pixels (window coordinates). This conversion is performed by multiplying x by the rendered image's width, and y by the rendered image's height.
+The wrapper function that calls my vertex shader kernel computes the model, view, and projection matrices, multiplies them together, and then passes the composite matrix on to my vertex shader. (I used glm's built-in lookAt() and perspective() functions to compute my view and projection matrices.) My vertex shader then multiplies every vertex with this passed-in composite matrix to convert the vertex from object-space to clip-space.
 
-I wanted to keep the model-space vertices around for lighting and depth computations later in the pipeline, so I decided to store my newly computed screen-space vertices to a second vertex buffer object.
+Once in clip space, a perspective transformation is performed by dividing the x-, y-, and z-components of the vertex by the w-component (the transformed vertex is homogeneous, and thus has four components instead of three). This division puts the vertex in NDC-space (normalized device coordinate). This NDC vertex has range [-1, 1]. Next, I remap the x- and y-value ranges from [-1, 1] to [0, 1] by adding 1 and dividing by 2. I want x and y in the [0, 1] range to facilitate conversion to pixels (window coordinates). This conversion is performed by multiplying x by the rendered image's width, and y by the rendered image's height.
+
+I keep the world-space vertices around for lighting and depth computations later in the pipeline, so I store my newly computed screen-space vertices to a second vertex buffer object.
 
 ## PRIMITIVE ASSEMBLY
 
-My primitive assembly kernel is responsible for creating triangle primitives from the passed-in index, vertex, color, and normal buffers. My triangle objects ended up containing a bit more information than I would have liked, but the information included served my purposes well. Each triangle maintained its object-space vertex positions, screen-space vertex positions, vertex colors, vertex normals, and a flag that marked whether or not the triangle should be rendered in the rasterization stage.
+My primitive assembly kernel is responsible for creating triangle primitives from the passed-in index, vertex, color, and normal buffers. Each triangle maintains its world-space vertex positions, screen-space vertex positions, vertex colors, vertex normals, and a flag that marks whether or not the triangle will be rendered in the rasterization stage.
 
-Indices in the index buffer were extracted based on the index of the curerent triangle primitive. These extracted indices were then used to index into the vertex, color, and normal buffers to form the three points that comprise a correct triangle. This pipeline stage is quite simple, and a quick glance at my code will elucidate things far better than a paragraph in a README can. I encourage you to look at my code.
+Indices in the index buffer are extracted based on the index of the current triangle primitive. These extracted indices are then used to index into the vertex, color, and normal buffers to create the three points that comprise a correct triangle. This pipeline stage is quite simple, and a quick glance at my code will elucidate things far better than a paragraph in a README can, so I encourage you to look at my code.
 
-Inside the primitive assembly stage is also where I perform a simple computation to check if the triangle is facing toward or away from the camera. The result of this computation sets the visibility flag in the triangle which is used in the rasterization stage to cull backfaces. My method for backface culling is described in greater detail below in the section labeled "Baclface culling".
+Inside the primitive assembly stage, I also perform a simple computation to check if the triangle is facing toward or away from the camera. The result of this computation sets the visibility flag in the triangle which is used in the rasterization stage during backface culling. My method for backface culling is described in greater detail below in the section labeled "Baclface culling".
 
 ## RASTERIZATION
 
-Coming soon.
+The rasterization stage is responsible for determining which fragments (a pixel-sized piece of a triangle primitive) are visible to the camera. This process is completed using a per-primitive scanline conversion algorithm.
+
+First, my method checks the visibility flag of the current triangle (set in the primitive assembly stage). If it is false, then no further processing is done for that triangle.
+
+My method then computes an AABB bounding box for the current triangle in screen-space. I iterate through all the pixels inside this bounding box and compute the Barycentric coordinates for the current pixel against the triangle in screen-space. If negative Barycentric coordinates are detected, then the pixel is outside the bounds of the triangle, and the fragment can be discarded.
+
+If the Barycentric coordinates are not negative, then the depth of the current fragment in world-space is compared against the fragment depth already stored in the depth buffer at the current pixel location. Here, it is probably important to mention that a fragment is basically a pixel before it becomes a pixel. So, each fragment stored in the depth buffer maps to one pixel in the eventual output image.
+
+If the current fragment is determined to be closer to the camera than the fragment already stored in the depth buffer, then the current fragment replaces the fragment in the depth buffer. The world-space position, color, and normal for the new fragment are computed by using the Barycentric coordinates computed in screen-space to interpolate over the triangle in world-space.
+
+This method is parallelized per primitive rather than per scanline, so each thread processes all fragments for a single triangle and updates the depth buffer accordingly.
 
 ## FRAGMENT SHADING
 
-Coming soon.
+My pipeline applies a simple diffuse Lambertain shading to each fragment stored in my depth buffer. Each fragment knows its world-space position, color, and normal. Those three pieces of information, along with a light position and light intensity, are all that are needed to compute a diffuse lighting coefficient and perform Lambertian shading.
+
+[Add pics.]
 
 ## BARYCENTRIC COLOR INTERPOLATION
 
-Coming soon.
+[Add pics.]
 
 ## BACKFACE CULLING
 
-Coming soon.
+[TODO]
+
+An performance analysis comparing frame rates with and without backface culling is included below in the section named "Performance analysis".
 
 ## ANTI-ALIASING AS A POST-PROCESS
 
 Coming soon.
+
+[Add pics.]
 
 ## VIDEO DEMO
 
@@ -57,9 +73,11 @@ Coming soon.
 
 Coming soon.
 
+[Add graphs.]
+
 ## ROOM FOR IMPROVEMENT
 
-Coming soon.
+Currently, I have a bug in my rasterization stage calculating fragment depths, so occluded geometry is sometimes rendered in front of the geometry occluding it. My immediate next steps for this project include locating and correcting that error. After that, I would like to interpolate normal values across triangle faces to give the illusion of smoothed geometry even in low polygon objects.
 
 ## SPECIAL THANKS
 
