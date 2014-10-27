@@ -2,7 +2,6 @@
 // Written by Yining Karl Li, Copyright (c) 2012 University of Pennsylvania
 
 #include "main.h"
-
 //-------------------------------
 //-------------MAIN--------------
 //-------------------------------
@@ -18,6 +17,7 @@ int main(int argc, char** argv){
       //renderScene = new scene(data);
       mesh = new obj();
       objLoader* loader = new objLoader(data, mesh);
+
       mesh->buildVBOs();
       delete loader;
       loadedScene = true;
@@ -25,9 +25,31 @@ int main(int argc, char** argv){
   }
 
   if(!loadedScene){
-    cout << "Usage: mesh=[obj file]" << endl;
+    cout << "Usage: mesh=[obj file]\n !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << endl;
     return 0;
   }
+
+  Mmodel = glm::mat4(1.0);
+  Mprojection = glm::perspective(fovy, float(width) / float(height), depth_near, depth_far);
+  Mview = glm::lookAt( Veye, Vcenter, Vup);
+  
+ //   BMP img;
+	//char* filename = "texture0.bmp";
+	//img.ReadFromFile(filename);
+	//texture_width = img.TellWidth();
+	//texture_height = img.TellHeight();
+	//textureBMP = new glm::vec3[texture_width * texture_height];
+	//for(int j = 0; j<texture_height; j++)
+	//  {
+	//	  for(int i = 0; i<texture_width; i++)
+	//	  {
+	//		  float r = img(i,j)->Red/255.0f;
+	//		  float g = img(i,j)->Green/255.0f;
+	//		  float b = img(i,j)->Blue/255.0f;
+	//		  textureBMP[i+j*texture_height] = glm::vec3(r,g,b);
+	//	//	  printf("r %f, g %f, b%f",r,g,b);
+	//	  }
+	//  }
 
   frame = 0;
   seconds = time (NULL);
@@ -93,13 +115,24 @@ void runCuda(){
   ibo = mesh->getIBO();
   ibosize = mesh->getIBOsize();
 
+  nbo = mesh->getNBO();
+  nbosize = mesh->getNBOsize();
+
+  /////ra
+  Mmodel = glm::rotate(Mmodel, (float)1.0f, glm::vec3(0,1,0));
+
+
   cudaGLMapBufferObject((void**)&dptr, pbo);
-  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize);
+  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize, nbo, nbosize, Veye, Mmodel, Mview, Mprojection, depth_near, depth_far, mode);
   cudaGLUnmapBufferObject(pbo);
 
   vbo = NULL;
   cbo = NULL;
   ibo = NULL;
+
+  ///////ra
+  nbo = NULL;
+
 
   frame++;
   fpstracker++;
@@ -280,5 +313,14 @@ void errorCallback(int error, const char* description){
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods){
     if(key == GLFW_KEY_ESCAPE && action == GLFW_PRESS){
         glfwSetWindowShouldClose(window, GL_TRUE);
+    }
+	if(key == GLFW_KEY_1 && action == GLFW_PRESS){
+		mode = 0;
+    }
+	if(key == GLFW_KEY_2 && action == GLFW_PRESS){
+		mode = 1;
+    }
+	if(key == GLFW_KEY_3 && action == GLFW_PRESS){
+		mode = 2;
     }
 }
