@@ -329,6 +329,69 @@ void fragmentShadeKernel( fragment *depthbuffer,
 }
 
 
+__host__
+__device__
+float computeDistanceBetweenTwoColors( glm::vec3 p1, glm::vec3 p2 )
+{
+	return sqrt( ( p2.x - p1.x ) * ( p2.x - p1.x ) + ( p2.y - p1.y ) * ( p2.y - p1.y ) + ( p2.z - p1.z ) * ( p2.z - p1.z ) );
+}
+
+__host__
+__device__
+bool shouldBlurPixel( int x, int y,
+					  fragment *depthbuffer,
+					  glm::vec2 resolution )
+{
+	if ( x <= resolution.x && y <= resolution.y ) {
+		const float threshold = 0.25f;
+
+		glm::vec3 p1 = depthbuffer[x + ( y * ( int )resolution.x )].color;
+		int i, j;
+
+		// Left.
+		i = x - 1;
+		j = y;
+		if ( i > 0 && i <= resolution.x && j > 0 && j <= resolution.y ) {
+			glm::vec3 p2 = depthbuffer[i + ( j * ( int )resolution.x )].color;
+			if ( computeDistanceBetweenTwoColors( p1, p2 ) > threshold ) {
+				return true;
+			}
+		}
+
+		// Top.
+		i = x;
+		j = y - 1;
+		if ( i > 0 && i <= resolution.x && j > 0 && j <= resolution.y ) {
+			glm::vec3 p2 = depthbuffer[i + ( j * ( int )resolution.x )].color;
+			if ( computeDistanceBetweenTwoColors( p1, p2 ) > threshold ) {
+				return true;
+			}
+		}
+
+		// Right.
+		i = x + 1;
+		j = y;
+		if ( i > 0 && i <= resolution.x && j > 0 && j <= resolution.y ) {
+			glm::vec3 p2 = depthbuffer[i + ( j * ( int )resolution.x )].color;
+			if ( computeDistanceBetweenTwoColors( p1, p2 ) > threshold ) {
+				return true;
+			}
+		}
+
+		// Bottom.
+		i = x;
+		j = y + 1;
+		if ( i > 0 && i <= resolution.x && j > 0 && j <= resolution.y ) {
+			glm::vec3 p2 = depthbuffer[i + ( j * ( int )resolution.x )].color;
+			if ( computeDistanceBetweenTwoColors( p1, p2 ) > threshold ) {
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
 __global__
 void antiAliasingPostProcess( fragment *depthbuffer,
 							  glm::vec2 resolution )
@@ -337,17 +400,19 @@ void antiAliasingPostProcess( fragment *depthbuffer,
 	int y = ( blockIdx.y * blockDim.y ) + threadIdx.y;
 	int index = x + ( y * resolution.x );
 	if ( x <= resolution.x && y <= resolution.y ) {
-		int pixel_count = 0;
-		glm::vec3 sum( 0.0f, 0.0f, 0.0f );
-		for ( int i = x - 1; i < x + 1; ++i ) {
-			for ( int j = y - 1; j < y + 1; ++j ) {
-				if ( i > 0 && i <= resolution.x && j > 0 && j <= resolution.y ) {
-					sum += depthbuffer[i + ( j * ( int )resolution.x )].color;
-					++pixel_count;
+		if ( shouldBlurPixel( x, y, depthbuffer, resolution ) ) {
+			int pixel_count = 0;
+			glm::vec3 sum( 0.0f, 0.0f, 0.0f );
+			for ( int i = x - 1; i < x + 1; ++i ) {
+				for ( int j = y - 1; j < y + 1; ++j ) {
+					if ( i > 0 && i <= resolution.x && j > 0 && j <= resolution.y ) {
+						sum += depthbuffer[i + ( j * ( int )resolution.x )].color;
+						++pixel_count;
+					}
 				}
 			}
+			depthbuffer[index].color = glm::vec3( sum.x / pixel_count, sum.y / pixel_count, sum.z / pixel_count );
 		}
-		depthbuffer[index].color = glm::vec3( sum.x / pixel_count, sum.y / pixel_count, sum.z / pixel_count );
 	}
 }
 

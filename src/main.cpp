@@ -34,8 +34,8 @@ int main( int argc, char **argv )
 	fpstracker = 0;
 
 	// Hardcoded camera definition.
-	camera.position = glm::vec3( 0.0f, 0.0f, 4.0f );
-	camera.target = glm::vec3( 0.0f, 0.0f, 0.0f );
+	camera.position = glm::vec3( 0.0f, 0.0f, 2.5f );
+	camera.target = glm::vec3( 0.0f, 0.3f, 0.0f );
 	camera.up = glm::vec3( 0.0f, -1.0f, 0.0f );
 	camera.fov_y = 25.0f;
 	camera.resolution = glm::vec2( width, height );
@@ -96,10 +96,6 @@ void runCuda(){
   float newcbo[] = {0.0, 1.0, 0.0, 
                     0.0, 0.0, 1.0, 
                     1.0, 0.0, 0.0};
-
-  //float newcbo[] = {1.0, 0.0, 0.0, 
-  //                  0.0, 1.0, 0.0, 
-  //                  0.0, 0.0, 1.0};
 
   cbo = newcbo;
   cbosize = 9;
