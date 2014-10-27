@@ -5,6 +5,8 @@
 #include <cuda.h>
 #include <cmath>
 #include <thrust/random.h>
+#include <thrust/device_ptr.h>
+#include <thrust/remove.h>
 #include "rasterizeKernels.h"
 #include "rasterizeTools.h"
 using namespace std;
@@ -157,7 +159,7 @@ __global__ void vertexShadeKernel(float* vbo, int vbosize,float* nbo,cudaMat4* M
 }
 
 //TODO: Implement primative assembly
-__global__ void primitiveAssemblyKernel(float* vbo, int vbosize, float* cbo, int cbosize, int* ibo, int ibosize, float* nbo,triangle* primitives,float* old_vbo){
+__global__ void primitiveAssemblyKernel(float* vbo, int vbosize, float* cbo, int cbosize, int* ibo, int ibosize, float* nbo,triangle* primitives,float* old_vbo,glm::vec3 eye){
   int index = (blockIdx.x * blockDim.x) + threadIdx.x;
   int primitivesCount = ibosize/3;
   if(index<primitivesCount){
@@ -183,9 +185,21 @@ __global__ void primitiveAssemblyKernel(float* vbo, int vbosize, float* cbo, int
 	  primitives[index].n0=glm::vec3(nbo[a],nbo[a+1],nbo[a+2]);
 	  primitives[index].n1=glm::vec3(nbo[b],nbo[b+1],nbo[b+2]);
 	  primitives[index].n2=glm::vec3(nbo[c],nbo[c+1],nbo[c+2]);
-
+	  //backface culling
+	  glm::vec3 D=(primitives[index].old_p0+primitives[index].old_p1+primitives[index].old_p2)/3.0f-eye;
+	  glm::vec3 N=glm::normalize(glm::cross(primitives[index].old_p1-primitives[index].old_p0,primitives[index].old_p2-primitives[index].old_p1));
+	  primitives[index].visiable=(glm::dot(D,N)>0);
   }
 }
+
+struct backface_culling
+{
+	__host__ __device__
+		bool operator()(const triangle tri)
+	{
+		return tri.visiable;
+	}
+};
 
 //TODO: Implement a rasterization method, such as scanline.:http://www.sunshine2k.de/coding/java/TriangleRasterization/TriangleRasterization.html
 __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, fragment* depthbuffer, glm::vec2 resolution,float z_near,float z_far){
@@ -333,13 +347,21 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
   //primitive assembly
   //------------------------------
   primitiveBlocks = ceil(((float)ibosize/3)/((float)tileSize));
-  primitiveAssemblyKernel<<<primitiveBlocks, tileSize>>>(device_vbo, vbosize, device_cbo, cbosize, device_ibo, ibosize, device_nbo,primitives,device_old_vbo);
+  primitiveAssemblyKernel<<<primitiveBlocks, tileSize>>>(device_vbo, vbosize, device_cbo, cbosize, device_ibo, ibosize, device_nbo,primitives,device_old_vbo,eye);
 
   cudaDeviceSynchronize();
+
+  //backface culling
+  int Num=ibosize/3;
+  thrust::device_ptr<triangle> start(primitives);
+  thrust::device_ptr<triangle> end=start+Num;
+  end=thrust::remove_if(start,end,backface_culling());
+  Num=(int)(end-start);
+
   //------------------------------
   //rasterization
   //------------------------------
-  rasterizationKernel<<<primitiveBlocks, tileSize>>>(primitives, ibosize/3, depthbuffer, resolution,z_near,z_far);
+  rasterizationKernel<<<primitiveBlocks, tileSize>>>(primitives, Num, depthbuffer, resolution,z_near,z_far);
 
   cudaDeviceSynchronize();
   //------------------------------

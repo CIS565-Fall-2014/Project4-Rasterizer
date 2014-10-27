@@ -198,7 +198,7 @@ void CursorCallback(GLFWwindow* window,double x,double y)
 	}
 	if(right_button&&inside_window)
 	{
-		D=D+offset_x/(float)10;
+		D=D+offset_x/(float)30;
 	}
 }
 

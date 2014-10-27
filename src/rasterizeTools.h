@@ -22,6 +22,7 @@ struct triangle {
   glm::vec3 old_p0;
   glm::vec3 old_p1;
   glm::vec3 old_p2;
+  bool visiable;
 };
 
 struct fragment{
