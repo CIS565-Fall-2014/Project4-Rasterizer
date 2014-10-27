@@ -95,7 +95,25 @@ void runCuda(){
   ibosize = mesh->getIBOsize();
 
   cudaGLMapBufferObject((void**)&dptr, pbo);
+#ifdef __linux__
+  static int iterations = 0;
+  cudaDeviceSynchronize();
+  struct timespec ts1, ts2;
+  clock_gettime(CLOCK_MONOTONIC, &ts1);
+#endif
   cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize);
+#ifdef __linux__
+  cudaDeviceSynchronize();
+  clock_gettime(CLOCK_MONOTONIC, &ts2);
+  double t1 = ts1.tv_sec * 1e3 + ts1.tv_nsec * 1e-6;
+  double t2 = ts2.tv_sec * 1e3 + ts2.tv_nsec * 1e-6;
+  static float sum = 0;
+  if (iterations > 10) {
+      sum += t2 - t1;
+      std::cout << sum / (iterations - 10) << std::endl;
+  }
+  iterations += 1;
+#endif
   cudaGLUnmapBufferObject(pbo);
 
   vbo = NULL;
