@@ -22,7 +22,6 @@ In this project, I implemented a standard rasterized graphics pipeline. Followin
 Following features are implemented as additional features:
 * Back-face culling
 * Correct color interpolation between points on a primitive
-* Anti-aliasing
 * MOUSE BASED interactive camera support. Interactive camera support based only on the keyboard is not acceptable for this feature.
 
 -------------------------------------------------------------------------------
@@ -46,3 +45,5 @@ I then added the mouse based interactive camera. The model is rotating slowly by
 
 At last I implemented the backface culling by calculate the dot product between the eye direction and the face normal. I also used thrust::remove_if as I did in the last project. In theory the performance should improve a lot, since about half primitives should be invisible. However for the cow the FPS doesn't change too much. Before backface culling the FPS is about 15, and after using backface culling the FPS is still around 16.
 
+Future work:
+I would like to try Anti-aliasing and also smoothing the normals for adjacent primitives. 
