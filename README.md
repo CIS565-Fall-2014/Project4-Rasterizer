@@ -1,15 +1,14 @@
--------------------------------------------------------------------------------
+
 CIS565: Project 4: CUDA Rasterizer
 -------------------------------------------------------------------------------
 
--------------------------------------------------------------------------------
+
 INTRODUCTION:
 -------------------------------------------------------------------------------
 This is a simplified CUDA based implementation of a standard rasterized graphics pipeline, similar to the OpenGL pipeline.   
 The pipeline includes vertex shading, primitive assembly, perspective transformation, rasterization, fragment shading, and write the resulting fragments to a framebuffer.
 
 
--------------------------------------------------------------------------------
 BASIC FETAURES:
 -------------------------------------------------------------------------------
 
@@ -22,18 +21,21 @@ BASIC FETAURES:
 * Fragment to framebuffer writing
 
 
--------------------------------------------------------------------------------
+
 ADVENCED FEATURES:
 -------------------------------------------------------------------------------
--------------------------------------------------------------------------------
+
+
 MOUSE BASED interactive camera support  
 -------------------------------------------------------------------------------
 - mouse left click + drag: rotate the camera around the lookat center  
 - mouse right click + drag: translate the camera lookat point  
 - mouse scroll: zoom in/out   
 The video below shows how the interaction is like.   
-[![ScreenShot](imgs/CamInteractionThumbnail.png)] (http://youtu.be/34XS6eS-lT8)    
--------------------------------------------------------------------------------
+[![ScreenShot](FinalImgs/CamInteractionThumbnail.png)] (http://youtu.be/34XS6eS-lT8)    
+
+
+
 Keyboard Control
 -------------------------------------------------------------------------------
 - p: performance analysis on/off
@@ -44,47 +46,54 @@ Keyboard Control
 - 5: diffuse shading
 - 6: blinn shading
 - 7: texture map 
--------------------------------------------------------------------------------
+
+
+
 Back-face culling  
 -------------------------------------------------------------------------------
 This is done by checking the normal of current triangle face, if the normal is pointing backwards, then discard shading this face.
 
--------------------------------------------------------------------------------
+
+
+
 Different Shading mode 
 -------------------------------------------------------------------------------
 * Points
-![](imgs/cow_point_raster.png)
+![](FinalImgs/cow_point_raster.png)
 * Lines
-![](imgs/cube_line_raster.png)
+![](FinalImgs/cube_line_raster.png)
 * normal based shading
-![](imgs/cow_shade_by_normal.png)
+![](FinalImgs/cow_shade_by_normal.png)
 * face orientation shading (Correct color interpolation between points on a primitive)
-![](imgs/bunny_vertex_shade.png)
+![](FinalImgs/bunny_vertex_shade.png)
 * diffuse shading
-![](imgs/cow_diffuse_shade.png)
+![](FinalImgs/cow_diffuse_shade.png)
 * blinn shading
-![](imgs/cow_blinn_shade.png)
+![](FinalImgs/cow_blinn_shade.png)
 * texture map (WITH texture filtering and perspective correct texture coordinates)
 Reading a texture image is completed with the support of "FreeImage". TODO, the perspectively correct texture map is not finished yet.
 
 
--------------------------------------------------------------------------------
+
+
 PERFORMANCE EVALUATION
 -------------------------------------------------------------------------------
 I noticed that when the camera zooms in, the rasterizer fps drops significantly. So I started the comparison between camera zoom-out and camera zoom-in, with other set up exactly same.  
 The pictures below describes the camera zoom distance, and the corresponding performance analysis.  
 * Time Consumption Pie Chart for Pipeline (zoom-out, cow model)
-![](imgs/performance_zoom_out.png)
-![](imgs/performance_zoom_out_pieChart.png)
+![](FinalImgs/performance_zoom_out.png)
+![](FinalImgs/performance_zoom_out_pieChart.png)
 * Time Consumption Pie Chart for Pipeline (zoom-in, cow model)
-![](imgs/performance_zoom_in.png)
-![](imgs/performance_zoom_in_pieChart.png)
+![](FinalImgs/performance_zoom_in.png)
+![](FinalImgs/performance_zoom_in_pieChart.png)
 
 It can be noticed that the rasterization takes additional time when camera zooms in, and introduces drop of efficiency. And all the rest stage takes roughly the same amount of time no matter zooms in or zooms out.  
 This is probably because when the camera is closer, each of the triangle face will become bigger, which occupies more pixels, hence takes longer to complete rasterization. 
 One possible solution is to parallelize the naive scanline approach, so save the consumption in iteration through many fragments.  
 
--------------------------------------------------------------------------------
+
+
+
 REFERRENCES
 -------------------------------------------------------------------------------
 loading texture image  
