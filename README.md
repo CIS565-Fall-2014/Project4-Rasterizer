@@ -34,7 +34,7 @@ Extra Features:
 
 Video Link : https://www.youtube.com/watch?v=UqCF5kZ2ZAc
 
-
+![alt tag](https://raw.github.com/username/projectname/branch/path/to/random_render.jpg)
 -------------------------------------------------------------------------------
 THIRD PARTY SOFTWARE
 -------------------------------------------------------------------------------
