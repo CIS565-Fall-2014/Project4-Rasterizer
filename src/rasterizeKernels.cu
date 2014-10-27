@@ -12,7 +12,7 @@
 #include "rasterizeKernels.h"
 //#include "rasterizeTools.h"
 
-#define CullingFlag
+#include "Macros.h"
 
 glm::vec3* framebuffer;
 fragment* depthbuffer;
@@ -366,7 +366,7 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 					}
 				}
 
-				for (int i = max(int(tMin.x + minS * u.x), 0); i < min(int(tMin.x + maxS * u.x + 1), int(resolution.x)); ++i)
+				for (int i = max(int(tMin.x + minS * u.x), 0); i < min(int(tMin.x + maxS * u.x + 1), int(resolution.x)); i++)
 				{
 					PC = glm::vec2(float(i + 0.5), float(j + 0.5));
 					BC = lcalculateBarycentricCoordinate(curTri, PC);
@@ -428,6 +428,7 @@ __global__ void fragmentShadeKernel(fragment* depthbuffer, glm::vec2 resolution,
 	}
 }
 
+__global__ void AntiAliasing(){}
 //Writes fragment colors to the framebuffer
 __global__ void render(glm::vec2 resolution, fragment* depthbuffer, glm::vec3* framebuffer){
 
@@ -442,7 +443,10 @@ __global__ void render(glm::vec2 resolution, fragment* depthbuffer, glm::vec3* f
 
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRasterizeCore(uchar4* PBOpos, Camera cam, float frame, float* vbo, int vbosize, float* cbo, int cbosize, int* ibo, int ibosize, float* nbo, int nbosize){
-
+	cudaEvent_t start, stop;
+	cudaEventCreate(&start);
+	cudaEventCreate(&stop);
+	cudaEventRecord(start, 0);
 	glm::vec2 resolution = cam.reso;
 	// set up crucial magic
 	int tileSize = 8;
@@ -542,12 +546,20 @@ void cudaRasterizeCore(uchar4* PBOpos, Camera cam, float frame, float* vbo, int 
 	//write fragments to framebuffer
 	//------------------------------
 	render << <fullBlocksPerGrid, threadsPerBlock >> >(resolution, depthbuffer, framebuffer);
+#ifdef AA
+#endif
 	sendImageToPBO << <fullBlocksPerGrid, threadsPerBlock >> >(PBOpos, resolution, framebuffer);
 
 	cudaDeviceSynchronize();
 
 	kernelCleanup();
+	cudaEventRecord(stop, 0);
+	cudaEventSynchronize(stop);
 
+	float seconds = 0.0f;
+	cudaEventElapsedTime(&seconds, start, stop);
+
+	printf("One Loop time:  %f ms\n", seconds);
 	checkCUDAError("Kernel failed!");
 }
 
