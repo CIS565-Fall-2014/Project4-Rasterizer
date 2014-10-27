@@ -193,6 +193,7 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
         triangle tri = primitives[index];
 
         // Backface culling
+        // TODO: change this to a stream compaction and test performance
         glm::vec3 winding = glm::cross(
                 tri.v[1].pn - tri.v[0].pn,
                 tri.v[2].pn - tri.v[1].pn);
@@ -219,7 +220,7 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
                     float depthold = frag.pn.z;
                     float depthnew = getZAtCoordinate(bary, tri);
 
-                    if (depthnew < 1 && depthnew > depthold) {
+                    if (depthnew < depthold) {
                         frag.pn = glm::vec3(ndc, depthnew);
                         frag.pw = baryinterp(bary, tri.v[0].pw, tri.v[1].pw, tri.v[2].pw);
                         frag.c  = baryinterp(bary, tri.v[0].c , tri.v[1].c , tri.v[2].c );
@@ -264,9 +265,7 @@ __global__ void render(glm::vec2 resolution, fragment* depthbuffer, glm::vec3* f
 
     if (x <= resolution.x && y <= resolution.y) {
         fragment frag = depthbuffer[index];
-        if (frag.nw.z > -1.0001f) { // min should be -1
-            framebuffer[index] = depthbuffer[index].c;
-        }
+        framebuffer[index] = depthbuffer[index].c;
     }
 }
 
@@ -290,12 +289,12 @@ void cudaRasterizeCore(
     cudaMalloc((void**)&depthbuffer, (int)resolution.x * (int)resolution.y * sizeof(fragment));
 
     //kernel launches to black out accumulated/unaccumlated pixel buffers and clear our scattering states
-    clearImage<<<fullBlocksPerGrid, threadsPerBlock>>>(resolution, framebuffer, glm::vec3(0.2f, 0.2f, 0.2f));
+    clearImage<<<fullBlocksPerGrid, threadsPerBlock>>>(resolution, framebuffer, glm::vec3(1, 0, 1));
 
     fragment frag;
-    frag.pn = glm::vec3(0, 0, -10000);
+    frag.pn = glm::vec3(0, 0, 10000);
     frag.pw = glm::vec3(0, 0, 0);
-    frag.c  = glm::vec3(1, 0, 1);
+    frag.c  = glm::vec3(0.2f, 0.2f, 0.2f);
     frag.nw = glm::vec3(0, 0, 0);
     clearDepthBuffer<<<fullBlocksPerGrid, threadsPerBlock>>>(resolution, depthbuffer, frag);
 
