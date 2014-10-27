@@ -6,7 +6,7 @@
 //-------------------------------
 //-------------MAIN--------------
 //-------------------------------
-
+bmp_texture tex;
 int main(int argc, char** argv){
 
   bool loadedScene = false;
@@ -72,6 +72,11 @@ void mainLoop() {
   glfwTerminate();
 }
 
+float theTa =0;
+float alpha =1;
+bool line = false;
+bool vertex = false;
+bool back = true;
 //-------------------------------
 //---------RUNTIME STUFF---------
 //-------------------------------
@@ -93,8 +98,13 @@ void runCuda(){
   ibo = mesh->getIBO();
   ibosize = mesh->getIBOsize();
 
+  nbo = mesh->getNBO();
+  nbosize = mesh->getNBOsize();
+
+  texcoord = mesh->getTextureCoords();
+  
   cudaGLMapBufferObject((void**)&dptr, pbo);
-  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize);
+  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize, nbo, nbosize,&tex,texcoord,theTa,alpha,line,vertex,back);
   cudaGLUnmapBufferObject(pbo);
 
   vbo = NULL;
@@ -105,10 +115,38 @@ void runCuda(){
   fpstracker++;
 
 }
-  
+
+void readBMP(char* filename,bmp_texture &tex)
+{
+	int i;
+    FILE* f = fopen(filename, "rb");
+    unsigned char info[54];
+    fread(info, sizeof(unsigned char), 54, f); // read the 54-byte header
+
+    // extract image height and width from header
+    int width = *(int*)&info[18];
+    int height = *(int*)&info[22];
+
+    int size = 3 * width * height;
+    unsigned char* data = new unsigned char[size]; // allocate 3 bytes per pixel
+    fread(data, sizeof(unsigned char), size, f); // read the rest of the data at once
+    fclose(f);
+	glm::vec3 *color_data = new glm::vec3[size/3];
+    for(i = 0; i < size; i += 3)
+    {
+			color_data[i/3].r = (int)data[i+2]/255.0f;
+			color_data[i/3].g = (int)data[i+1]/255.0f;
+			color_data[i/3].b = (int)data[i]/255.0f;
+    }
+    delete []data;
+	tex.data = color_data;
+	tex.height = height;
+	tex.width = width;
+}
 //-------------------------------
 //----------SETUP STUFF----------
 //-------------------------------
+
 
 bool init(int argc, char* argv[]) {
   glfwSetErrorCallback(errorCallback);
@@ -117,6 +155,7 @@ bool init(int argc, char* argv[]) {
       return false;
   }
 
+  readBMP("texture.bmp",tex);
   width = 800;
   height = 800;
   window = glfwCreateWindow(width, height, "CIS 565 Pathtracer", NULL, NULL);
@@ -280,5 +319,28 @@ void errorCallback(int error, const char* description){
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods){
     if(key == GLFW_KEY_ESCAPE && action == GLFW_PRESS){
         glfwSetWindowShouldClose(window, GL_TRUE);
+    }
+	if(key == GLFW_KEY_RIGHT){
+		theTa+=0.1f;
+    }
+
+	if(key == GLFW_KEY_LEFT){
+		theTa-=0.1f;
+    }
+	if(key == GLFW_KEY_UP && action == GLFW_PRESS){
+		alpha+=0.1f;
+    }
+
+	if(key == GLFW_KEY_DOWN && action == GLFW_PRESS){
+		alpha-=0.1f;
+    }
+	if(key == GLFW_KEY_A && action == GLFW_PRESS){
+		line = !line;
+    }
+	if(key == GLFW_KEY_S && action == GLFW_PRESS){
+		vertex = !vertex;
+    }
+	if(key == GLFW_KEY_D && action == GLFW_PRESS){
+		back = !back;
     }
 }

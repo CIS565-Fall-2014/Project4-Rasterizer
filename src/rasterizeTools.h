@@ -16,12 +16,20 @@ struct triangle {
   glm::vec3 c0;
   glm::vec3 c1;
   glm::vec3 c2;
+  glm::vec3 n0;
+  glm::vec3 n1;
+  glm::vec3 n2;
+  glm::vec2 t0;
+  glm::vec2 t1;
+  glm::vec2 t2;
 };
 
 struct fragment{
+  int type;
   glm::vec3 color;
   glm::vec3 normal;
   glm::vec3 position;
+  glm::vec2 texcoord;
 };
 
 //Multiplies a cudaMat4 matrix and a vec4
