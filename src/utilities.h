@@ -34,6 +34,8 @@ namespace utilityCore {
     extern void printCudaMat4(cudaMat4 m);
     extern std::string convertIntToString(int number);
 
+	extern void getAABBForMesh(float * vbo, int vbosize, glm::vec3 & min, glm::vec3  &max);
+
     //-----------------------------
     //-------GLM Printers----------
     //-----------------------------

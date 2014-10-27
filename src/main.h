@@ -18,8 +18,9 @@
 #include <stdlib.h>
 #include <string>
 #include <time.h>
+#include <GL/glut.h>
 
-
+#include "bitmap_image.hpp"
 #include "rasterizeKernels.h"
 #include "utilities.h"
 
@@ -40,8 +41,10 @@ GLuint displayImage;
 uchar4 *dptr;
 
 GLFWwindow *window;
-
 obj* mesh;
+vector<obj*> meshes;
+bitmap_image backgroundImage("background2.bmp");
+bitmap_image texture1("rust.bmp");
 
 float* vbo;
 int vbosize;
@@ -49,12 +52,18 @@ float* cbo;
 int cbosize;
 int* ibo;
 int ibosize;
+float* nbo;
+int nbosize;
+float* backgroundTexture;
+float* textureColor;
 
 //-------------------------------
 //----------CUDA STUFF-----------
 //-------------------------------
 
 int width = 800; int height = 800;
+glm::vec3 eyePos(0,0.3,-3);
+glm::vec3 center(0,0.3,0);
 
 //-------------------------------
 //-------------MAIN--------------
@@ -71,8 +80,14 @@ void runCuda();
 #ifdef __APPLE__
 	void display();
 #else
+	int isButtonPressed;
+	int buttonPressed;
+	double lastX, lastY;
 	void display();
 	void keyboard(unsigned char key, int x, int y);
+	static void cursor_position_callback(GLFWwindow* window, double xpos, double ypos);
+	static void mouse_button_callback(GLFWwindow* window, int button, int action, int mods);
+
 #endif
 
 //-------------------------------

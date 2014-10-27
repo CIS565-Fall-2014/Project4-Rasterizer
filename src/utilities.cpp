@@ -73,6 +73,7 @@ glm::mat4 utilityCore::buildTransformationMatrix(glm::vec3 translation, glm::vec
   return translationMat*rotationMat*scaleMat;
 }
 
+
 cudaMat4 utilityCore::glmMat4ToCudaMat4(glm::mat4 a){
     cudaMat4 m; a = glm::transpose(a);
     m.x = a[0];
@@ -99,6 +100,23 @@ std::vector<std::string> utilityCore::tokenizeString(std::string str){
     return results;
 }
 
+void utilityCore::getAABBForMesh(float * vbo, int vbosize, glm::vec3 & min, glm::vec3  &max)
+{
+	float minX = FLT_MAX; float minY = FLT_MAX; float minZ = FLT_MAX;
+	float maxX = FLT_MIN; float maxY = FLT_MIN; float maxZ = FLT_MIN;
+	for(int i = 0; i < vbosize; i+=3)
+	{
+		minX = glm::min(minX, vbo[i]);
+		minY = glm::min(minY, vbo[i+1]);
+		minZ = glm::min(minZ, vbo[i+2]);
+
+		maxX = glm::max(maxX, vbo[i]);
+		maxY = glm::max(maxY, vbo[i+1]);
+		maxZ = glm::max(maxZ, vbo[i+2]);
+	}
+	min = glm::vec3(minX,minY,minZ);
+	max = glm::vec3(maxX,maxY,maxZ);
+}
 //-----------------------------
 //-------GLM Printers----------
 //-----------------------------
