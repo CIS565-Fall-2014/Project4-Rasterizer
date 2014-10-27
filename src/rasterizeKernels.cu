@@ -158,11 +158,14 @@ __global__ void vertexShadeKernel(uniforms *unifs, int vbocount,
         vertO v;
 
         // Apply model
-        v.pw = multiplyMV(u.model, p);
-        v.nw = multiplyMV(u.modelinvtr, n);
+        glm::vec4 mp = multiplyMV(u.model, p);
+        v.pw = glm::vec3(mp) / mp.w;
+        glm::vec4 mn = multiplyMV(u.modelinvtr, n);
+        v.nw = glm::vec3(mn);
 
         // Apply viewproj
-        v.pn = multiplyMV(u.viewproj, glm::vec4(v.pw, 1));
+        glm::vec4 pvp = multiplyMV(u.viewproj, mp);
+        v.pn = glm::vec3(pvp) / pvp.w;
 
         v.c = c;
         vbo[index] = v;
@@ -331,7 +334,7 @@ void cudaRasterizeCore(
     uniforms *device_unifs;
     cudaMalloc((void **) &device_unifs, sizeof(uniforms));
     {
-        float fovy = glm::radians(60.f);
+        float fovy = glm::radians(30.f);
         float aspect = resolution.x / resolution.y;
         glm::vec3 eye(1.5f, 1, 2);
         glm::vec3 center(0, 1, 0);
