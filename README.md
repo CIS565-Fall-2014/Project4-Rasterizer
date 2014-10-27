@@ -20,7 +20,7 @@ I have implemented the following stages of the graphics pipeline and basic featu
 -------------------------------------------------------------------------------
 Demo
 -------------------------------------------------------------------------------
-[![ScreenShot](https://raw.github.com/GabLeRoux/WebMole/master/ressources/WebMole_Youtube_Video.png)](http://youtu.be/vt5fpE0bzSY)
+[![ScreenShot](https://github.com/liying3/Project4-Rasterizer/blob/master/result/video.JPG)](https://github.com/liying3/Project4-Rasterizer/blob/master/result/PROJ4_Rasterizer.wmv)
 -------------------------------------------------------------------------------
 Extra Features:
 -------------------------------------------------------------------------------
@@ -61,7 +61,7 @@ When using multi threads to raster the objects, there may exist read and write c
 
 Here is a cube without lock. In the image, some back-face color substitute the front-face color.
 
-![video](https://github.com/liying3/Project4-Rasterizer/blob/master/result/PROJ4_Rasterizer.wmv)
+![ScreenShot](https://github.com/liying3/Project4-Rasterizer/blob/master/result/orgCube.PNG)
 
 Back-face culling helps solve some conflict ions, but it's not guarantee for it. Because for the face with perpendicular normal to the view direction, it cannot determine whether it is visible or not.
 
@@ -74,7 +74,11 @@ So, the lock or atomic function should be implemented. In my program, I add an a
 ![ScreenShot](https://github.com/liying3/Project4-Rasterizer/blob/master/result/lockCube.PNG)
 
 * Time Efficiency
-The histogram shows the timing and FPS.
+The histogram shows the timing and FPS. Back-face culling helps improve the time efficiency a little. And the anti-aliasing function increases timing a lot.
+
+![ScreenShot](https://github.com/liying3/Project4-Rasterizer/blob/master/result/table.JPG)
+
+![ScreenShot](https://github.com/liying3/Project4-Rasterizer/blob/master/result/chart.JPG)
 
 
 -------------------------------------------------------------------------------
