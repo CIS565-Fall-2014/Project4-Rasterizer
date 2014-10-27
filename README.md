@@ -39,17 +39,19 @@ Missing Features
 ### Depth buffer testing
 I did not have time to do proper depth checking, so you can see depth errors such as in the following image, where the cow's tail is visible through its body.  Each fragment does have a depth value, it's just a matter of setting up atomics and locking the fragment properly.
 
-Back-Face Culling Performance Analysis
+Back-Face Culling and Clipping Performance Analysis
 --------------------------------------
 ### Expectations
+I don't actually expect that this increases runtime too much.  I don't think that the bottleneck is due to too many triangles. Rather, it's caused by large triangles.  Large triangles cause a single thread to take longer, and mess everything up.  There should be a small performance impact, but not huge.
+
+However, since I did not implement a proper z-buffer, having back-face culling means that there will be less incorrect z-fighting due to race conditions, since there won't be any back face to fight with the front.
 
 ### Performance Impact
+#####Without Culling and Clipping: 24-25 fps
+#####With Culling: 25-26 fps
+#####With Culling and Clipping (~50% of body hidden): 28-27 fps
 
-Clipping Performance Analysis
------------------------------
-### Expectations
-
-### Performance Impact
+So as you can see, it does produce some level of speedup, but not much.  In addition, clipping gives more speedup if I hide the body offscreen and keep the head (which has smaller triangles), which leads me back to the point I was making about triangle size causing the bottleneck.
 
 Performance Evaluation--A Better Linear Interpolation?
 ------------------------------------------------------
