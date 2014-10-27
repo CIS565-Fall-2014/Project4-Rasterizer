@@ -385,9 +385,6 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 						  //glm::vec3 p = multiplyMV(M_mvp_inverse, glm::vec4(depthbuffer[index].position, 1.0f));
 						 // glm::vec3 p1 = multiplyMV(M_mvp_inverse, glm::vec4(primitives[index].p1, 1.0f));
 						 // glm::vec3 p2 = multiplyMV(M_mvp_inverse, glm::vec4(primitives[index].p2, 1.0f));
-						  if(point.z > -10.0f){
-							  printf("original point: %.2f, %.2f, %.2f\n", point.x, point.y, point.z);
-						  }
 						  //primitives[index].c0 = findTextureColor(p0, texColor, theTex);
 						  //primitives[index].c1 = findTextureColor(p1, texColor, theTex);
 						 // primitives[index].c2 = findTextureColor(p2, texColor, theTex);

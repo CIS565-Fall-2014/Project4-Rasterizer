@@ -60,21 +60,32 @@ Different Shading mode
 -------------------------------------------------------------------------------
 * Points  
 This is done after fragment shader, by selecting visible vertex from "vbo". When including points raster, the time consumption increases by similar amount of time used in vertex shader.  
-![](FinalImgs/cow_point_raster.png)
+![](FinalImgs/cow_point_raster.png)  
+
 * Lines  
 This is done after in rasterization, by determining whether current fragment is on the edges of the triangle face. When including lines raster, the time consumption increases by a significant amount. 
 This is because the line raster lines in the body of naive scanline, which needs to be parallelized.  
-![](FinalImgs/cube_line_raster.png)
+![](FinalImgs/cube_line_raster.png)  
+
 * normal based shading  
-![](FinalImgs/cow_shade_by_normal.png)
+This is done in fragment shader.
+![](FinalImgs/cow_shade_by_normal.png)  
+
 * face orientation shading (Correct color interpolation between points on a primitive)  
-![](FinalImgs/bunny_vertex_shade.png)
+This is done in fragment shader.
+![](FinalImgs/bunny_vertex_shade.png)  
+
 * diffuse shading  
-![](FinalImgs/cow_diffuse_shade.png)
+This is done in fragment shader.
+![](FinalImgs/cow_diffuse_shade.png)  
+
 * blinn shading  
-![](FinalImgs/cow_blinn_shade.png)
+This is done in fragment shader.
+![](FinalImgs/cow_blinn_shade.png)  
+
 * texture map (WITH texture filtering and perspective correct texture coordinates)  
-Reading a texture image is completed with the support of "FreeImage". TODO, the perspectively correct texture map is not finished yet.
+Reading a texture image is completed with the support of "FreeImage", but he perspectively correct texture map is not finished yet. 
+This is to be done in rasterization stage, to find correcct color for each pixel by transformed uv coordinates (1/z, u/z, v/z).
 
 
 
@@ -106,5 +117,5 @@ loading texture image
  - http://inst.eecs.berkeley.edu/~cs184/fa09/resources/sec_UsingFreeImage.pdf
 
 perspectively correct texture mapping   
- - http://www.lysator.liu.se/~mikaelk/doc/perspectivetexture/
--  http://chrishecker.com/Miscellaneous_Technical_Articles
+- http://www.lysator.liu.se/~mikaelk/doc/perspectivetexture/
+- http://chrishecker.com/Miscellaneous_Technical_Articles
