@@ -44,15 +44,16 @@ If show the color with BaryCenter Interpolation:
 ![](without_shader_withBC.jpg)
 
 After implementing fragmentShade, add diffuse and specular effect to models:
- 1). Without Bary Center Interpolation bunny:
+ - Without Bary Center Interpolation bunny:
   ![](without_BC.jpg)
- 2). With Bary Center Interpolation bunny:
+ - With Bary Center Interpolation bunny:
   ![](with_BC.jpg)
   
 Also, there is an interesting colorful bunny when I debug the missing triangles for the scanline rasterization part, the colorful bunny looks pretty:
 ![](bunny_colorful.jpg)
 
 By rasterizing only the triangle frames or triangle vertices, we can get another two view for models, wireframe and vertices:
+
 ![](cow_line.jpg)
 ![](bunny_vertices.jpg)
 
@@ -61,7 +62,28 @@ Not only the primitive normals can be used in the fragmentShade part, but also c
 ![](normal_test_code.jpg)
 
 A complicated and interesting objects:
-![](fairyforest_toobig.jpg)
-![](fairyforest.jpg)
+![](fairyforest2.jpg)
+
+Mouse and Key Control
+---------------------
+ - Add glfw mouse callback function to enable moving eye position on a sphere based space.
+ - Left mouse button to rotate object, hold and drag right mouse button for zoom in/out
+ - hold and move middle button for changing screen center and view direction
+ - 
+ - Keys: press 'n' to change mode between body/wireframe/vertices
+ - Keys: press 'm' to enable/disable BaryCenter Interpolation
+ - Other Keys: 'q','e','w','s','a','d' simply moving eye postion by steps
+
+Future Work
+-------------
+I can only see when the geometry object getting complicated, the rasterizer takes longer time to render image and fps drops as well. Need to implement back face culling to reduce the noise points on the rendered geometry.
+
+Reference
+--------------
+ - Scanline triangle intersection algorithm: http://stackoverflow.com/questions/563198/how-do-you-detect-where-two-line-segments-intersect
+ - BaryCenter Interpolation algorithm:
+http://mathworld.wolfram.com/BarycentricCoordinates.html
+
+
 
 
