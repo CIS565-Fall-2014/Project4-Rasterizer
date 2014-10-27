@@ -75,6 +75,10 @@ An performance analysis comparing frame rates with and without anti-aliasing is 
 
 ![alt tag](https://raw.githubusercontent.com/drerucha/Project4-Rasterizer/master/renders/cow_diffuse_outlined.jpg)
 
+![alt tag](https://raw.githubusercontent.com/drerucha/Project4-Rasterizer/master/renders/cow_diffuse_no_aa_zoomed.jpg)
+
+![alt tag](https://raw.githubusercontent.com/drerucha/Project4-Rasterizer/master/renders/cow_diffuse_with_aa_zoomed.jpg)
+
 ## VIDEO DEMO
 
 [Video demo.](https://vimeo.com/110144028)
@@ -82,6 +86,12 @@ An performance analysis comparing frame rates with and without anti-aliasing is 
 ## PERFORMANCE ANALYSIS
 
 [Add text.]
+
+cow.obj with backface culling: 42 fps.
+cow.obj without backface culling: 38 fps.
+
+cow.obj without anti-aliasing: 42 fps.
+cow.obj with anti-aliasing: 36 fps.
 
 [Add graphs.]
 

@@ -613,9 +613,9 @@ void cudaRasterizeCore( uchar4 *PBOpos,
 	//------------------------------
 	// anti-aliasing
 	//------------------------------
-	//antiAliasingPostProcess<<< fullBlocksPerGrid, threadsPerBlock >>>( depthbuffer,
-	//																   camera.resolution );
-	//cudaDeviceSynchronize();
+	antiAliasingPostProcess<<< fullBlocksPerGrid, threadsPerBlock >>>( depthbuffer,
+																	   camera.resolution );
+	cudaDeviceSynchronize();
 
 	//------------------------------
 	// write fragments to framebuffer
