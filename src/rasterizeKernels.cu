@@ -228,6 +228,11 @@ __global__ void fragmentShadeKernel(fragment* depthbuffer, glm::vec2 resolution)
     int y = (blockIdx.y * blockDim.y) + threadIdx.y;
     int index = x + (y * resolution.x);
     if (x <= resolution.x && y <= resolution.y) {
+        fragment frag = depthbuffer[index];
+        // Render depth
+        //frag.color = glm::vec3((frag.position.z + 1) * 0.5f);
+        frag.color = frag.normal;
+        depthbuffer[index] = frag;
     }
 }
 
