@@ -1,6 +1,9 @@
 // CIS565 CUDA Rasterizer: A simple rasterization pipeline for Patrick Cozzi's CIS565: GPU Computing at the University of Pennsylvania
 // Written by Yining Karl Li, Copyright (c) 2012 University of Pennsylvania
 
+
+//Modified by chiwsy to fix some conflics with the CUDA compiler keeping reporting re-define problems.
+
 #ifndef RASTERIZETOOLS_H
 #define RASTERIZETOOLS_H
 
@@ -8,7 +11,7 @@
 #include "glm/glm.hpp"
 #include "utilities.h"
 #include "cudaMat4.h"
-
+#include "glm/gtc/matrix_transform.hpp"
 
 struct triangle {
 	glm::vec3 p0;
@@ -17,6 +20,14 @@ struct triangle {
 	glm::vec3 c0;
 	glm::vec3 c1;
 	glm::vec3 c2;
+
+	glm::vec3 locp0;
+	glm::vec3 locp1;
+	glm::vec3 locp2;
+
+	glm::vec3 locn0;
+	glm::vec3 locn1;
+	glm::vec3 locn2;
 };
 
 struct fragment{
@@ -46,7 +57,10 @@ __host__ __device__ bool isBarycentricCoordInBounds(glm::vec3 barycentricCoord);
 //LOOK: for a given barycentric coordinate, return the corresponding z position on the triangle
 __host__ __device__ float getZAtCoordinate(glm::vec3 barycentricCoord, triangle tri);
 
-//perspective view matrix
+
+//Defined by chiwsy
+
+//perspective view matrix ref: http://www.glprogramming.com/red/appendixf.html
 __host__ __device__ cudaMat4 myFrustum(float left, float right, float bottom, float top, float near, float far);
 
 struct Camera
@@ -55,6 +69,8 @@ struct Camera
 	glm::vec3 view;
 	glm::vec3 up;
 	glm::vec2 fov;
+
+	//x for near and y for far
 	glm::vec2 depth;
 
 	glm::vec2 reso;
@@ -63,10 +79,16 @@ struct Camera
 	//cudaMat4 Frustum;
 
 	//Transform from world coordinates to clip coordinates;
-	glm::mat4 VP_mat;
+	
+	glm::mat4 PMat;
+	glm::mat4 local2WorldMat;
+	
+	glm::mat4 PMat_inv;
+	glm::mat4 World2LocalMat;
+
 	__host__ __device__ Camera(
 		glm::vec2 r = glm::vec2(0.0f, 0.0f),
-		glm::vec3 p = glm::vec3(0.0f, 0.0f, 10.0f),
+		glm::vec3 p = glm::vec3(0.0f, 0.0f, 3.0f),
 		glm::vec3 v = glm::vec3(0.0f, 0.0f, -1.0f),
 		glm::vec3 u = glm::vec3(0.0f, 1.0f, 0.0f),
 		glm::vec2 f = glm::vec2(45.0f, 45.0f),
@@ -82,17 +104,19 @@ struct Camera
 		//MVP matrix is calculated as:			MVP = M_{Cam}^{Clip} * M_{world}^{Cam} * M_{model}^{world}
 		//View-Clip matrix is calculated as:	VP = M_{Cam}^{Clip} * M_{world}^{Cam}
 		
-		glm::mat4 ViewMat;
-		ViewMat[0] = glm::vec4(glm::normalize(glm::cross(view, up)), 0.0f);
-		ViewMat[1] = glm::vec4(glm::normalize(up), 0.0f);
-		ViewMat[2] = glm::vec4(glm::normalize(view), 0.0f);
-		ViewMat[3] = glm::vec4(pos, 1.0f);
-		ViewMat = glm::inverse(ViewMat);
-
-		glm::vec3 viewport = depth.x*view*glm::vec3(tan(fov.x*PI/180.f),tan(fov.y*PI/180.0f),0.0f);
-		glm::mat4 FrustumMat = utilityCore::cudaMat4ToGlmMat4(myFrustum(-viewport.x, viewport.x, -viewport.y, viewport.y, depth.x, depth.y));
-
-		VP_mat = FrustumMat*ViewMat;
+		//glm::mat4 ViewMat = 
+		////rotation matrix is defined colum by colum
+		////ViewMat[0] = glm::vec4(glm::normalize(glm::cross(view, up)), 0.0f);
+		////ViewMat[1] = glm::vec4(glm::normalize(up), 0.0f);
+		////ViewMat[2] = glm::vec4(glm::normalize(view), 0.0f);
+		//////translate
+		////ViewMat[3] = glm::vec4(pos, 1.0f);
+		////inverse to get world to local matrix
+		World2LocalMat = glm::lookAt(pos, view*depth.x + pos, up);
+		local2WorldMat = glm::inverse(World2LocalMat);
+		//glm::vec3 viewport = depth.x*view*glm::vec3(tan(fov.x*PI/180.f),tan(fov.y*PI/180.0f),0.0f);
+		PMat = glm::perspective(fov.y, float(reso.x / reso.y), depth.x, depth.y);//utilityCore::cudaMat4ToGlmMat4(myFrustum(-viewport.x, viewport.x, -viewport.y, viewport.y, depth.x, depth.y));
+		PMat_inv = glm::inverse(PMat);
 	}
 
 };

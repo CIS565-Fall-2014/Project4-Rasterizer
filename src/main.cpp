@@ -85,19 +85,25 @@ void runCuda(){
 	vbo = mesh->getVBO();
 	vbosize = mesh->getVBOsize();
 
-	float newcbo[] = { 0.0, 1.0, 0.0,
-		0.0, 0.0, 1.0,
-		1.0, 0.0, 0.0 };
+	/*float newcbo[] = {	0.0, 1.0, 0.0,
+						0.0, 0.0, 1.0,
+						1.0, 0.0, 0.0 };*/
+
+	float newcbo[] = {	1.0f, 1.0f, 1.0f,
+						1.0f, 1.0f, 1.0f,
+						1.0f, 1.0f, 1.0f };
 	cbo = newcbo;
 	cbosize = 9;
 
 	ibo = mesh->getIBO();
 	ibosize = mesh->getIBOsize();
 
+	nbo = mesh->getNBO();
+	nbosize = mesh->getNBOsize();
 	cudaGLMapBufferObject((void**)&dptr, pbo);
 	Camera cam(glm::vec2(width, height));
-
-	cudaRasterizeCore(dptr, cam, frame, vbo, vbosize, cbo, cbosize, ibo, ibosize);
+	//cam.PMat = glm::perspective(cam.fov.y, float(width / height), cam.depth.x, cam.depth.y);
+	cudaRasterizeCore(dptr, cam, frame, vbo, vbosize, cbo, cbosize, ibo, ibosize,nbo,nbosize);
 	cudaGLUnmapBufferObject(pbo);
 
 	vbo = NULL;

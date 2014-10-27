@@ -47,6 +47,9 @@
     <ClCompile Include="..\..\..\external\src\objUtil\objloader.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\src\rasterizeTools.cu">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="..\..\..\src\rasterizeKernels.cu">
