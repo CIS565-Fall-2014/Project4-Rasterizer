@@ -13,6 +13,7 @@
 #define DEBUG 0
 #define BLEND 1
 #define DISPLACEMENT 1
+#define POINT_RENDER 0
 
 glm::vec3* framebuffer;
 fragment* depthbuffer;
@@ -150,7 +151,7 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 }
 
 //TODO: Implement a vertex shader
-__global__ void vertexShadeKernel(float* vbo, float * nbo, int vbosize, glm::mat4 mvpMat,  glm::vec2 resolution){
+__global__ void vertexShadeKernel(float* vbo, float * nbo, int vbosize, glm::mat4 mvpMat,  glm::vec2 resolution, glm::vec3* framebuffer){
   int index = (blockIdx.x * blockDim.x) + threadIdx.x;
   if(index<vbosize/3){
 	  float x = vbo[3 * index];
@@ -183,11 +184,14 @@ __global__ void vertexShadeKernel(float* vbo, float * nbo, int vbosize, glm::mat
 	  nbo[3 * index] = n.x;
 	  nbo[3 * index + 1] = n.y;
 	  nbo[3 * index + 2] = n.z;
-	  /*if(ret.x < resolution.x && ret.x >= 0 && ret.y < resolution.y && ret.y >= 0 && ret.z >=0 &&ret.z < 1 )
+	  if(POINT_RENDER)
 	  {
-		  int pixelID = ceil(ret.x) + ceil(resolution.y-ret.y) * (resolution.x);
-		  depthbuffer[pixelID].color = glm::vec3(1,1,1);
-	  }*/
+		  if(v.x < resolution.x && v.x >= 0 && v.y < resolution.y && v.y >= 0 && v.z >=0 &&v.z < 1 )
+		  {
+			  int pixelID = ceil(v.x) + ceil(resolution.y-v.y) * (resolution.x);
+			  framebuffer[pixelID] = glm::vec3(1,1,1);
+		  }
+	  }
   }
 }
 
@@ -354,6 +358,7 @@ __global__ void render(glm::vec2 resolution, fragment* depthbuffer, glm::vec3* f
   int index = x + (y * resolution.x);
 
   if(x<=resolution.x && y<=resolution.y){
+	  if(!POINT_RENDER)
 		framebuffer[index] = depthbuffer[index].color;
   }
 }
@@ -465,7 +470,7 @@ cudaEventRecord( start, 0 );
 cudaEventCreate(&stop);
 cudaEventRecord( start, 0 );
 
-  vertexShadeKernel<<<primitiveBlocks, tileSize>>>(device_vbo, device_nbo, vbosize, mvpMat, resolution);
+  vertexShadeKernel<<<primitiveBlocks, tileSize>>>(device_vbo, device_nbo, vbosize, mvpMat, resolution, framebuffer);
 
   cudaDeviceSynchronize();
 
