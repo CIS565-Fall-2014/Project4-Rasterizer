@@ -47,5 +47,8 @@ Feature Performance
 | Vert/frag structs |    5.78 ms |    0.02 ms |      0.35% | Small performance change
 | World-space pos   |    7.21 ms |    1.43 ms |     24.74% | Extra fragment input, extra interpolation of that input
 | Depth buf optim   |    7.13 ms |   -0.08 ms |     -1.11% | Remove some unnecessary depth checks
-| VS transforms     |    7.77 ms |    0.56 ms |      7.85% | Note that the change in screen size of the model affects the performance
-| Lambert shading   |    8.29 ms |    1.16 ms |     14.93% |
+| VS transforms     |    7.77 ms |    0.64 ms |      8.98% | Note that the change in screen size of the model affects the performance
+| Lambert shading   |    8.29 ms |    0.52 ms |      6.69% |
+| Geometry shader   |    8.82 ms |    0.53 ms |      6.39% | Maximum 4 output tris per input tri
+| Tessellation GS   |         ms |         ms |          % | Splits each tri into 3 tris, colors one red
+| Backface GS       |         ms |         ms |          % | Moved backface culling to inside the GS

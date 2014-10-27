@@ -5,6 +5,9 @@
 #include <cuda.h>
 #include <cmath>
 #include <thrust/random.h>
+#include <thrust/fill.h>
+#include <thrust/remove.h>
+#include <thrust/execution_policy.h>
 #include "rasterizeKernels.h"
 #include "rasterizeTools.h"
 
@@ -174,17 +177,26 @@ __global__ void vertexShadeKernel(vertU *vunifs, int vbocount,
 
 __global__ void primitiveAssemblyKernel(
         const vertO *vbo, int vbocount,
-        const int* ibo, int ibosize,
+        const int* ibo, int tricount, int stride,
         triangle* primitives)
 {
     int index = (blockIdx.x * blockDim.x) + threadIdx.x;
-    int primitivesCount = ibosize / 3;
-    if (index < primitivesCount) {
+    if (index < tricount) {
         triangle prim;
+        prim.discard = false;
         prim.v[0] = vbo[ibo[3 * index + 0]];
         prim.v[1] = vbo[ibo[3 * index + 1]];
         prim.v[2] = vbo[ibo[3 * index + 2]];
-        primitives[index] = prim;
+        primitives[index * stride] = prim;
+    }
+}
+
+__global__ void geometryShadeKernel(geomU *gunifs,
+        triangle *prims, int tricount, int stride)
+{
+    int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+    if (index < tricount) {
+        triangle prim = prims[index * stride];
     }
 }
 
@@ -236,7 +248,6 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
     }
 }
 
-//TODO: Implement a fragment shader
 __global__ void fragmentShadeKernel(fragU *funifs,
         fragment* depthbuffer, glm::vec2 resolution)
 {
@@ -279,6 +290,13 @@ __global__ void render(glm::vec2 resolution, fragment* depthbuffer, glm::vec3* f
     }
 }
 
+struct is_discard {
+    __host__ __device__ bool operator()(const triangle tri)
+    {
+        return tri.discard;
+    }
+};
+
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRasterizeCore(
         uchar4* PBOpos, glm::vec2 resolution, float frame,
@@ -308,11 +326,18 @@ void cudaRasterizeCore(
     frag.nw = glm::vec3(0, 0, 0);
     clearDepthBuffer<<<fullBlocksPerGrid, threadsPerBlock>>>(resolution, depthbuffer, frag);
 
+    // CONFIG: this is the max number of output tris per input tri
+    int tricount = ibosize / 3;
+    int geomstride = 4;
+
     //------------------------------
     //memory stuff
     //------------------------------
     primitives = NULL;
-    cudaMalloc((void**)&primitives, (ibosize / 3)*sizeof(triangle));
+    cudaMalloc((void**)&primitives, tricount * geomstride * sizeof(triangle));
+    triangle defaulttri;
+    defaulttri.discard = true;
+    thrust::fill(thrust::device, primitives, &primitives[tricount], defaulttri);
 
     device_ibo = NULL;
     cudaMalloc((void**)&device_ibo, ibosize * sizeof(int));
@@ -342,6 +367,8 @@ void cudaRasterizeCore(
     cudaMalloc((void **) &device_vunifs, sizeof(vertU));
     fragU *device_funifs;
     cudaMalloc((void **) &device_funifs, sizeof(fragU));
+    geomU *device_gunifs;
+    cudaMalloc((void **) &device_gunifs, sizeof(geomU));
     {
         float fovy = glm::radians(30.f);
         float aspect = resolution.x / resolution.y;
@@ -368,6 +395,10 @@ void cudaRasterizeCore(
         funifs.lightcol = glm::vec3(0.9, 0.7, 0.7);
         funifs.ambcol = glm::vec3(0.1, 0.1, 0.1);
         cudaMemcpy(device_funifs, &funifs, sizeof(fragU), cudaMemcpyHostToDevice);
+
+        geomU gunifs;
+        gunifs.x = 0;
+        cudaMemcpy(device_gunifs, &gunifs, sizeof(geomU), cudaMemcpyHostToDevice);
     }
 
     device_vbo = NULL;
@@ -379,17 +410,30 @@ void cudaRasterizeCore(
     //------------------------------
     //primitive assembly
     //------------------------------
-    primitiveBlocks = ceil(((float)ibosize / 3) / ((float)tileSize));
+    primitiveBlocks = ceil(((float)tricount) / ((float)tileSize));
     primitiveAssemblyKernel<<<primitiveBlocks, tileSize>>>(
             device_vbo, vbocount,
-            device_ibo, ibosize,
+            device_ibo, tricount, geomstride,
             primitives);
+
+    cudaDeviceSynchronize();
+    //------------------------------
+    // Geometry shader
+    //------------------------------
+    primitiveBlocks = ceil(((float)tricount) / ((float)tileSize));
+    geometryShadeKernel<<<primitiveBlocks, tileSize>>>(
+            device_gunifs, primitives, tricount, geomstride);
+
+    triangle *lastprim = thrust::remove_if(thrust::device,
+            primitives, &primitives[tricount * geomstride], is_discard());
+    tricount = lastprim - primitives;
 
     cudaDeviceSynchronize();
     //------------------------------
     //rasterization
     //------------------------------
-    rasterizationKernel<<<primitiveBlocks, tileSize>>>(primitives, ibosize / 3, depthbuffer, resolution);
+    primitiveBlocks = ceil(((float)tricount) / ((float)tileSize));
+    rasterizationKernel<<<primitiveBlocks, tileSize>>>(primitives, tricount, depthbuffer, resolution);
 
     cudaDeviceSynchronize();
     //------------------------------
@@ -409,6 +453,7 @@ void cudaRasterizeCore(
 
     cudaFree(device_vunifs);
     cudaFree(device_funifs);
+    cudaFree(device_gunifs);
     kernelCleanup();
 
     checkCUDAError("Kernel failed!");

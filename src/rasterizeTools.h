@@ -16,6 +16,10 @@ struct vertU {
     cudaMat4 viewproj;
 };
 
+struct geomU {
+    float x;
+};
+
 struct fragU {
     glm::vec3 eye;
     glm::vec3 lightpos;
@@ -37,6 +41,7 @@ struct vertO {
 };
 
 struct triangle {
+    bool discard;
     vertO v[3];
 };
 
