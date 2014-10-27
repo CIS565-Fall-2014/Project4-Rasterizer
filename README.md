@@ -31,3 +31,21 @@ Features Implemented
 * Fragment to framebuffer writing
 
 (Extras in **bold**.)
+
+
+Feature Performance
+-------------------
+
+| Feature           | Frame time | Added time | Added time | Notes
+|:-------           | ----------:| ----------:| ----------:|:-----
+| Nothing           |    4.17 ms |            |            | Base code
+| Prim asm          |    4.22 ms |    0.05 ms |      1.20% | Copying data, handling IBO
+| Rast+render       |    4.77 ms |    0.55 ms |     13.03% | No locking
+| Normal buffer     |    4.84 ms |    0.07 ms |      1.47% | Using normals from mesh
+| Basic frag shad   |    5.80 ms |    0.96 ms |     19.83% | Renders model normals
+| Backface cull     |    5.76 ms |   -0.04 ms |     -0.69% | 6.13ms using stream compaction to remove backfaces
+| Vert/frag structs |    5.78 ms |    0.02 ms |      0.35% | Small performance change
+| World-space pos   |    7.21 ms |    1.43 ms |     24.74% | Extra fragment input, extra interpolation of that input
+| Depth buf optim   |    7.13 ms |   -0.08 ms |     -1.11% | Remove some unnecessary depth checks
+| VS transforms     |    7.77 ms |    0.56 ms |      7.85% | Note that the change in screen size of the model affects the performance
+| Lambert shading   |    8.29 ms |    1.16 ms |     14.93% |
