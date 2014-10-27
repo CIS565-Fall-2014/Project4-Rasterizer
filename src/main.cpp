@@ -143,6 +143,66 @@ void runCuda(){
 //-------------------------------
 //----------SETUP STUFF----------
 //-------------------------------
+void MouseCallback(GLFWwindow* window,int button,int action,int mods)
+{
+	if(action==GLFW_PRESS)
+	{
+		glfwGetCursorPos(window,&x_pos,&y_pos);
+		//cout<<x_pos<<" "<<y_pos<<endl;
+		if(button==GLFW_MOUSE_BUTTON_1)
+		{
+			left_button=true;
+		}
+		else if(button==GLFW_MOUSE_BUTTON_2)
+		{
+			right_button=true;
+		}
+	}
+	else if(action==GLFW_RELEASE)
+	{
+		if(button==GLFW_MOUSE_BUTTON_1)
+		{
+			left_button=false;
+		}
+		else if(button==GLFW_MOUSE_BUTTON_2)
+		{
+			right_button=false;
+		}
+	}
+}
+
+void CursorEnterCallback(GLFWwindow* window,int entered)
+{
+	if(entered==GL_TRUE)
+	{
+		inside_window=true;
+	}
+	else
+	{
+		inside_window=false;
+	}
+}
+
+void CursorCallback(GLFWwindow* window,double x,double y)
+{
+	x=glm::clamp(x,0.0,(double)width);
+	y=glm::clamp(y,0.0,(double)height);
+	int offset_x=x-x_pos;
+	int offset_y=y-y_pos;
+	x_pos=x;
+	y_pos=y;
+	if(left_button&&inside_window)
+	{
+		alpha=alpha+offset_x/(float)5;
+		beta=beta+offset_y/(float)5;
+	}
+	if(right_button&&inside_window)
+	{
+		D=D+offset_x/(float)10;
+	}
+}
+
+
 
 bool init(int argc, char* argv[]) {
   glfwSetErrorCallback(errorCallback);
@@ -160,7 +220,9 @@ bool init(int argc, char* argv[]) {
   }
   glfwMakeContextCurrent(window);
   glfwSetKeyCallback(window, keyCallback);
-
+  glfwSetMouseButtonCallback(window,MouseCallback);
+  glfwSetCursorEnterCallback(window,CursorEnterCallback);
+  glfwSetCursorPosCallback(window,CursorCallback);
   // Set up GL context
   glewExperimental = GL_TRUE;
   if(glewInit()!=GLEW_OK){
@@ -316,3 +378,4 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
         glfwSetWindowShouldClose(window, GL_TRUE);
     }
 }
+

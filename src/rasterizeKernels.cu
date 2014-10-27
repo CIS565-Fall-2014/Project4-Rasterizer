@@ -206,7 +206,7 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 				  {
 					  current_frag.position=B_p.x*current_tri.p0+B_p.y*current_tri.p1+B_p.z*current_tri.p2;
 					  current_frag.originial_position=B_p.x*current_tri.old_p0+B_p.y*current_tri.old_p1+B_p.z*current_tri.old_p2;
-					  current_frag.normal=B_p.x*current_tri.n0+B_p.y*current_tri.n1+B_p.z*current_tri.n2;
+					  current_frag.normal=glm::normalize(B_p.x*current_tri.n0+B_p.y*current_tri.n1+B_p.z*current_tri.n2);
 					  //current_frag.color=glm::vec3(1.0,1.0,1.0);
 					  current_frag.color=glm::vec3(B_p.x,B_p.y,B_p.z);
 					  //current_frag.color=glm::clamp((current_tri.n0+current_tri.n1+current_tri.n2)/3.0f,0.0f,1.0f);

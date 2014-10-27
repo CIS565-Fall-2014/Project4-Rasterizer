@@ -70,6 +70,12 @@ glm::vec3 light;
 float alpha=90;
 float beta=50;
 float D=1.5;
+bool left_button=false;
+bool right_button=false;
+bool inside_window=false;
+double x_pos;
+double y_pos;
+
 
 //-------------------------------
 //----------CUDA STUFF-----------
