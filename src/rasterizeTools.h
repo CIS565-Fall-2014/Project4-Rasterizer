@@ -16,20 +16,36 @@ struct triangle {
   glm::vec3 c0;
   glm::vec3 c1;
   glm::vec3 c2;
+  glm::vec3 n;
 };
 
 struct fragment{
   glm::vec3 color;
   glm::vec3 normal;
   glm::vec3 position;
+  bool isLocked;
+};
+
+struct isInvisible {
+	__host__ __device__
+	bool operator()(const triangle& primitive)
+	{
+		return (primitive.n.x == 0 && primitive.n.y == 0 && primitive.n.z == 0);
+	}
 };
 
 //Multiplies a cudaMat4 matrix and a vec4
 __host__ __device__ glm::vec3 multiplyMV(cudaMat4 m, glm::vec4 v){
   glm::vec3 r(1,1,1);
-  r.x = (m.x.x*v.x)+(m.x.y*v.y)+(m.x.z*v.z)+(m.x.w*v.w);
+  /*r.x = (m.x.x*v.x)+(m.x.y*v.y)+(m.x.z*v.z)+(m.x.w*v.w);
   r.y = (m.y.x*v.x)+(m.y.y*v.y)+(m.y.z*v.z)+(m.y.w*v.w);
-  r.z = (m.z.x*v.x)+(m.z.y*v.y)+(m.z.z*v.z)+(m.z.w*v.w);
+  r.z = (m.z.x*v.x)+(m.z.y*v.y)+(m.z.z*v.z)+(m.z.w*v.w);*/
+
+  r.x = (m.x.x*v.x)+(m.y.x*v.y)+(m.z.x*v.z)+(m.w.x*v.w);
+  r.y = (m.x.y*v.x)+(m.y.y*v.y)+(m.z.y*v.z)+(m.w.y*v.w);
+  r.z = (m.x.z*v.x)+(m.y.z*v.y)+(m.z.z*v.z)+(m.w.z*v.w);
+  float w = (m.x.w*v.x)+(m.y.w*v.y)+(m.z.w*v.z)+(m.w.w*v.w);
+  r = (w > 0.001) ? r/w : r;
   return r;
 }
 

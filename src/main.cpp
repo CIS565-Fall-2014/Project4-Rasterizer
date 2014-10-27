@@ -84,22 +84,42 @@ void runCuda(){
   vbo = mesh->getVBO();
   vbosize = mesh->getVBOsize();
 
-  float newcbo[] = {0.0, 1.0, 0.0, 
-                    0.0, 0.0, 1.0, 
-                    1.0, 0.0, 0.0};
+  float newcbo[] = {1.0, 0.0, 0.0, 
+                    0.0, 1.0, 0.0, 
+                    0.0, 0.0, 1.0};
   cbo = newcbo;
   cbosize = 9;
 
   ibo = mesh->getIBO();
   ibosize = mesh->getIBOsize();
 
+  nbo = mesh->getNBO();
+  nbosize = mesh->getNBOsize();
+
+  //Rx += 1.0 * PI / 180.0;
+  Ry += 1.0 * PI / 180.0;
+  //Ry = PI/4.0;
+
+  float viewLength = glm::length(center - eye);
+  eye.x = center.x + viewLength * cos(Rx) * cos(Ry);
+  eye.y = center.y + viewLength * sin(Rx);
+  eye.z = center.z + viewLength * cos(Rx) * sin(Ry);
+
+  glm::mat4 modelView = glm::lookAt(eye, center, up);
+  glm::mat4 projection = glm::perspective(fovy, width / (float)height, 0.1f, 100.0f);
+  glm::mat4 mvp = viewPort * projection * modelView;
+  modelViewProj.x = mvp[0];	modelViewProj.y = mvp[1];	modelViewProj.z = mvp[2];	modelViewProj.w = mvp[3];
+
+  glm::vec4 lightP = projection * modelView * glm::vec4(lightPos, 1.0f);
   cudaGLMapBufferObject((void**)&dptr, pbo);
-  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize);
+  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize, nbo, nbosize, modelViewProj,/* viewPort,*/ glm::vec3(lightP.x, lightP.y,lightP.z), lightRGB,
+					true, center-eye, false);
   cudaGLUnmapBufferObject(pbo);
 
   vbo = NULL;
   cbo = NULL;
   ibo = NULL;
+  nbo = NULL;
 
   frame++;
   fpstracker++;
@@ -138,12 +158,16 @@ bool init(int argc, char* argv[]) {
   initTextures();
   initCuda();
   initPBO();
-  
+
   GLuint passthroughProgram;
   passthroughProgram = initShader();
 
   glUseProgram(passthroughProgram);
   glActiveTexture(GL_TEXTURE0);
+  
+  //interactive
+  //glutMouseFunc(onMouseButton);
+  //glutMotionFunc(onMouseDrag);
 
   return true;
 }
@@ -281,4 +305,44 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     if(key == GLFW_KEY_ESCAPE && action == GLFW_PRESS){
         glfwSetWindowShouldClose(window, GL_TRUE);
     }
+}
+
+
+void onMouseButton(int button, int state, int x, int y)
+{
+	if (button == GLUT_LEFT_BUTTON) {
+		if (state == GLUT_DOWN) {
+			lastMousePos.x = x;
+			lastMousePos.y = y;
+
+			mouseMode = TransMode;
+		}
+	}
+	else if (button == GLUT_RIGHT_BUTTON) {
+		if (state == GLUT_DOWN) {
+			lastMousePos.x = x;
+			lastMousePos.y = y;
+
+			mouseMode = RotateMode;
+		}
+	}
+}
+
+void onMouseDrag(int x, int y)
+{
+	float dx = (x - lastMousePos.x) * translateStep;
+	float dy = (y - lastMousePos.y) * translateStep;
+
+	if (mouseMode == TransMode) {
+		eye.x += dx;
+		eye.y += dy;
+		center.x += dx;
+		center.y += dy;
+
+		lastMousePos.x = x;
+		lastMousePos.y = y;
+	}
+	else if (mouseMode == RotateMode) {
+
+	}
 }
