@@ -16,6 +16,7 @@ int *device_ibo;
 float *device_nbo;
 triangle* primitives;
 float *device_vbo_window_coords;
+int *device_lock_buffer;
 
 const float EMPTY_BUFFER_DEPTH = 10000.0f;
 
@@ -96,6 +97,17 @@ __global__ void clearDepthBuffer(glm::vec2 resolution, fragment* buffer, fragmen
       f.position.y = y;
       buffer[index] = f;
     }
+}
+
+__global__
+void clearLockBuffer( glm::vec2 resolution, int *lock_buffer )
+{
+	int x = ( blockIdx.x * blockDim.x ) + threadIdx.x;
+	int y = ( blockIdx.y * blockDim.y ) + threadIdx.y;
+	int index = x + ( y * resolution.x );
+	if( x <= resolution.x && y <= resolution.y ) {
+		lock_buffer[index] = 0;
+	}
 }
 
 //Kernel that writes the image to the OpenGL PBO directly. 
@@ -254,7 +266,8 @@ __global__
 void rasterizationKernel( triangle *primitives,
 						  int primitivesCount,
 						  fragment *depthbuffer,
-						  glm::vec2 resolution )
+						  glm::vec2 resolution,
+						  int *lock_buffer )
 {
 	int index = ( blockIdx.x * blockDim.x ) + threadIdx.x;
 	if ( index < primitivesCount ) {
@@ -287,21 +300,24 @@ void rasterizationKernel( triangle *primitives,
 				fragment buffer_fragment = getFromDepthbuffer( x, y, depthbuffer, resolution );
 				float buffer_z = buffer_fragment.position.z;
 
-				// TODO: Update fragment atomically.
-
-				// Update depth buffer.
+				// Update depth buffer atomically.
 				if ( current_z < buffer_z ) {
-					fragment f;
-					//f.color = ( tri.c0 * barycentric_coordinates.x ) + ( tri.c1 * barycentric_coordinates.y ) + ( tri.c2 * barycentric_coordinates.z );
-					f.color = glm::vec3( 0.5f, 0.5f, 0.5f );
+					//int current_index = ( y * resolution.x ) + x;
+					//bool is_waiting_to_update = true;
+					//while ( is_waiting_to_update ) {
+					//	if ( atomicExch( &lock_buffer[current_index], 1 ) == 0 ) {
+							fragment f;
+							//f.color = ( tri.c0 * barycentric_coordinates.x ) + ( tri.c1 * barycentric_coordinates.y ) + ( tri.c2 * barycentric_coordinates.z );
+							f.color = glm::vec3( 0.5f, 0.5f, 0.5f );
+							f.normal = glm::normalize( ( tri.n0 * barycentric_coordinates.x ) + ( tri.n1 * barycentric_coordinates.y ) + ( tri.n2 * barycentric_coordinates.z ) );					
+							f.position = ( tri.p0 * barycentric_coordinates.x ) + ( tri.p1 * barycentric_coordinates.y ) + ( tri.p2 * barycentric_coordinates.z );
+							writeToDepthbuffer( x, y, f, depthbuffer, resolution );
 
-					f.normal = glm::normalize( ( tri.n0 * barycentric_coordinates.x ) + ( tri.n1 * barycentric_coordinates.y ) + ( tri.n2 * barycentric_coordinates.z ) );
-					//float tri_area = calculateSignedArea( tri );
-					//tri_area = ( tri_area < 0.0f ) ? ( tri_area * -1.0f ) : tri_area;
-					//f.normal = glm::normalize( ( ( tri.n0 * barycentric_coordinates.x ) + ( tri.n1 * barycentric_coordinates.y ) + ( tri.n2 * barycentric_coordinates.z ) ) / tri_area );
-					
-					f.position = ( tri.p0 * barycentric_coordinates.x ) + ( tri.p1 * barycentric_coordinates.y ) + ( tri.p2 * barycentric_coordinates.z );
-					writeToDepthbuffer( x, y, f, depthbuffer, resolution );
+					//		// Release lock.
+					//		atomicExch( &lock_buffer[current_index], 0 );
+					//		is_waiting_to_update = false;
+					//	}
+					//}
 				}
 			}
 		}
@@ -319,7 +335,7 @@ void fragmentShadeKernel( fragment *depthbuffer,
 	int y = ( blockIdx.y * blockDim.y ) + threadIdx.y;
 	int index = x + ( y * resolution.x );
 	if ( x <= resolution.x && y <= resolution.y ) {
-		glm::vec3 light_pos( 10.0f, 10.0f, 10.0f );
+		glm::vec3 light_pos( -10.0f, 0.0f, 10.0f );
 		float light_intensity = 2.0f;
 		fragment f = depthbuffer[index];
 
@@ -335,6 +351,7 @@ float computeDistanceBetweenTwoColors( glm::vec3 p1, glm::vec3 p2 )
 {
 	return sqrt( ( p2.x - p1.x ) * ( p2.x - p1.x ) + ( p2.y - p1.y ) * ( p2.y - p1.y ) + ( p2.z - p1.z ) * ( p2.z - p1.z ) );
 }
+
 
 __host__
 __device__
@@ -497,6 +514,10 @@ void cudaRasterizeCore( uchar4 *PBOpos,
 	cudaMalloc( ( void** )&device_vbo_window_coords,
 				vbosize * sizeof( float ) );
 
+	device_lock_buffer = NULL;
+	cudaMalloc( ( void** )&device_lock_buffer,
+				( int )camera.resolution.x * ( int )camera.resolution.y * sizeof( int ) );
+
 	device_cbo = NULL;
 	cudaMalloc( ( void** )&device_cbo,
 				cbosize * sizeof( float ) );
@@ -515,6 +536,13 @@ void cudaRasterizeCore( uchar4 *PBOpos,
 
 	tileSize = 32;
 	int primitiveBlocks = ceil( ( ( float )vbosize / 3 ) / ( ( float )tileSize ) );
+
+	//------------------------------
+	// initialize lock buffer
+	//------------------------------
+	clearLockBuffer<<< primitiveBlocks, tileSize >>>( camera.resolution,
+													  device_lock_buffer );
+	cudaDeviceSynchronize();
 
 	//------------------------------
 	// vertex shader
@@ -561,7 +589,8 @@ void cudaRasterizeCore( uchar4 *PBOpos,
 	rasterizationKernel<<< primitiveBlocks, tileSize >>>( primitives,
 														  ibosize / 3,
 														  depthbuffer,
-														  camera.resolution );
+														  camera.resolution,
+														  device_lock_buffer );
 	cudaDeviceSynchronize();
 
 	//------------------------------
@@ -602,4 +631,5 @@ void kernelCleanup(){
   cudaFree( framebuffer );
   cudaFree( depthbuffer );
   cudaFree( device_vbo_window_coords );
+  cudaFree( device_lock_buffer );
 }
