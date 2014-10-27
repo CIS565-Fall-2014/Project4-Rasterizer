@@ -49,16 +49,17 @@ However, since I did not implement a proper z-buffer, having back-face culling m
 ### Performance Impact
 #####Without Culling and Clipping: 24-25 fps
 #####With Culling: 25-26 fps
-#####With Culling and Clipping (~50% of body hidden): 28-27 fps
+#####With Culling and Clipping (flank of cow shown): 27-28 fps
+#####With Culling and Clipping (head of cow shown): 29-31 fps
 
-So as you can see, it does produce some level of speedup, but not much.  In addition, clipping gives more speedup if I hide the body offscreen and keep the head (which has smaller triangles), which leads me back to the point I was making about triangle size causing the bottleneck.
+So as you can see, it does produce some level of speedup, but not much.  In addition, clipping gives more speedup if I hide the body offscreen and keep the head (which has more triangles, but they are smaller), which leads me back to the point I was making about triangle size causing the bottleneck.
 
 Performance Evaluation--A Better Linear Interpolation?
 ------------------------------------------------------
 The current bottleneck in the code is rasterizationKernel (though the fragment shader and clearDepthBuffer take up considerable time as well).  When a single triangle takes up a significant part of the screen (maybe 10%), the program slows to a crawl and can crash.  This is caused by a single thread trying to process a large amount of fragments.  The image below shows an example of the runtime of my code while zoomed out, and zoomed in.
-
+[image]
 
 As such, I will be addressing the rasterization kernel for improving performance.
 
-As mentioned above, I use linear interpolation to calculate coordinates/interpolate color&normals for my geometry rather than using barycentric coordinates.  However, I am recalculating the interpolation every fragment.  Since it's linear, each step should have a constant change.  What if I replaced the calculations with dNorm, dCol, dPos values, and added those to the current left, right, or center points?  This would add several variables to the kernel, but should require fewer calculations per triangle.
+As mentioned above, I use linear interpolation to calculate coordinates/interpolate color&normals for my geometry rather than using barycentric coordinates.  However, I am recalculating the interpolation every fragment.  Since it's linear, each step should have a constant change.  What if I replaced the calculations with dNorm, dCol, dPos values, and added those to the current left, right, or center points?  This would add several variables to the kernel, but should require fewer calculations per triangle and speed up the processing time for large triangles.
 
