@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <string>
 #include <time.h>
+#include "glm/gtc/matrix_transform.hpp"
 
 
 #include "rasterizeKernels.h"
@@ -51,6 +52,12 @@ float* cbo;
 int cbosize;
 int* ibo;
 int ibosize;
+
+struct Camera {
+  glm::vec3 pos, up, view, right;
+  float fovY, aspect, zNear, zFar;
+};
+Camera camera;
 
 //-------------------------------
 //----------CUDA STUFF-----------
@@ -101,5 +108,23 @@ void deleteTexture(GLuint* tex);
 void mainLoop();
 void errorCallback(int error, const char *description);
 void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods);
+void cursorCallback(GLFWwindow* window, double x, double y);
+void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
 
+//------------------------------
+//-----USER INTERACTION---------
+//------------------------------
+enum mouseState {
+	NONE,
+	LEFT_MOUSE,
+	MIDDLE_MOUSE,
+	RIGHT_MOUSE
+};
+
+struct Mouse {
+	float x, y;
+	mouseState state;
+};
+
+Mouse mouse;
 #endif

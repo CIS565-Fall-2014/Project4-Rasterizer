@@ -299,8 +299,8 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
           if (currX >= 0 && currX < resolution.x) {
             screenToNDC(currX, resolution.x, &currNDCx);
             // interpolate color, normal, and position
-            float t = (currX - lBound) / (rBound - lBound);
-            if (pRight.x == pLeft.x) {
+            float t = (currX - lBound) / (float) (rBound - lBound);
+            if (rBound == lBound) {
               t = 0;
             }
             fragment frag;
@@ -353,8 +353,8 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
           if (currX >= 0 && currX < resolution.x) {
             screenToNDC(currX, resolution.x, &currNDCx);
             // interpolate color, normal, and position
-            float t = (currX - lBound) / (rBound - lBound);
-            if (pRight.x == pLeft.x) {
+            float t = (currX - lBound) / (float) (rBound - lBound);
+            if (rBound == lBound) {
               t = 0;
             }
             fragment frag;
@@ -382,7 +382,7 @@ __global__ void fragmentShadeKernel(fragment* depthbuffer, glm::vec2 resolution,
     fragment f = depthbuffer[index];
     if (f.position.z > 0) { //ignore all the empty space (z = -10000)
       glm::vec4 origPos = matVPinv * glm::vec4(f.position,1);
-      float diffuse = glm::dot(f.normal, glm::normalize(light.position - glm::vec3(origPos / origPos.w)));
+      float diffuse = glm::dot(f.normal, glm::normalize(light.position - glm::vec3(origPos * origPos.w)));
       if (diffuse < 0) {
         diffuse = 0;
       }
@@ -422,7 +422,7 @@ struct clippingOrBackface {
 };
 
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
-void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float* vbo, int vbosize, float* nbo, int nbosize, float* cbo, int cbosize, int* ibo, int ibosize){
+void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float* vbo, int vbosize, float* nbo, int nbosize, float* cbo, int cbosize, int* ibo, int ibosize, glm::mat4 view, glm::mat4 projection){
 
   // set up crucial magic
   int tileSize = 8;
@@ -471,21 +471,7 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
   tileSize = 32;
   int primitiveBlocks = ceil(((float)vbosize/3)/((float)tileSize));
 
-  //------------------------------
-  //camera setup
-  //------------------------------
-  glm::vec3 eye (0, .5, 2);
-  glm::vec3 center (0, .5, 0);
-  glm::vec3 up (0, 1, 0);
-  glm::mat4 matView = glm::lookAt(eye, center, up);
-  float fovy, aspect, znear, zfar;
-  fovy = 45;
-  aspect = 1.0;
-  znear = .01;
-  zfar = 5;
-  glm::mat4 matProj = glm::perspective(fovy, aspect, znear, zfar);
-
-  glm::mat4 matVP = matProj * matView;
+  glm::mat4 matVP = projection * view;
 
   //----------------------------
   //light setup
@@ -529,7 +515,8 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
   //------------------------------
   //fragment shader
   //------------------------------
-  fragmentShadeKernel<<<fullBlocksPerGrid, threadsPerBlock>>>(depthbuffer, resolution, light, matVP);
+  glm::mat4 matMVPinv = glm::inverse(matVP);
+  fragmentShadeKernel<<<fullBlocksPerGrid, threadsPerBlock>>>(depthbuffer, resolution, light, matMVPinv);
 
   cudaDeviceSynchronize();
   //------------------------------
