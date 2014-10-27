@@ -201,13 +201,12 @@ __global__ void geometryShadeKernel(geomU *gunifs,
         vertO v1 = prim.v[1];
         vertO v2 = prim.v[2];
 
-#if 0
+        // Backface culling
         glm::vec3 winding = glm::cross(v1.pn - v0.pn, v2.pn - v1.pn);
         if (winding.z > 0) {
-            prim.discard = true;
+            prims[index * stride].discard = true;
             return;
         }
-#endif
 
         vertO v01;
         v01.pn = (v0.pn + v1.pn) * .5f;
@@ -257,16 +256,6 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
     int index = (blockIdx.x * blockDim.x) + threadIdx.x;
     if (index < primitivesCount) {
         triangle tri = primitives[index];
-
-#if 1
-        // Backface culling
-        glm::vec3 winding = glm::cross(
-                tri.v[1].pn - tri.v[0].pn,
-                tri.v[2].pn - tri.v[1].pn);
-        if (winding.z > 0) {
-            return;
-        }
-#endif
 
         // Find the AABB of the tri on the screen
         glm::vec3 minp, maxp;

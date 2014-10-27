@@ -64,14 +64,14 @@ Feature Performance
 | Normal buffer     |    4.84 ms |    0.07 ms |      1.47% | Using normals from mesh.
 | Basic frag shad   |    5.80 ms |    0.96 ms |     19.83% | Renders model normals.
 | Backface cull     |    5.76 ms |   -0.04 ms |     -0.69% | 6.13ms using stream compaction to remove backfaces
-| Vert/frag structs |    5.78 ms |    0.02 ms |      0.35% | Small performance change.
+| Vert/frag structs |    5.78 ms |    0.02 ms |      0.35% | Performance drop statistically insignificant.
 | World-space pos   |    7.21 ms |    1.43 ms |     24.74% | Extra fragment input, extra interpolation of that input.
 | Depth buf optim   |    7.13 ms |   -0.08 ms |     -1.11% | Remove some unnecessary depth checks.
 | VS transforms     |    7.77 ms |    0.64 ms |      8.98% | Note that the change in screen size of the model affects the performance.
 | Lambert shading   |    8.29 ms |    0.52 ms |      6.69% |
 | Geometry shader   |    8.82 ms |    0.53 ms |      6.39% | Maximum 4 output tris per input tri. Stream compaction is used after this stage.
 | Tessellation GS   |    8.66 ms |   -0.16 ms |     -1.81% | Splits each tri into 3 tris, colors one red.
-| Backface GS       |   10.23 ms |    1.57 ms |     18.13% | Moved backface culling to inside the GS. Apparently not a great idea.
+| Backface GS       |    8.86 ms |    1.57 ms |     18.13% | Moved backface culling to inside the GS. Apparently this does not perform nicely.
 
 
 Debug/Progress Renderings (chronological)
