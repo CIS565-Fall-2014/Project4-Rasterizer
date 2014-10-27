@@ -19,12 +19,16 @@ struct triangle {
   glm::vec3 n0;
   glm::vec3 n1;
   glm::vec3 n2;
+  glm::vec3 old_p0;
+  glm::vec3 old_p1;
+  glm::vec3 old_p2;
 };
 
 struct fragment{
   glm::vec3 color;
   glm::vec3 normal;
   glm::vec3 position;
+  glm::vec3 originial_position;
 };
 
 

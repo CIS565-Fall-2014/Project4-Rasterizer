@@ -66,7 +66,10 @@ glm::mat4 view;
 glm::mat4 projection;
 glm::mat4 n_modelview;
 glm::mat4 M;
- 
+glm::vec3 light;
+float alpha=90;
+float beta=30;
+float D=1;
 
 //-------------------------------
 //----------CUDA STUFF-----------

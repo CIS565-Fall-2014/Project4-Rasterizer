@@ -45,18 +45,32 @@ int main(int argc, char** argv){
 void mainLoop() {
   while(!glfwWindowShouldClose(window)){
     glfwPollEvents();
-
+	alpha=alpha+1;
 	//camera data
-  cam.position=glm::vec3(0.0f,0.0f,1.0f);
-  cam.view=glm::vec3(0.0f,0.3f,0.0f);
-  cam.up=glm::vec3(0.0f,1.0f,0.0f);
-  cam.FOV=60.0f;
+  cam.view=glm::vec3(0.0f,0.0f,0.0f);
+  cam.up=glm::vec3(0.0,1.0,0.0);
+  cam.position.x=D*cos(beta*PI/180.0f)*cos(alpha*PI/180.0f);
+  cam.position.y=D*sin(beta*PI/180.0f);
+  cam.position.z=D*cos(beta*PI/180.0f)*sin(alpha*PI/180.0f);
+  glm::vec3 temp_lateral=glm::normalize(glm::cross(cam.view-cam.position,cam.up));
+  cam.up=glm::normalize(glm::cross(temp_lateral,cam.view-cam.position));
+
+  cam.FOV=90.0f;
   z_near=0.1f;
   z_far=100.0f;
   //Transform points from model to clip coordinates	
   model=glm::mat4(1.0f);
   view=glm::lookAt(cam.position,cam.view,cam.up);
   projection=glm::perspective(cam.FOV,(float)width/(float)height,z_near,z_far);
+
+  //test 
+  /*glm::vec4 r=glm::vec4(0.0,2.0,1.0,1.0);
+  r=projection*view*r;
+  cout<<r.x<<" "<<r.y<<" "<<r.z<<" "<<r.w<<endl;*/
+  
+  //getchar();
+
+
   n_modelview=glm::transpose(glm::inverse(view*model));
   M=projection*view*model;
   
@@ -114,7 +128,7 @@ void runCuda(){
 
  
   cudaGLMapBufferObject((void**)&dptr, pbo);
-  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize,nbo,nbosize,model,view,projection,M,n_modelview, z_near,z_far);
+  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize,nbo,nbosize,model,view,projection,M,n_modelview, z_near,z_far,cam.position);
   cudaGLUnmapBufferObject(pbo);
 
   vbo = NULL;
