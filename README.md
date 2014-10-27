@@ -37,6 +37,22 @@ Features Implemented
 (Extras in **bold**.)
 
 
+Renderings
+----------
+
+Diffuse shading:
+
+![](progress/06_diffuse.png)
+
+Diffuse shading showing normal interpolation:
+
+![](progress/07_working_perspective.png)
+
+Tessellation in geometry shader:
+
+![](progress/08_tessellation.png)
+
+
 Feature Performance
 -------------------
 
@@ -56,22 +72,6 @@ Feature Performance
 | Geometry shader   |    8.82 ms |    0.53 ms |      6.39% | Maximum 4 output tris per input tri. Stream compaction is used after this stage.
 | Tessellation GS   |    8.66 ms |   -0.16 ms |     -1.81% | Splits each tri into 3 tris, colors one red.
 | Backface GS       |   10.23 ms |    1.57 ms |     18.13% | Moved backface culling to inside the GS. Apparently not a great idea.
-
-
-Renderings
-----------
-
-Diffuse shading:
-
-![](progress/06_diffuse.png)
-
-Diffuse shading showing normal interpolation:
-
-![](progress/07_working_perspective.png)
-
-Tessellation in geometry shader:
-
-![](progress/08_tessellation.png)
 
 
 Debug/Progress Renderings (chronological)
