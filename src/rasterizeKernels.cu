@@ -166,9 +166,9 @@ __global__ void primitiveAssemblyKernel(float* vbo, int vbosize, float* cbo, int
     i = ibo[index * 3 + 2] * 3;
     tri.p2 = glm::vec3(vbo[i], vbo[i + 1], vbo[i + 2]);
     tri.c2 = glm::vec3(cbo[i], cbo[i + 1], cbo[i + 2]);
-    glm::vec3 normal = glm::normalize(glm::cross(tri.p0 - tri.p1, tri.p2 - tri.p1) +
-                                      glm::cross(tri.p1 - tri.p2, tri.p0 - tri.p2) +
-                                      glm::cross(tri.p2 - tri.p0, tri.p1 - tri.p0));
+    glm::vec3 normal = glm::normalize(glm::cross(tri.p1 - tri.p0, tri.p2 - tri.p0) +
+                                      glm::cross(tri.p2 - tri.p1, tri.p0 - tri.p1) +
+                                      glm::cross(tri.p0 - tri.p2, tri.p1 - tri.p2));
     tri.n0 = tri.n1 = tri.n2 = normal;
     primitives[index] = tri;
   }
@@ -398,7 +398,7 @@ __global__ void fragmentShadeKernel(fragment* depthbuffer, glm::vec2 resolution,
     glm::vec3 lpos (matVP * glm::vec4(light.position, 1));
     fragment f = depthbuffer[index];
     if (f.position.z > 0) {
-      float diffuse = glm::dot(f.normal, light.position - f.position);
+      float diffuse = glm::dot(f.normal, glm::normalize(light.position - f.position));
       if (diffuse < 0) {
         diffuse = 0;
       }
@@ -416,9 +416,9 @@ __global__ void render(glm::vec2 resolution, fragment* depthbuffer, glm::vec3* f
 
   if(x<=resolution.x && y<=resolution.y){
     // Color
-    //framebuffer[index] = depthbuffer[index].color;
+    framebuffer[index] = depthbuffer[index].color;
     // Normal
-    framebuffer[index] = depthbuffer[index].normal;
+    //framebuffer[index] = depthbuffer[index].normal;
     // Distance
     //framebuffer[index] = glm::vec3(depthbuffer[index].position.z);
   }
@@ -427,7 +427,7 @@ __global__ void render(glm::vec2 resolution, fragment* depthbuffer, glm::vec3* f
 struct isBackface {
   __host__ __device__
     bool operator() (const triangle t) {
-      return t.n0.z > 0;
+      return t.n0.z < 0;
   }
 };
 
@@ -480,7 +480,7 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
   //------------------------------
   //camera setup
   //------------------------------
-  glm::vec3 eye (0, 0, 2);
+  glm::vec3 eye (0, 2, 2);
   glm::vec3 center (0, 0, 0);
   glm::vec3 up (0, 1, 0);
   glm::mat4 matView = glm::lookAt(eye, center, up);
@@ -498,7 +498,7 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
   //----------------------------
   light light;
   light.color = glm::vec3(1, 1, 1);
-  light.position = glm::vec3(0, 0, 5);
+  light.position = glm::vec3(5, 5, 5);
 
   //------------------------------
   //vertex shader
