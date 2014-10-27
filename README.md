@@ -50,6 +50,7 @@ After implementing fragmentShade, add diffuse and specular effect to models:
   ![](with_BC.jpg)
   
 Also, there is an interesting colorful bunny when I debug the missing triangles for the scanline rasterization part, the colorful bunny looks pretty:
+
 ![](bunny_colorful.jpg)
 
 By rasterizing only the triangle frames or triangle vertices, we can get another two view for models, wireframe and vertices:
