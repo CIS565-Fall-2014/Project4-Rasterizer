@@ -61,6 +61,8 @@ Below, you can see the results of adding light contribution to the rendered imag
 
 ![alt tag](https://raw.githubusercontent.com/drerucha/Project4-Rasterizer/master/renders/tri_colored.jpg)
 
+![alt tag](https://raw.githubusercontent.com/drerucha/Project4-Rasterizer/master/renders/tri_gray_smaller.jpg) ![alt tag](https://raw.githubusercontent.com/drerucha/Project4-Rasterizer/master/renders/tri_colored_smaller.jpg)
+
 ## BACKFACE CULLING
 
 Backface culling is a process where triangles facing away from the camera are not rasterized. For closed, 3D objects, culling backfaces can result in "throwing out" as much as 50% of triangles. As a result, for complex scenes, backface culling can result in a significant performance boost.
