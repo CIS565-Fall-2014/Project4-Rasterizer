@@ -39,6 +39,12 @@ The render time firstly reduced as the number of premitives increases and then t
 
 Because of the memory is limited, I cannot test cases with even more premitives. 
 
+![Alt text](https://github.com/chiwsy/Project4-Rasterizer/blob/master/renders/CullingPersentage.png)
+Culling Scale
+
+![Alt text](https://github.com/chiwsy/Project4-Rasterizer/blob/master/renders/Performance.png)
+Performance
+
 ---------------------------------------------------------------------------------
 Render Result
 ---------------------------------------------------------------------------------
