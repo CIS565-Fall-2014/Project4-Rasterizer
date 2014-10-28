@@ -28,6 +28,7 @@ Rasterization implemented as a scanline algorithm.  This section currently takes
 
 I use double linear interpolation to calculate the appropriate depth, color, and normal for each fragment.  I did not use the provided code for barycentric coordinates.  Instead, I LERP first along the edges to find a left fragment and right fragment, then LERP between them to fill in the shape.
 ![lerp diagram](https://raw.githubusercontent.com/JivingTechnostic/Project4-Rasterizer/master/renders/TLERP.png)
+
 I am fairly certain that this method gives the correct color, though it might favor colors horizontally.  I will have to check later.  Normal interpolation comes for free as well, but the OBJ's I am using have uniform normals on each face, so it doesn't change anything.
 
 ### Fragment Shading (Blinn-Phong Shader)
