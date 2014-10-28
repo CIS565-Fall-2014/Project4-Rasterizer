@@ -61,8 +61,6 @@ Below, you can see the results of adding light contribution to the rendered imag
 
 ![alt tag](https://raw.githubusercontent.com/drerucha/Project4-Rasterizer/master/renders/tri_colored.jpg)
 
-![alt tag](https://raw.githubusercontent.com/drerucha/Project4-Rasterizer/master/renders/cow_diffuse_colored.jpg)
-
 ## BACKFACE CULLING
 
 Backface culling is a process where triangles facing away from the camera are not rasterized. For closed, 3D objects, culling backfaces can result in "throwing out" as much as 50% of triangles. As a result, for complex scenes, backface culling can result in a significant performance boost.
@@ -77,7 +75,7 @@ An performance analysis comparing frame rates with and without backface culling 
 
 I implemented a simple post-process anti-aliasing scheme. After the fragment shader stage (after lighting computations), I detected edge pixels by computing the color distances between neighboring pixels. If the difference in colors between adjacent pixels exceeded a predefined threshold, then that pixel was marked as an edge. Then, for all edge pixels, I applied a simple uniform blurring by averaging the edge pixel with its eight neighbors.
 
-In the first image below, the red pixels indicate edge pixels that are to be blurred. In the next images, you can see a closeup of the blurring results.
+In the first image below, the red pixels indicate edge pixels that are to be blurred. In the next images, you can see a closeup of the blurring results. The first image does not use anti-aliasing. Anti-aliasing has been applied to the second image.
 
 This was an interesting exercise which is very simple to understand, but I am not impressed with the results. An performance analysis comparing frame rates with and without anti-aliasing is included below in the section named "Performance analysis".
 
@@ -103,7 +101,7 @@ cow.obj with anti-aliasing: 36 fps.
 
 ## ROOM FOR IMPROVEMENT
 
-Currently, I have a bug in my rasterization stage calculating fragment depths, so occluded geometry is sometimes rendered in front of the geometry occluding it. My immediate next steps for this project include locating and correcting that error. After that, I would like to interpolate normal values across triangle faces to give the illusion of smoothed geometry even in low polygon objects.
+Currently, I have a bug in my rasterization stage when computing fragment depths, so occluded geometry is sometimes rendered in front of the geometry occluding it. My immediate next steps for this project include locating and correcting that error. After that, I would like to interpolate normal values across triangle faces to give the illusion of smoothed geometry even in low polygon objects. After that, I think it would be interesting to try a per-scanline parallelization scheme in place of my per-primitive parallelization scheme. There is a lot of room for performance improvements in my rasterization stage that I think are worth exploring.
 
 ## SPECIAL THANKS
 
