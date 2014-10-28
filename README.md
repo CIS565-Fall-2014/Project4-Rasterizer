@@ -26,7 +26,9 @@ Rasterization implemented as a scanline algorithm.  This section currently takes
 #### Color & Normal Interpolation
 ![color interpolation](https://raw.githubusercontent.com/JivingTechnostic/Project4-Rasterizer/master/renders/3.png)
 
-I use double linear interpolation to calculate the appropriate depth, color, and normal for each fragment.  I did not use the provided code for barycentric coordinates.  Instead, I LERP first along the edges to find a left fragment and right fragment, then LERP between them to fill in the shape.  I am fairly certain that this method gives the correct color, though it might favor colors horizontally.  I will have to check later.  Normal interpolation comes for free as well, but the OBJ's I am using have uniform normals on each face, so it doesn't change anything.
+I use double linear interpolation to calculate the appropriate depth, color, and normal for each fragment.  I did not use the provided code for barycentric coordinates.  Instead, I LERP first along the edges to find a left fragment and right fragment, then LERP between them to fill in the shape.
+![lerp diagram](https://raw.githubusercontent.com/JivingTechnostic/Project4-Rasterizer/master/renders/TLERP.png)
+I am fairly certain that this method gives the correct color, though it might favor colors horizontally.  I will have to check later.  Normal interpolation comes for free as well, but the OBJ's I am using have uniform normals on each face, so it doesn't change anything.
 
 ### Fragment Shading (Blinn-Phong Shader)
 Simple fragment shader that takes in a light, fragments, and the inverse of the model-view-projection matrix.  This inverse is multiplied with the position of the fragment in order to get the position in world-space.  The world-space coordinate is then used, along with the normal and light position, to calculate shading using a Blinn-Phong shader.  Objects do not obscure each other yet.  So long as a plane has a normal towards the light, it will be lit.
