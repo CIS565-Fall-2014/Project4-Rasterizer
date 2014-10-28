@@ -1,6 +1,8 @@
 CIS 565 project 04 : CUDA software rasterizer
 ===================
 
+![alt tag](https://raw.githubusercontent.com/drerucha/Project4-Rasterizer/master/renders/cow_flat_colored.jpg)
+
 ## INTRODUCTION
 
 This project is an implementation of a simplified, CUDA-based rasterized graphics pipeline, similar to OpenGL's pipeline. I implemented vertex shading, primitive assembly, perspective transformation, rasterization, and fragment shading, and wrote the resulting fragments to a framebuffer for display.
@@ -45,15 +47,13 @@ This method is parallelized per primitive rather than per scanline, so each thre
 
 ## FRAGMENT SHADING
 
-My pipeline applies a simple diffuse Lambertain shading to each fragment stored in my depth buffer. Each fragment knows its world-space position, color, and normal. Those three pieces of information, along with a light position and light intensity, are all that are needed to compute a diffuse lighting coefficient and perform Lambertian shading.
+My pipeline applies a simple diffuse Lambertian shading to each fragment stored in my depth buffer. Each fragment knows its world-space position, color, and normal. Those three pieces of information, along with a light position and light intensity, are all that are needed to compute a diffuse lighting coefficient and perform Lambertian shading.
+
+Below, you can see the results of adding light contribution to the rendered image using Lambertian shading. Without any lighting computations, the image lacks depth.
 
 ![alt tag](https://raw.githubusercontent.com/drerucha/Project4-Rasterizer/master/renders/cow_flat_with_aa.jpg)
 
 ![alt tag](https://raw.githubusercontent.com/drerucha/Project4-Rasterizer/master/renders/cow_diffuse_with_aa.jpg)
-
-![alt tag](https://raw.githubusercontent.com/drerucha/Project4-Rasterizer/master/renders/cow_flat_colored.jpg)
-
-![alt tag](https://raw.githubusercontent.com/drerucha/Project4-Rasterizer/master/renders/cow_diffuse_colored.jpg)
 
 ## BARYCENTRIC COLOR INTERPOLATION
 
@@ -61,23 +61,29 @@ My pipeline applies a simple diffuse Lambertain shading to each fragment stored 
 
 ![alt tag](https://raw.githubusercontent.com/drerucha/Project4-Rasterizer/master/renders/tri_colored.jpg)
 
+![alt tag](https://raw.githubusercontent.com/drerucha/Project4-Rasterizer/master/renders/cow_diffuse_colored.jpg)
+
 ## BACKFACE CULLING
 
-[Add text.]
+Backface culling is a process where triangles facing away from the camera are not rasterized. For closed, 3D objects, culling backfaces can result in "throwing out" as much as 50% of triangles. As a result, for complex scenes, backface culling can result in a significant performance boost.
+
+My backface culling method is very simple. The direction a triangle is facing is determined by the order of that triangle's vertices. If the order of vertices is counter-clockwise, then the triangle is facing toward the camera. If the order of vertices is clockwise, then the triangle is facing away from the camera. I compute the order of vertices by taking the cross product of the two triangle vectors that originate from the first triangle vertex. So, if the triangle has vertices p1, p2, and p3, I compute ( p2 - p1 ) X ( p3 - p1 ), where 'X' is the cross product. Once I have the result of this cross product, I leverage the right-hand rule to determine vertex ordering.
+
+To perform the right-hand rule, using your right hand, with an open hand, line your fingers up with the first vector, and curl your fingers toward the second vector. Note the direction of your thumb. If your thumb is pointing toward you, then the z-component of the vector cross product result will be positive. If your thumb is pointing away from you, then the z-component of the vector cross product result will be negative. After performing the cross product, I check this z-value to determine triangle visibility.
 
 An performance analysis comparing frame rates with and without backface culling is included below in the section named "Performance analysis".
 
 ## ANTI-ALIASING AS A POST-PROCESS
 
-[Add text.]
+I implemented a simple post-process anti-aliasing scheme. After the fragment shader stage (after lighting computations), I detected edge pixels by computing the color distances between neighboring pixels. If the difference in colors between adjacent pixels exceeded a predefined threshold, then that pixel was marked as an edge. Then, for all edge pixels, I applied a simple uniform blurring by averaging the edge pixel with its eight neighbors.
 
-An performance analysis comparing frame rates with and without anti-aliasing is included below in the section named "Performance analysis".
+In the first image below, the red pixels indicate edge pixels that are to be blurred. In the next images, you can see a closeup of the blurring results.
+
+This was an interesting exercise which is very simple to understand, but I am not impressed with the results. An performance analysis comparing frame rates with and without anti-aliasing is included below in the section named "Performance analysis".
 
 ![alt tag](https://raw.githubusercontent.com/drerucha/Project4-Rasterizer/master/renders/cow_diffuse_outlined.jpg)
 
-![alt tag](https://raw.githubusercontent.com/drerucha/Project4-Rasterizer/master/renders/cow_diffuse_no_aa_zoomed.jpg)
-
-![alt tag](https://raw.githubusercontent.com/drerucha/Project4-Rasterizer/master/renders/cow_diffuse_with_aa_zoomed.jpg)
+![alt tag](https://raw.githubusercontent.com/drerucha/Project4-Rasterizer/master/renders/cow_diffuse_no_aa_zoomed.jpg) ![alt tag](https://raw.githubusercontent.com/drerucha/Project4-Rasterizer/master/renders/cow_diffuse_with_aa_zoomed.jpg)
 
 ## VIDEO DEMO
 
