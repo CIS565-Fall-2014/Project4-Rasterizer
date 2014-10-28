@@ -29,9 +29,23 @@ int main(int argc, char** argv){
     return 0;
   }
 
+  drawmode = FACES;
+  colormode = COLOR;
   frame = 0;
   seconds = time (NULL);
   fpstracker = 0;
+
+  //------------------------------
+  //camera setup
+  //------------------------------
+  camera.pos = glm::vec3(0, 0, 5);
+  camera.view = glm::vec3(0, 0, -1);
+  camera.up = glm::vec3(0, 1, 0);
+  camera.right = glm::normalize(glm::cross(camera.view, camera.up));
+  camera.fovY = 45;
+  camera.aspect = 1.0;
+  camera.zNear = .01;
+  camera.zFar = 20;
 
   // Launch CUDA/GL
   if (init(argc, argv)) {
@@ -51,14 +65,14 @@ void mainLoop() {
 
     if(seconds2-seconds >= 1){
 
-        fps = fpstracker/(seconds2-seconds);
-        fpstracker = 0;
-        seconds = seconds2;
+      fps = fpstracker/(seconds2-seconds);
+      fpstracker = 0;
+      seconds = seconds2;
     }
 
     string title = "CIS565 Rasterizer | " + utilityCore::convertIntToString((int)fps) + " FPS";
-		glfwSetWindowTitle(window, title.c_str());
-    
+    glfwSetWindowTitle(window, title.c_str());
+
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
     glBindTexture(GL_TEXTURE_2D, displayImage);
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
@@ -84,17 +98,20 @@ void runCuda(){
   vbo = mesh->getVBO();
   vbosize = mesh->getVBOsize();
 
-  float newcbo[] = {0.0, 1.0, 0.0, 
-                    0.0, 0.0, 1.0, 
-                    1.0, 0.0, 0.0};
-  cbo = newcbo;
-  cbosize = 9;
+  cbo = mesh->getCBO();
+  cbosize = mesh->getCBOsize();
+
+  nbo = mesh->getNBO();
+  nbosize = mesh->getNBOsize();
 
   ibo = mesh->getIBO();
   ibosize = mesh->getIBOsize();
 
+  glm::mat4 matProj = glm::perspective(camera.fovY, camera.aspect, camera.zNear, camera.zFar);
+  glm::mat4 matView = glm::lookAt(camera.pos, camera.pos + camera.view, camera.up);
+
   cudaGLMapBufferObject((void**)&dptr, pbo);
-  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize);
+  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, nbo, nbosize, cbo, cbosize, ibo, ibosize, matView, matProj, drawmode, colormode);
   cudaGLUnmapBufferObject(pbo);
 
   vbo = NULL;
@@ -105,7 +122,7 @@ void runCuda(){
   fpstracker++;
 
 }
-  
+
 //-------------------------------
 //----------SETUP STUFF----------
 //-------------------------------
@@ -114,18 +131,20 @@ bool init(int argc, char* argv[]) {
   glfwSetErrorCallback(errorCallback);
 
   if (!glfwInit()) {
-      return false;
+    return false;
   }
 
   width = 800;
   height = 800;
   window = glfwCreateWindow(width, height, "CIS 565 Pathtracer", NULL, NULL);
   if (!window){
-      glfwTerminate();
-      return false;
+    glfwTerminate();
+    return false;
   }
   glfwMakeContextCurrent(window);
   glfwSetKeyCallback(window, keyCallback);
+  glfwSetCursorPosCallback(window, cursorCallback);
+  glfwSetMouseButtonCallback(window, mouseButtonCallback);
 
   // Set up GL context
   glewExperimental = GL_TRUE;
@@ -138,7 +157,7 @@ bool init(int argc, char* argv[]) {
   initTextures();
   initCuda();
   initPBO();
-  
+
   GLuint passthroughProgram;
   passthroughProgram = initShader();
 
@@ -153,7 +172,7 @@ void initPBO(){
   int num_texels = width*height;
   int num_values = num_texels * 4;
   int size_tex_data = sizeof(GLubyte) * num_values;
-    
+
   // Generate a buffer ID called a PBO (Pixel Buffer Object)
   glGenBuffers(1, &pbo);
 
@@ -175,48 +194,48 @@ void initCuda(){
 }
 
 void initTextures(){
-    glGenTextures(1, &displayImage);
-    glBindTexture(GL_TEXTURE_2D, displayImage);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_BGRA,
-        GL_UNSIGNED_BYTE, NULL);
+  glGenTextures(1, &displayImage);
+  glBindTexture(GL_TEXTURE_2D, displayImage);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_BGRA,
+    GL_UNSIGNED_BYTE, NULL);
 }
 
 void initVAO(void){
-    GLfloat vertices[] =
-    { 
-        -1.0f, -1.0f, 
-         1.0f, -1.0f, 
-         1.0f,  1.0f, 
-        -1.0f,  1.0f, 
-    };
+  GLfloat vertices[] =
+  { 
+    -1.0f, -1.0f, 
+    1.0f, -1.0f, 
+    1.0f,  1.0f, 
+    -1.0f,  1.0f, 
+  };
 
-    GLfloat texcoords[] = 
-    { 
-        1.0f, 1.0f,
-        0.0f, 1.0f,
-        0.0f, 0.0f,
-        1.0f, 0.0f
-    };
+  GLfloat texcoords[] = 
+  { 
+    1.0f, 1.0f,
+    0.0f, 1.0f,
+    0.0f, 0.0f,
+    1.0f, 0.0f
+  };
 
-    GLushort indices[] = { 0, 1, 3, 3, 1, 2 };
+  GLushort indices[] = { 0, 1, 3, 3, 1, 2 };
 
-    GLuint vertexBufferObjID[3];
-    glGenBuffers(3, vertexBufferObjID);
-    
-    glBindBuffer(GL_ARRAY_BUFFER, vertexBufferObjID[0]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-    glVertexAttribPointer((GLuint)positionLocation, 2, GL_FLOAT, GL_FALSE, 0, 0); 
-    glEnableVertexAttribArray(positionLocation);
+  GLuint vertexBufferObjID[3];
+  glGenBuffers(3, vertexBufferObjID);
 
-    glBindBuffer(GL_ARRAY_BUFFER, vertexBufferObjID[1]);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(texcoords), texcoords, GL_STATIC_DRAW);
-    glVertexAttribPointer((GLuint)texcoordsLocation, 2, GL_FLOAT, GL_FALSE, 0, 0);
-    glEnableVertexAttribArray(texcoordsLocation);
+  glBindBuffer(GL_ARRAY_BUFFER, vertexBufferObjID[0]);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+  glVertexAttribPointer((GLuint)positionLocation, 2, GL_FLOAT, GL_FALSE, 0, 0); 
+  glEnableVertexAttribArray(positionLocation);
 
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vertexBufferObjID[2]);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+  glBindBuffer(GL_ARRAY_BUFFER, vertexBufferObjID[1]);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(texcoords), texcoords, GL_STATIC_DRAW);
+  glVertexAttribPointer((GLuint)texcoordsLocation, 2, GL_FLOAT, GL_FALSE, 0, 0);
+  glEnableVertexAttribArray(texcoordsLocation);
+
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vertexBufferObjID[2]);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 }
 
 
@@ -224,7 +243,7 @@ GLuint initShader() {
   const char *attribLocations[] = { "Position", "Tex" };
   GLuint program = glslUtility::createDefaultProgram(attribLocations, 2);
   GLint location;
-  
+
   glUseProgram(program);
   if ((location = glGetUniformLocation(program, "u_image")) != -1)
   {
@@ -247,25 +266,25 @@ void deletePBO(GLuint* pbo){
   if (pbo) {
     // unregister this buffer object with CUDA
     cudaGLUnregisterBufferObject(*pbo);
-    
+
     glBindBuffer(GL_ARRAY_BUFFER, *pbo);
     glDeleteBuffers(1, pbo);
-    
+
     *pbo = (GLuint)NULL;
   }
 }
 
 void deleteTexture(GLuint* tex){
-    glDeleteTextures(1, tex);
-    *tex = (GLuint)NULL;
+  glDeleteTextures(1, tex);
+  *tex = (GLuint)NULL;
 }
- 
+
 void shut_down(int return_code){
   kernelCleanup();
   cudaDeviceReset();
-  #ifdef __APPLE__
+#ifdef __APPLE__
   glfwTerminate();
-  #endif
+#endif
   exit(return_code);
 }
 
@@ -274,11 +293,67 @@ void shut_down(int return_code){
 //------------------------------
 
 void errorCallback(int error, const char* description){
-    fputs(description, stderr);
+  fputs(description, stderr);
 }
 
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods){
-    if(key == GLFW_KEY_ESCAPE && action == GLFW_PRESS){
-        glfwSetWindowShouldClose(window, GL_TRUE);
+  if(key == GLFW_KEY_ESCAPE && action == GLFW_PRESS){
+    glfwSetWindowShouldClose(window, GL_TRUE);
+  } else if(key == GLFW_KEY_P && action == GLFW_PRESS) {
+    // print current image, with iteration_#
+  } else if(key == GLFW_KEY_Z && action == GLFW_PRESS) {
+    drawmode = FACES;
+  } else if(key == GLFW_KEY_X && action == GLFW_PRESS) {
+    drawmode = WIREFRAME;
+  } else if(key == GLFW_KEY_C && action == GLFW_PRESS) {
+    drawmode = VERTICES;
+  } else if(key == GLFW_KEY_A && action == GLFW_PRESS) {
+    colormode = COLOR;
+  } else if(key == GLFW_KEY_S && action == GLFW_PRESS) {
+    colormode = NORMAL;
+  } else if(key == GLFW_KEY_D && action == GLFW_PRESS) {
+    colormode = DEPTH;
+  }
+}
+
+// I apologize for the tank controls (rotate) but glm::rotate is refusing to work for some reason.
+// FREE MOTION BLURS YE
+void cursorCallback(GLFWwindow* window, double x, double y){
+  if (mouse.state == LEFT_MOUSE) {	// rotate
+    glm::mat4 rotateX = glm::rotate(glm::mat4(), (float)(mouse.x - x), camera.up);
+    glm::mat4 rotateY = glm::rotate(glm::mat4(), (float)(mouse.y - y), camera.right);
+    camera.pos = glm::vec3(rotateY * rotateX * glm::vec4(camera.pos, 1));
+    camera.view = glm::vec3(rotateY * rotateX * glm::vec4(camera.view, 1));
+    camera.up = glm::vec3(rotateY * glm::vec4(camera.up, 1));
+    camera.right = glm::cross(camera.view, camera.up);
+  } else if (mouse.state == RIGHT_MOUSE) {	// pan
+    camera.pos += (float)(-(mouse.y - y) / 200) * camera.up +
+                  (float)((mouse.x - x) / 200) * camera.right;
+  } else if (mouse.state == MIDDLE_MOUSE) {	// zoom
+    camera.pos += (float)((mouse.y - y) / 100) * camera.view;
+  }
+  mouse.x = x;
+  mouse.y = y;
+}
+
+void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
+  if (button == GLFW_MOUSE_BUTTON_1) {
+    if (action == GLFW_PRESS) {
+      mouse.state = LEFT_MOUSE;
+    } else if (mouse.state == LEFT_MOUSE){
+      mouse.state = NONE;
     }
+  } else if (button == GLFW_MOUSE_BUTTON_2) {
+    if (action == GLFW_PRESS) {
+      mouse.state = RIGHT_MOUSE;
+    } else if (mouse.state == RIGHT_MOUSE){
+      mouse.state = NONE;
+    }
+  } else if (button == GLFW_MOUSE_BUTTON_3) {
+    if (action == GLFW_PRESS) {
+      mouse.state = MIDDLE_MOUSE;
+    } else if (mouse.state == MIDDLE_MOUSE){
+      mouse.state = NONE;
+    }
+  }
 }

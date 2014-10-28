@@ -10,18 +10,26 @@
 #include "cudaMat4.h"
 
 struct triangle {
-  glm::vec3 p0;
-  glm::vec3 p1;
-  glm::vec3 p2;
-  glm::vec3 c0;
-  glm::vec3 c1;
-  glm::vec3 c2;
+  glm::vec3 p0, p1, p2;
+  glm::vec3 n0, n1, n2;
+  glm::vec3 c0, c1, c2;
 };
 
-struct fragment{
+struct point {
   glm::vec3 color;
   glm::vec3 normal;
   glm::vec3 position;
+};
+
+struct fragment {
+  glm::vec3 color;
+  glm::vec3 normal;
+  glm::vec3 position;
+};
+
+struct light {
+  glm::vec3 position;
+  glm::vec3 color;
 };
 
 //Multiplies a cudaMat4 matrix and a vec4

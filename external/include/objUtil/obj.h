@@ -56,6 +56,7 @@ public:
 	float* getBoundingBox();    //returns vbo-formatted bounding box
 	float getTop();
 	void setColor(glm::vec3);
+  void randomizeColors();
 	glm::vec3 getColor();
 	float* getVBO();
 	float* getCBO();
@@ -72,6 +73,7 @@ public:
 	vector<glm::vec4>* getNormals();
 	vector<glm::vec4>* getTextureCoords();
     vector<float*>* getFaceBoxes();
+
 };
 
 #endif

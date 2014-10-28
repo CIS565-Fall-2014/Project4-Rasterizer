@@ -4,6 +4,7 @@
 #include <objUtil/obj.h>
 #include <iostream>
 #include <limits>
+#include <random>
 
 #define EPSILON std::numeric_limits<double>::epsilon()
 
@@ -93,7 +94,7 @@ void obj::buildVBOs(){
 	for(int i=0; i<IBOvec.size(); i++){
 		ibo[i] = IBOvec[i];
 	}
-	setColor(glm::vec3(.4,.4,.4));
+	setColor(glm::vec3(.5,.5,.4));
 }
 
 void obj::compareMaxMin(float x, float y, float z){
