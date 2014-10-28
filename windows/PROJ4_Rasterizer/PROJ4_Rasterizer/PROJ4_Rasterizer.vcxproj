@@ -72,6 +72,7 @@
     <ClInclude Include="..\..\..\src\rasterizeKernels.h" />
     <ClInclude Include="..\..\..\src\rasterizeTools.h" />
     <ClInclude Include="..\..\..\src\sceneStructs.h" />
+    <ClInclude Include="..\..\..\src\SimpleTimer.h" />
     <ClInclude Include="..\..\..\src\utilities.h" />
   </ItemGroup>
   <ItemGroup>
@@ -79,6 +80,7 @@
     <ClCompile Include="..\..\..\external\src\objUtil\obj.cpp" />
     <ClCompile Include="..\..\..\external\src\objUtil\objloader.cpp" />
     <ClCompile Include="..\..\..\src\main.cpp" />
+    <ClCompile Include="..\..\..\src\SimpleTimer.cpp" />
     <ClCompile Include="..\..\..\src\utilities.cpp" />
   </ItemGroup>
   <ItemGroup>

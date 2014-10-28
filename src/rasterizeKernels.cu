@@ -7,6 +7,7 @@
 #include <thrust/random.h>
 #include "rasterizeKernels.h"
 #include "rasterizeTools.h"
+#include "SimpleTimer.h"
 
 glm::vec3 *framebuffer;
 fragment *depthbuffer;
@@ -466,6 +467,9 @@ void cudaRasterizeCore( uchar4 *PBOpos,
 						float *nbo, int nbosize,
 						simpleCamera camera )
 {
+	SimpleTimer timer;
+	float time_elapsed;
+
 	// set up crucial magic
 	int tileSize = 8;
 	dim3 threadsPerBlock( tileSize,
@@ -549,13 +553,21 @@ void cudaRasterizeCore( uchar4 *PBOpos,
 	//------------------------------
 	// initialize lock buffer
 	//------------------------------
+
+	//timer.start();
+
 	clearLockBuffer<<< fullBlocksPerGrid, threadsPerBlock >>>( camera.resolution,
 															   device_lock_buffer );
 	cudaDeviceSynchronize();
+	
+	//time_elapsed = timer.stop();
+	//std::cout << "initialize lock buffer: " << time_elapsed << std::endl;
 
 	//------------------------------
 	// vertex shader
 	//------------------------------
+
+	//timer.start();
 
 	// Define model matrix.
 	// Transforms from object-space to world-space.
@@ -581,9 +593,15 @@ void cudaRasterizeCore( uchar4 *PBOpos,
 														device_vbo_window_coords );
 	cudaDeviceSynchronize();
 
+	//time_elapsed = timer.stop();
+	//std::cout << "vertex shader: " << time_elapsed << std::endl;
+
 	//------------------------------
 	// primitive assembly
 	//------------------------------
+
+	//timer.start();
+
 	primitiveBlocks = ceil( ( ( float )ibosize / 3 ) / ( ( float )tileSize ) );
 	primitiveAssemblyKernel<<< primitiveBlocks, tileSize >>>( device_vbo, vbosize,
 															  device_cbo, cbosize,
@@ -593,9 +611,15 @@ void cudaRasterizeCore( uchar4 *PBOpos,
 															  primitives );
 	cudaDeviceSynchronize();
 
+	//time_elapsed = timer.stop();
+	//std::cout << "primitive assembly: " << time_elapsed << std::endl;
+
 	//------------------------------
 	// rasterization
 	//------------------------------
+
+	//timer.start();
+
 	rasterizationKernel<<< primitiveBlocks, tileSize >>>( primitives,
 														  ibosize / 3,
 														  depthbuffer,
@@ -603,23 +627,41 @@ void cudaRasterizeCore( uchar4 *PBOpos,
 														  device_lock_buffer );
 	cudaDeviceSynchronize();
 
+	//time_elapsed = timer.stop();
+	//std::cout << "rasterization: " << time_elapsed << std::endl;
+
 	//------------------------------
 	// fragment shader
 	//------------------------------
+
+	//timer.start();
+
 	fragmentShadeKernel<<< fullBlocksPerGrid, threadsPerBlock >>>( depthbuffer,
 																   camera.resolution );
 	cudaDeviceSynchronize();
 
+	//time_elapsed = timer.stop();
+	//std::cout << "fragment shader: " << time_elapsed << std::endl;
+
 	//------------------------------
 	// anti-aliasing
 	//------------------------------
+
+	//timer.start();
+
 	antiAliasingPostProcess<<< fullBlocksPerGrid, threadsPerBlock >>>( depthbuffer,
 																	   camera.resolution );
 	cudaDeviceSynchronize();
 
+	//time_elapsed = timer.stop();
+	//std::cout << "anti-aliasing: " << time_elapsed << std::endl;
+
 	//------------------------------
 	// write fragments to framebuffer
 	//------------------------------
+
+	//timer.start();
+
 	render<<< fullBlocksPerGrid, threadsPerBlock >>>( camera.resolution,
 													  depthbuffer,
 													  framebuffer );
@@ -627,6 +669,9 @@ void cudaRasterizeCore( uchar4 *PBOpos,
 															  camera.resolution,
 															  framebuffer );
 	cudaDeviceSynchronize();
+
+	//time_elapsed = timer.stop();
+	//std::cout << "write fragments to framebuffer: " << time_elapsed << std::endl;
 
 	kernelCleanup();
 	checkCUDAError("Kernel failed!");

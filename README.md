@@ -49,7 +49,7 @@ This method is parallelized per primitive rather than per scanline, so each thre
 
 My pipeline applies a simple diffuse Lambertian shading to each fragment stored in my depth buffer. Each fragment knows its world-space position, color, and normal. Those three pieces of information, along with a light position and light intensity, are all that are needed to compute a diffuse lighting coefficient and perform Lambertian shading.
 
-Below, you can see the results of adding light contribution to the rendered image using Lambertian shading. Without any lighting computations, the image lacks depth.
+Below, you can see the results of adding light contribution to the rendered image using Lambertian shading. Without any lighting, the image lacks all depth.
 
 ![alt tag](https://raw.githubusercontent.com/drerucha/Project4-Rasterizer/master/renders/cow_flat_with_aa.jpg)
 
