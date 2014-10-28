@@ -11,6 +11,6 @@
 #include "glm/glm.hpp"
 #include "Camera.h"
 void kernelCleanup();
-void cudaRasterizeCore(uchar4* pos, glm::vec2 resolution, float frame, float* vbo, int vbosize, float* cbo, int cbosize, int* ibo, int ibosize, Camera camera);
+void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float* vbo, int vbosize, float* cbo, int cbosize, int* ibo, int ibosize, float *nbo, int nbosize, Camera camera, glm::mat4 modelTransformMatrix);
 
 #endif //RASTERIZEKERNEL_H

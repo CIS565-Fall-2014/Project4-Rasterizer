@@ -89,12 +89,16 @@ void runCuda(){
                     1.0, 0.0, 0.0};
   cbo = newcbo;
   cbosize = 9;
-
+  
   ibo = mesh->getIBO();
   ibosize = mesh->getIBOsize();
-
+  nbo = mesh->getNBO();
+  nbosize = mesh->getNBOsize();
+ 
   cudaGLMapBufferObject((void**)&dptr, pbo);
-  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize, mainCamera);
+
+  glm::mat4 modelMatrix(1);
+  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize,nbo,nbosize, mainCamera,modelMatrix);
   cudaGLUnmapBufferObject(pbo);
 
   vbo = NULL;

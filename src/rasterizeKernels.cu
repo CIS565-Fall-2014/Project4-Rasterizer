@@ -92,6 +92,8 @@ __global__ void clearDepthBuffer(glm::vec2 resolution, fragment* buffer, fragmen
       fragment f = frag;
       f.position.x = x;
       f.position.y = y;
+	  f.position.z = 10000.0f;
+	  f.color = glm::vec3(1, 1, 1);
       buffer[index] = f;
     }
 }
@@ -131,30 +133,14 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 }
 
 //TODO: Implement a vertex shader
-__global__ void vertexShadeKernel(float* vbo, int vbosize, Camera camera){
+__global__ void vertexShadeKernel(float* vbo, int vbosize, Camera *camera, glm::mat4 modelTransformMatrix){
   int index = (blockIdx.x * blockDim.x) + threadIdx.x;
   if(index<vbosize/3){
-	  //glm::vec4 vertex(vbo[3 * index], vbo[3 * index + 1], vbo[3 * index + 2], 1.0f);
-	  //glm::vec4 normal(nbo[3 * index], nbo[3 * index + 1], nbo[3 * index + 2], 0.0f);
-	  ////transform to camera space
-	  //vertex = camera.viewMatrix * vertex;
-	  //normal = camera.viewMatrix * normal;
-	  //nbo[3 * index] = normal.x;
-	  //nbo[3 * index + 1] = normal.y;
-	  //nbo[3 * index + 2] = normal.z;
-	  ////transform to clip space
-	  //vertex = camera.projectionMatrix * vertex;
-	  ////transform to NDC
-	  //vertex /= vertex.w;
-	  ////transform to screen space
-	  //vbo[3 * index] = camera.width * 0.5f * (vertex.x + 1.0f);
-	  //vbo[3 * index + 1] = camera.height * 0.5f * (vertex.y + 1.0f);
-	  //vbo[3 * index + 2] = (camera.zFar - camera.zNear)*0.5f*vertex.z + (camera.zFar + camera.zNear)*0.5f;
 	  glm::vec4 thePos(vbo[index * 3], vbo[index * 3 + 1], vbo[index * 3 + 2], 1.0f);
-	  thePos = (camera.projectionMatrix)*camera.viewMatrix*thePos;
+	  thePos = (camera->viewMatrix)* modelTransformMatrix*thePos;
 	  thePos.x /= thePos.z;
 	  thePos.y /= thePos.z;
-	  thePos /= glm::tan(camera.fovy*3.1415926f / 180.0f);
+	  thePos /= glm::tan(camera->fovy*3.1415926f / 180.0f);
 	  vbo[index * 3] = thePos.x;
 	  vbo[index * 3 + 1] = thePos.y;
 	  vbo[index * 3 + 2] = -thePos.z;
@@ -162,61 +148,45 @@ __global__ void vertexShadeKernel(float* vbo, int vbosize, Camera camera){
 }
 
 //TODO: Implement primative assembly
-__global__ void primitiveAssemblyKernel(float* vbo, int vbosize, float* cbo, int cbosize, int* ibo, int ibosize, float *nbo, int nbosize, triangle* primitives, Camera camera){
-  int index = (blockIdx.x * blockDim.x) + threadIdx.x;
-  int primitivesCount = ibosize/3;
-  if(index<primitivesCount){
-	  primitives[index].p0.x = vbo[3 * ibo[3 * index]];     
-	  primitives[index].p0.y = vbo[3 * ibo[3 * index] + 1];    
-	  primitives[index].p0.z = vbo[3 * ibo[3 * index] + 2];
-	  primitives[index].p1.x = vbo[3 * ibo[3 * index + 1]];
-	  primitives[index].p1.y = vbo[3 * ibo[3 * index + 1] + 1];
-	  primitives[index].p1.z = vbo[3 * ibo[3 * index + 1] + 2];
-	  primitives[index].p2.x = vbo[3 * ibo[3 * index + 2]];
-	  primitives[index].p2.y = vbo[3 * ibo[3 * index + 2] + 1];
-	  primitives[index].p2.z = vbo[3 * ibo[3 * index + 2] + 2];
+__global__ void primitiveAssemblyKernel(float* vbo, int vbosize, float* cbo, int cbosize, int* ibo, int ibosize, float *nbo, int nbosize, triangle* primitives, Camera *camera){
+	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+	int primitivesCount = ibosize / 3;
+	if (index < primitivesCount){
+		primitives[index].p0 = glm::vec3(vbo[3 * ibo[index * 3]], vbo[3 * ibo[index * 3] + 1], vbo[3 * ibo[index * 3] + 2]);
+		primitives[index].p1 = glm::vec3(vbo[3 * ibo[index * 3 + 1]], vbo[3 * ibo[index * 3 + 1] + 1], vbo[3 * ibo[index * 3 + 1] + 2]);
+		primitives[index].p2 = glm::vec3(vbo[3 * ibo[index * 3 + 2]], vbo[3 * ibo[index * 3 + 2] + 1], vbo[3 * ibo[index * 3 + 2] + 2]);
+		primitives[index].c0 = glm::vec3(cbo[0], cbo[1], cbo[2]);
+		primitives[index].c1 = glm::vec3(cbo[3], cbo[4], cbo[5]);
+		primitives[index].c2 = glm::vec3(cbo[6], cbo[7], cbo[8]);
 
-	  primitives[index].c0.x = cbo[0];		   
-	  primitives[index].c0.y = cbo[1];         
-	  primitives[index].c0.z = cbo[2];
-	  primitives[index].c1.x = cbo[3];         
-	  primitives[index].c1.y = cbo[4];		    
-	  primitives[index].c1.z = cbo[5];
-	  primitives[index].c2.x = cbo[6];         
-	  primitives[index].c2.y = cbo[7];         
-	  primitives[index].c2.z = cbo[8];
+		glm::vec3 p0 = glm::vec3(vbo[3 * ibo[index * 3]], vbo[3 * ibo[index * 3] + 1], vbo[3 * ibo[index * 3] + 2]);
+		glm::vec3 p1 = glm::vec3(vbo[3 * ibo[index * 3 + 1]], vbo[3 * ibo[index * 3 + 1] + 1], vbo[3 * ibo[index * 3 + 1] + 2]);
+		glm::vec3 p2 = glm::vec3(vbo[3 * ibo[index * 3 + 2]], vbo[3 * ibo[index * 3 + 2] + 1], vbo[3 * ibo[index * 3 + 2] + 2]);
 
-	  glm::vec3 triNormal = glm::normalize(glm::cross(primitives[index].p1 - primitives[index].p0, primitives[index].p2 - primitives[index].p1));
-	  primitives[index].n0 = glm::vec3(nbo[3 * ibo[3 * index]], nbo[3 * ibo[3 * index] + 1], nbo[3 * ibo[3 * index] + 2]);
-	  primitives[index].n1 = glm::vec3(nbo[3 * ibo[3 * index + 1]], nbo[3 * ibo[3 * index + 1] + 1], nbo[3 * ibo[3 * index + 1] + 2]);
-	  primitives[index].n2 = glm::vec3(nbo[3 * ibo[3 * index + 2]], nbo[3 * ibo[3 * index + 2] + 1], nbo[3 * ibo[3 * index + 2] + 2]);
-	  
-	  float dot = glm::dot(-camera.viewDirection, triNormal);
-	  primitives[index].visible = (dot > 0);
-  }
+		primitives[index].n0 = glm::vec3(nbo[3 * ibo[index * 3]], nbo[3 * ibo[index * 3] + 1], nbo[3 * ibo[index * 3] + 2]);
+		primitives[index].n1 = glm::vec3(nbo[3 * ibo[index * 3 + 1]], nbo[3 * ibo[index * 3 + 1] + 1], nbo[3 * ibo[index * 3 + 1] + 2]);
+		primitives[index].n2 = glm::vec3(nbo[3 * ibo[index * 3 + 2]], nbo[3 * ibo[index * 3 + 2] + 1], nbo[3 * ibo[index * 3 + 2] + 2]);;
+
+		glm::vec3 faceNormal = glm::normalize(glm::cross(p1 - p0, p2 - p1));
+		glm::vec3 viewDir = camera->viewDirection;
+		float dt = glm::dot(viewDir, faceNormal);
+		primitives[index].visible = (dt < 0);
+	}
 }
-__device__ int getMin(int a, int b)
-{
-	return (a <= b) ? a : b;
-}
-__device__ int getMax(int a, int b)
-{
-	return (a >= b) ? a : b;
-}
-__device__ int getMin(int a, int b, int c)
+
+__device__ int min(int a, int b, int c)
 {
 	if (a <= b && a <= c) return a;
 	if (b <= a && b <= c) return b;
 	return c;
 }
-
-__device__ int getMax(int a, int b, int c)
+__device__ int max(int a, int b, int c)
 {
 	if (a >= b && a >= c) return a;
 	if (b >= a && b >= c) return b;
 	return c;
 }
-__device__ bool isValid(float x, float y)
+__device__ bool inBoundary(float x, float y)
 {
 	return x >= -1.0f && x<1.0f && y >= -1.0f && y<1.0f;
 }
@@ -228,10 +198,6 @@ __device__ int inBoundary(int x, int y, glm::vec2 resolution)
 
 
 ///CALCULATE the det of the 2*2 matrix
-/// | a c |
-/// | b d |
-///=ad-bc
-///////////////////////
 __host__ __device__ float detMatrix22(float a, float b, float c, float d)
 {
 	return a*d - b*c;
@@ -289,8 +255,8 @@ __device__ glm::vec2 getStartEndPoint(int x, int x1, int y1, int x2, int y2, int
 	float start, end;
 	if (ip1<-9999999 && ip2<-9999999 && ip3<-9999999)
 	{
-		start = clampit((float)getMin(y1, y2, y3), 0, resolution.y);
-		end = clampit((float)getMax(y1, y2, y3), 0, resolution.y);
+		start = clampit((float)min(y1, y2, y3), 0, resolution.y);
+		end = clampit((float)max(y1, y2, y3), 0, resolution.y);
 	}
 	else if ((!intersect3) || ip3<-9999999)
 	{
@@ -312,8 +278,8 @@ __device__ glm::vec2 getStartEndPoint(int x, int x1, int y1, int x2, int y2, int
 	}
 	else if (intersect1 && intersect2 && intersect3)
 	{
-		start = getMin((float)ip1, (float)ip2, (float)ip3);
-		end = getMax((float)ip1, (float)ip2, (float)ip3);
+		start = min((float)ip1, (float)ip2, (float)ip3);
+		end = max((float)ip1, (float)ip2, (float)ip3);
 	}
 	else
 	{
@@ -323,94 +289,98 @@ __device__ glm::vec2 getStartEndPoint(int x, int x1, int y1, int x2, int y2, int
 	return glm::vec2(start, end);
 }
 //TODO: Implement a rasterization method, such as scanline.
-__global__ void rasterizationKernel(triangle* primitives, int primitivesCount, fragment* depthbuffer, glm::vec2 resolution,Camera camera){
-  int index = (blockIdx.x * blockDim.x) + threadIdx.x;
-  if(index<primitivesCount){
-	  int posx1, posy1, posx2, posy2, posx3, posy3;
-	  float posx1f, posy1f, posx2f, posy2f, posx3f, posy3f, posz1f, posz2f, posz3f;
-	  //glm::vec3 com=(primitives[index].p0+primitives[index].p1+primitives[index].p2)/3.0f;
-	  triangle current = primitives[index];
-	  posx1 = (int)(resolution.x*(current.p0.x + 1.0f) / 2.0f);
-	  posy1 = (int)(resolution.y*(current.p0.y + 1.0f) / 2.0f);
-	  posx2 = (int)(resolution.x*(current.p1.x + 1.0f) / 2.0f);
-	  posy2 = (int)(resolution.y*(current.p1.y + 1.0f) / 2.0f);
-	  posx3 = (int)(resolution.x*(current.p2.x + 1.0f) / 2.0f);
-	  posy3 = (int)(resolution.y*(current.p2.y + 1.0f) / 2.0f);
+__global__ void rasterizationKernel(triangle* primitives, int primitivesCount, fragment* depthbuffer, glm::vec2 resolution){
+	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+	int posx1, posy1, posx2, posy2, posx3, posy3;
+	float posx1f, posy1f, posx2f, posy2f, posx3f, posy3f, posz1f, posz2f, posz3f;
+	if (index<primitivesCount){
 
-	  posx1f = resolution.x*(current.p0.x + 1.0f) / 2.0f;
-	  posy1f = resolution.y*(current.p0.y + 1.0f) / 2.0f;
-	  posz1f = current.p0.z;
-	  posx2f = resolution.x*(current.p1.x + 1.0f) / 2.0f;
-	  posy2f = resolution.y*(current.p1.y + 1.0f) / 2.0f;
-	  posz2f = current.p1.z;
-	  posx3f = resolution.x*(current.p2.x + 1.0f) / 2.0f;
-	  posy3f = resolution.y*(current.p2.y + 1.0f) / 2.0f;
-	  posz3f = current.p2.z;
+		//glm::vec3 com=(primitives[index].p0+primitives[index].p1+primitives[index].p2)/3.0f;
+		triangle current = primitives[index];
+		posx1 = (int)(resolution.x*(current.p0.x + 1.0f) / 2.0f);
+		posy1 = (int)(resolution.y*(current.p0.y + 1.0f) / 2.0f);
+		posx2 = (int)(resolution.x*(current.p1.x + 1.0f) / 2.0f);
+		posy2 = (int)(resolution.y*(current.p1.y + 1.0f) / 2.0f);
+		posx3 = (int)(resolution.x*(current.p2.x + 1.0f) / 2.0f);
+		posy3 = (int)(resolution.y*(current.p2.y + 1.0f) / 2.0f);
 
-	  glm::vec3 c1 = current.c0;
-	  glm::vec3 c2 = current.c1;
-	  glm::vec3 c3 = current.c2;
+		posx1f = resolution.x*(current.p0.x + 1.0f) / 2.0f;
+		posy1f = resolution.y*(current.p0.y + 1.0f) / 2.0f;
+		posz1f = current.p0.z;
+		posx2f = resolution.x*(current.p1.x + 1.0f) / 2.0f;
+		posy2f = resolution.y*(current.p1.y + 1.0f) / 2.0f;
+		posz2f = current.p1.z;
+		posx3f = resolution.x*(current.p2.x + 1.0f) / 2.0f;
+		posy3f = resolution.y*(current.p2.y + 1.0f) / 2.0f;
+		posz3f = current.p2.z;
 
-	  glm::vec3 n1 = current.n0;
-	  glm::vec3 n2 = current.n1;
-	  glm::vec3 n3 = current.n2;
+		glm::vec3 c1 = current.c0;
+		glm::vec3 c2 = current.c1;
+		glm::vec3 c3 = current.c2;
 
-	  int xmin = getMin(posx1, posx2, posx3);
-	  int xmax = getMax(posx1, posx2, posx3);
-	  int ymin = getMin(posy1, posy2, posy3);
-	  int ymax = getMax(posy1, posy2, posy3);
-	  if (!(inBoundary(xmin, 0, resolution) || inBoundary(xmax, 0, resolution))) return;
-	  for (int i = xmin; i <= xmax; i++)
-	  {
-		  glm::vec2 termi;//=getStartEndPoint(i,posx1,posy1,posx2,posy2,posx3,posy3,resolution);
-		  termi.x = ymin; termi.y = ymax;
-		  for (int j = (int)termi.x; j <= termi.y + 0.001f; j++)
-		  {
-			  if (!inBoundary(i, j, resolution)) continue;
-			  int targidx = i + j*(int)resolution.x;
-			  glm::vec2 interpcoeff = getInterpolateCoeff(i, j, posx1f, posy1f, posx2f, posy2f, posx3f, posy3f);
-			  if (interpcoeff.x<-0.0f || interpcoeff.y<-0.0f || interpcoeff.x + interpcoeff.y>1.0f) continue;
-			  float d = getZ(interpcoeff, posz1f, posz2f, posz3f);
-			  glm::vec3 c = getC(interpcoeff, c1, c2, c3);
-			  glm::vec3 n = getN(interpcoeff, n1, n2, n3);
-			  //float d=com.z;
-			  if (d<depthbuffer[targidx].position.z)
-			  {
-				  depthbuffer[targidx].position.z = d;
-				  depthbuffer[targidx].color = c;
-				  depthbuffer[targidx].normal = n;
-			  }
+		glm::vec3 n1 = current.n0;
+		glm::vec3 n2 = current.n1;
+		glm::vec3 n3 = current.n2;
 
-		  }
+		int xmin = min(posx1, posx2, posx3);
+		int xmax = max(posx1, posx2, posx3);
+		int ymin = min(posy1, posy2, posy3);
+		int ymax = max(posy1, posy2, posy3);
+		if (!(inBoundary(xmin, 0, resolution) || inBoundary(xmax, 0, resolution))) return;
+		for (int i = xmin; i <= xmax; i++)
+		{
+			glm::vec2 termi;//=getStartEndPoint(i,posx1,posy1,posx2,posy2,posx3,posy3,resolution);
+			termi.x = ymin; termi.y = ymax;
+			for (int j = (int)termi.x; j <= termi.y + 0.001f; j++)
+			{
+				if (!inBoundary(i, j, resolution)) continue;
+				int targidx = i + j*(int)resolution.x;
+				glm::vec2 interpcoeff = getInterpolateCoeff(i, j, posx1f, posy1f, posx2f, posy2f, posx3f, posy3f);
+				if (interpcoeff.x<-0.0f || interpcoeff.y<-0.0f || interpcoeff.x + interpcoeff.y>1.0f) continue;
+				float d = getZ(interpcoeff, posz1f, posz2f, posz3f);
+				glm::vec3 c = getC(interpcoeff, c1, c2, c3);
+				glm::vec3 n = getN(interpcoeff, n1, n2, n3);
+				//float d=com.z;
+				if (d<depthbuffer[targidx].position.z)
+				{
+					depthbuffer[targidx].position.z = d;
+					depthbuffer[targidx].color = c;
+					depthbuffer[targidx].normal = n;
+				}
 
-	  }
-  }
+			}
+
+		}
+
+	}
 }
 
 //TODO: Implement a fragment shader
-__global__ void fragmentShadeKernel(fragment* depthbuffer, glm::vec2 resolution, glm::vec3 lightPos, Camera camera){
-  int x = (blockIdx.x * blockDim.x) + threadIdx.x;
-  int y = (blockIdx.y * blockDim.y) + threadIdx.y;
-  int index = x + (y * resolution.x);
-  if(x<=resolution.x && y<=resolution.y){
-	  float specular = 400.0;
-	  float ka = 0.1;
-	  float kd = 0.7;
-	  float ks = 0.2;
-	  fragment inVariables = depthbuffer[index];
+__global__ void fragmentShadeKernel(fragment* depthbuffer, glm::vec2 resolution, Camera *camera){
+	int x = (blockIdx.x * blockDim.x) + threadIdx.x;
+	int y = (blockIdx.y * blockDim.y) + threadIdx.y;
+	int index = x + (y * resolution.x);
+	if (x <= resolution.x && y <= resolution.y){
 
-	  glm::vec3 lightVector = glm::normalize(lightPos - inVariables.position);  // watch out for division by zero
-	  glm::vec3 normal = glm::normalize(inVariables.normal); // watch out for division by zero
-	  float diffuseTerm = glm::clamp(glm::dot(normal, lightVector), 0.0f, 1.0f);
+		///////NORMAL TEST
+		//depthbuffer[index].color=(depthbuffer[index].position.z>1000.0f)?glm::vec3(1,1,1):((depthbuffer[index].normal+glm::vec3(1.0f))*0.5f); 
 
-	  glm::vec3 R = glm::normalize(glm::reflect(-lightVector, normal)); // watch out for division by zero
-	  glm::vec3 V = glm::normalize(-inVariables.position); // watch out for division by zero
-	  float specularTerm = pow(fmaxf(glm::dot(R, V), 0.0f), specular);
+		///////DEPTH TEST
+		//depthbuffer[index].color=(depthbuffer[index].position.z>998.0f)?glm::vec3(0,0,0):glm::vec3(1.0f)*(maxz-depthbuffer[index].position.z)/(maxz-minz);
 
-	  depthbuffer[index].color = ka*inVariables.color + glm::vec3(1.0f) * (kd*inVariables.color*diffuseTerm + ks*specularTerm);
-	  // framebuffer[index] = inVariables.normal;
-	  // framebuffer[index] = glm::vec3(1.0f) * inVariables;
-  }
+		//////ILLUMINATION
+		//float yratio = y / resolution.y;
+		//depthbuffer[index].color = (depthbuffer[index].position.z>998.0f) ? glm::vec3(0.5f*yratio, 0.3f*(1 - yratio), 0.8f) : glm::vec3(238, 201, 25)*(1 / 255.0f)*(0.1f +//Ambient Light
+		//	glm::clamp(glm::dot(glm::vec3(0, -1, 0), depthbuffer[index].normal), 0.0f, 1.0f) +
+		//	glm::clamp(glm::dot(glm::vec3(0, 1, 0), depthbuffer[index].normal), 0.0f, 1.0f));
+		
+		if (depthbuffer[index].position.z > 1000)
+		{
+			depthbuffer[index].color = glm::vec3(1);
+		}
+		if (depthbuffer[index].position.z < 0)
+			depthbuffer[index].color = glm::vec3(0);
+	}
 }
 
 //Writes fragment colors to the framebuffer
@@ -426,16 +396,18 @@ __global__ void render(glm::vec2 resolution, fragment* depthbuffer, glm::vec3* f
 }
 
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
-void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float* vbo, int vbosize, float* cbo, int cbosize, int* ibo, int ibosize, float *nbo, int nbosize, Camera camera){
+void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float* vbo, int vbosize, float* cbo, int cbosize, int* ibo, int ibosize, float *nbo, int nbosize, Camera camera, glm::mat4 modelTransformMatrix){
 
   // set up crucial magic
   int tileSize = 8;
   dim3 threadsPerBlock(tileSize, tileSize);
   dim3 fullBlocksPerGrid((int)ceil(float(resolution.x)/float(tileSize)), (int)ceil(float(resolution.y)/float(tileSize)));
+
   //set up camera
   Camera *cudaCamera = NULL;
   cudaMalloc((void**)&cudaCamera, sizeof(Camera));
   cudaMemcpy(cudaCamera, &camera, sizeof(Camera), cudaMemcpyHostToDevice);
+
   //set up framebuffer
   framebuffer = NULL;
   cudaMalloc((void**)&framebuffer, (int)resolution.x*(int)resolution.y*sizeof(glm::vec3));
@@ -481,27 +453,27 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
   //------------------------------
   //vertex shader
   //------------------------------
-  vertexShadeKernel<<<primitiveBlocks, tileSize>>>(device_vbo, vbosize, *cudaCamera);
+  vertexShadeKernel<<<primitiveBlocks, tileSize>>>(device_vbo, vbosize, cudaCamera, modelTransformMatrix);
 
   cudaDeviceSynchronize();
   //------------------------------
   //primitive assembly
   //------------------------------
   primitiveBlocks = ceil(((float)ibosize/3)/((float)tileSize));
-  primitiveAssemblyKernel<<<primitiveBlocks, tileSize>>>(device_vbo, vbosize, device_cbo, cbosize, device_ibo, ibosize, device_nbo, nbosize, primitives, *cudaCamera);
+  primitiveAssemblyKernel << <primitiveBlocks, tileSize >> >(device_vbo, vbosize, device_cbo, cbosize, device_ibo, ibosize, device_nbo, nbosize, primitives, cudaCamera);
 
   cudaDeviceSynchronize();
   //------------------------------
   //rasterization
   //------------------------------
-  rasterizationKernel<<<primitiveBlocks, tileSize>>>(primitives, ibosize/3, depthbuffer, resolution, *cudaCamera);
+  rasterizationKernel<<<primitiveBlocks, tileSize>>>(primitives, ibosize/3, depthbuffer, resolution);
 
   cudaDeviceSynchronize();
   //------------------------------
   //fragment shader
   //------------------------------
-  glm::vec3 lightPosition(0, 0, 0);
-  fragmentShadeKernel << <fullBlocksPerGrid, threadsPerBlock >> >(depthbuffer, resolution, lightPosition, *cudaCamera);
+ // glm::vec3 lightPosition(0, 0, 0);
+  fragmentShadeKernel << <fullBlocksPerGrid, threadsPerBlock >> >(depthbuffer, resolution, cudaCamera);
 
   cudaDeviceSynchronize();
   //------------------------------
