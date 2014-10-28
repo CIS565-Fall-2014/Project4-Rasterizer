@@ -34,7 +34,7 @@ Extra Features:
 
 Video Link : https://www.youtube.com/watch?v=UqCF5kZ2ZAc
 
-![alt tag](https://raw.github.com/username/projectname/branch/path/to/random_render.jpg)
+![alt tag](https://github.com/zxm5010/Project4-Rasterizer/blob/master/random_render.jpg)
 -------------------------------------------------------------------------------
 THIRD PARTY SOFTWARE
 -------------------------------------------------------------------------------
@@ -55,4 +55,15 @@ Finally, I tested rasterizer with two meshes, bunny and dragon. The bunny has 25
 
 ![alt tag](https://github.com/zxm5010/Project4-Rasterizer/blob/master/table3.jpg)
 
+-------------------------------------------------------------------------------
+Other results
+-------------------------------------------------------------------------------
+Alpha Blending:
+![alt tag](https://github.com/zxm5010/Project4-Rasterizer/blob/master/alpha_blending.jpg)
+
+Points Rendering:
+![alt tag](https://github.com/zxm5010/Project4Rasterizer/blob/master/alpha_blending.jpg)
+
+Simple Displacement:
+![alt tag](https://github.com/zxm5010/Project4Rasterizer/blob/master/simple_dispalcement.jpg)
 
