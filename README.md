@@ -62,8 +62,8 @@ Alpha Blending:
 ![alt tag](https://github.com/zxm5010/Project4-Rasterizer/blob/master/alpha_blending.jpg)
 
 Points Rendering:
-![alt tag](https://github.com/zxm5010/Project4Rasterizer/blob/master/alpha_blending.jpg)
+![alt tag](https://github.com/zxm5010/Project4-Rasterizer/blob/master/renders/points.jpg)
 
 Simple Displacement:
-![alt tag](https://github.com/zxm5010/Project4Rasterizer/blob/master/simple_dispalcement.jpg)
+![alt tag](https://github.com/zxm5010/Project4-Rasterizer/blob/master/simple_displacement.jpg)
 
