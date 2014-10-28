@@ -87,15 +87,23 @@ This was an interesting exercise, and it was very simple to implement and unders
 
 ## PERFORMANCE ANALYSIS
 
-[Add text.]
+This first chart visualizes the impact backface culling has on performance when rendering the cow object. Without backface culling, my rasterization pipeline runs at 38 frames-per-second. With backface culling turned on, performance improves to 42 frames-per-second. As the scene gets more complicated, I suspect the positive performance impact due to backface culling will increase.
 
-cow.obj with backface culling: 42 fps.
-cow.obj without backface culling: 38 fps.
+![alt tag](https://raw.githubusercontent.com/drerucha/Project4-Rasterizer/master/renders/rasterizer_bar_01.png)
 
-cow.obj without anti-aliasing: 42 fps.
-cow.obj with anti-aliasing: 36 fps.
+This second chart visualizes the impact anti-aliasing has on performance when rendering the cow object. Without anti-aliasing, my rasterization pipeline runs at 42 frames-per-second. With anti-aliasing turned on, performance decreases to 36 frames-per-second. This is a pretty steep performance hit for only a slight improvement in visual fidelity.
 
-[Add graphs.]
+![alt tag](https://raw.githubusercontent.com/drerucha/Project4-Rasterizer/master/renders/rasterizer_bar_02.png)
+
+This third and final chart visualizes the approximate percentage of execution time required for each stage of my pipeline per rasterization cycle. Each cycle takes approximately 20 milliseconds to complete. As can be seen in the chart, the anti-aliasing stage takes the most time to complete, which corroborates the information presented in the chart above.
+
+It's interesting to note the differences in execution time between the vertex shader and primitive assembly stage on one hand and the rasterization stage and fragment shader on the other hand.
+
+The vertex shader and primitive assembly stage perform computations on the vertices in the scene. Since these two stages operate on the same inputs (vertices), it makes sense that their execution times would be similar. Alternatively, the rasterization stage and fragment shader operate on the fragments in the scene as opposed to the vertices. Again, since these two stages operate on the same inputs (fragments), it makes sense that their execution times would be similar.
+
+The different inputs between the two pairs of pipeline stages (vertices vs. fragments) explains why the execution times for these two pairs differs so drastically. If the resolution of the output image were decreased, and the complexity of the geometry in the scene were increased, I suspect the relationship in execution time between these two pairs would have the opposite relationship. (More vertices would presumably increase the execution times of the vertex shader and primitive assembly stage. Fewer fragments would presumably decrease the execution times of the rasterization stage and fragment shader.)
+
+![alt tag](https://raw.githubusercontent.com/drerucha/Project4-Rasterizer/master/renders/rasterizer_pie_chart.png)
 
 ## ROOM FOR IMPROVEMENT
 
