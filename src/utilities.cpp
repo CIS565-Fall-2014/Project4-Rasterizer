@@ -57,6 +57,8 @@ bool utilityCore::epsilonCheck(float a, float b){
     }
 }
 
+
+
 void utilityCore::printCudaMat4(cudaMat4 m){
     utilityCore::printVec4(m.x);
     utilityCore::printVec4(m.y);
