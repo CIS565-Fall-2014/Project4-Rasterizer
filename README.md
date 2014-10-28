@@ -57,10 +57,6 @@ Below, you can see the results of adding light contribution to the rendered imag
 
 ## BARYCENTRIC COLOR INTERPOLATION
 
-![alt tag](https://raw.githubusercontent.com/drerucha/Project4-Rasterizer/master/renders/tri_gray.jpg)
-
-![alt tag](https://raw.githubusercontent.com/drerucha/Project4-Rasterizer/master/renders/tri_colored.jpg)
-
 ![alt tag](https://raw.githubusercontent.com/drerucha/Project4-Rasterizer/master/renders/tri_gray_smaller.jpg) ![alt tag](https://raw.githubusercontent.com/drerucha/Project4-Rasterizer/master/renders/tri_colored_smaller.jpg)
 
 ## BACKFACE CULLING
@@ -79,7 +75,7 @@ I implemented a simple post-process anti-aliasing scheme. After the fragment sha
 
 In the first image below, the red pixels indicate edge pixels that are to be blurred. In the next images, you can see a closeup of the blurring results. The first image does not use anti-aliasing. Anti-aliasing has been applied to the second image.
 
-This was an interesting exercise which is very simple to understand, but I am not impressed with the results. An performance analysis comparing frame rates with and without anti-aliasing is included below in the section named "Performance analysis".
+This was an interesting exercise, and it was very simple to implement and understand, but I am not impressed with the results, and suspect there are improved alternative anti-aliasing methods I should explore. An performance analysis comparing frame rates with and without anti-aliasing is included below in the section named "Performance analysis".
 
 ![alt tag](https://raw.githubusercontent.com/drerucha/Project4-Rasterizer/master/renders/cow_diffuse_outlined.jpg)
 
