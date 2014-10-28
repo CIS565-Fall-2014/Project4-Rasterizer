@@ -523,9 +523,9 @@ void cudaRasterizeCore(uchar4* PBOpos, Camera cam, float frame, float* vbo, int 
 #ifdef CullingFlag
 	thrust::device_ptr<triangle> primitive_first = thrust::device_pointer_cast(primitives);
 	thrust::device_ptr<triangle> primitive_last = thrust::remove_if(primitive_first, primitive_first + ibosize / 3, CFlagTrue());
-	printf("Before Culling: %d\n", ibosize / 3);
+	printf("\rBefore Culling: %d\t", ibosize / 3);
 	int triCount = thrust::distance(primitive_first, primitive_last);
-	printf("After Culling: %d\n", triCount);
+	printf("After Culling: %d\t", triCount);
 	cudaDeviceSynchronize();
 #endif
 
@@ -559,7 +559,7 @@ void cudaRasterizeCore(uchar4* PBOpos, Camera cam, float frame, float* vbo, int 
 	float seconds = 0.0f;
 	cudaEventElapsedTime(&seconds, start, stop);
 
-	printf("One Loop time:  %f ms\n", seconds);
+	printf("One Loop time:  %f ms", seconds);
 	checkCUDAError("Kernel failed!");
 }
 
