@@ -79,7 +79,7 @@ This was an interesting exercise, and it was very simple to implement and unders
 
 ![alt tag](https://raw.githubusercontent.com/drerucha/Project4-Rasterizer/master/renders/cow_diffuse_outlined.jpg)
 
-![alt tag](https://raw.githubusercontent.com/drerucha/Project4-Rasterizer/master/renders/cow_diffuse_no_aa_zoomed.jpg) ![alt tag](https://raw.githubusercontent.com/drerucha/Project4-Rasterizer/master/renders/cow_diffuse_with_aa_zoomed.jpg)
+![alt tag](https://raw.githubusercontent.com/drerucha/Project4-Rasterizer/master/renders/cow_diffuse_no_aa_zoomed_02.jpg) ![alt tag](https://raw.githubusercontent.com/drerucha/Project4-Rasterizer/master/renders/cow_diffuse_with_aa_zoomed_02.jpg)
 
 ## VIDEO DEMO
 
