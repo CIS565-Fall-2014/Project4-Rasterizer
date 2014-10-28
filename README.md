@@ -58,5 +58,6 @@ Moiré pattern
 ![Alt text](https://github.com/chiwsy/Project4-Rasterizer/blob/master/renders/cowHighPoly.png)
 cow test case
 
-[![Alt]Check out the video on YouTube](https://www.youtube.com/watch?v=wuN5sA_rS_E)
-[![Alt]Check out the video on YouTube](https://www.youtube.com/watch?v=4dI_E-bop1A)
+[Check out the video on YouTube](https://www.youtube.com/watch?v=wuN5sA_rS_E)
+
+[Check out the video on YouTube](https://www.youtube.com/watch?v=4dI_E-bop1A)
