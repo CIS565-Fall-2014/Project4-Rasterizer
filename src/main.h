@@ -19,15 +19,22 @@
 #include <string>
 #include <time.h>
 
-
 #include "rasterizeKernels.h"
 #include "utilities.h"
+#include "sceneStructs.h"
 
 using namespace std;
 
 //-------------------------------
+//----------CAMERA STUFF---------
+//-------------------------------
+
+simpleCamera camera;
+
+//-------------------------------
 //------------GL STUFF-----------
 //-------------------------------
+
 int frame;
 int fpstracker;
 double seconds;
@@ -43,12 +50,15 @@ GLFWwindow *window;
 
 obj* mesh;
 
-float* vbo;
+float *vbo;
 int vbosize;
-float* cbo;
+float *cbo;
 int cbosize;
-int* ibo;
+int *ibo;
 int ibosize;
+
+float *nbo;
+int nbosize;
 
 //-------------------------------
 //----------CUDA STUFF-----------

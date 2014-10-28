@@ -10,12 +10,47 @@
 #include "cudaMat4.h"
 
 struct triangle {
-  glm::vec3 p0;
-  glm::vec3 p1;
-  glm::vec3 p2;
-  glm::vec3 c0;
-  glm::vec3 c1;
-  glm::vec3 c2;
+	// Default constructor.
+	__host__ __device__ triangle()
+	{
+		is_visible = true;
+	}
+
+	// Constructor.
+	__host__ __device__ triangle( glm::vec3 p0, glm::vec3 p1, glm::vec3 p2,
+								  glm::vec3 ssp0, glm::vec3 ssp1, glm::vec3 ssp2,
+								  glm::vec3 c0, glm::vec3 c1, glm::vec3 c2,
+								  glm::vec3 n0, glm::vec3 n1, glm::vec3 n2 ) :
+										p0( p0 ), p1( p1 ), p2( p2 ),
+										ssp0( ssp0 ), ssp1( ssp1 ), ssp2( ssp2 ),
+										c0( c0 ), c1( c1 ), c2( c2 ),
+										n0( n0 ), n1( n1 ), n2( n2 )
+	{
+		is_visible = true;
+	}
+
+	// Vertex positions.
+	glm::vec3 p0;
+	glm::vec3 p1;
+	glm::vec3 p2;
+
+	// Vertex positions in screen-space.
+	glm::vec3 ssp0;
+	glm::vec3 ssp1;
+	glm::vec3 ssp2;
+
+	// Vertex colors.
+	glm::vec3 c0;
+	glm::vec3 c1;
+	glm::vec3 c2;
+
+	// Vertex normals.
+	glm::vec3 n0;
+	glm::vec3 n1;
+	glm::vec3 n2;
+
+	// Should triangle be rasterized?
+	bool is_visible;
 };
 
 struct fragment{
@@ -34,13 +69,30 @@ __host__ __device__ glm::vec3 multiplyMV(cudaMat4 m, glm::vec4 v){
 }
 
 //LOOK: finds the axis aligned bounding box for a given triangle
-__host__ __device__ void getAABBForTriangle(triangle tri, glm::vec3& minpoint, glm::vec3& maxpoint){
-  minpoint = glm::vec3(min(min(tri.p0.x, tri.p1.x),tri.p2.x), 
-        min(min(tri.p0.y, tri.p1.y),tri.p2.y),
-        min(min(tri.p0.z, tri.p1.z),tri.p2.z));
-  maxpoint = glm::vec3(max(max(tri.p0.x, tri.p1.x),tri.p2.x), 
-        max(max(tri.p0.y, tri.p1.y),tri.p2.y),
-        max(max(tri.p0.z, tri.p1.z),tri.p2.z));
+//__host__ __device__ void getAABBForTriangle(triangle tri, glm::vec3& minpoint, glm::vec3& maxpoint){
+//  minpoint = glm::vec3(min(min(tri.p0.x, tri.p1.x),tri.p2.x), 
+//        min(min(tri.p0.y, tri.p1.y),tri.p2.y),
+//        min(min(tri.p0.z, tri.p1.z),tri.p2.z));
+//  maxpoint = glm::vec3(max(max(tri.p0.x, tri.p1.x),tri.p2.x), 
+//        max(max(tri.p0.y, tri.p1.y),tri.p2.y),
+//        max(max(tri.p0.z, tri.p1.z),tri.p2.z));
+//}
+
+__host__
+__device__
+void getAABBForTriangle( glm::vec3 tri_p0, glm::vec3 tri_p1, glm::vec3 tri_p2, glm::vec3& minpoint, glm::vec3& maxpoint )
+{
+	triangle tri;
+	tri.p0 = tri_p0;
+	tri.p1 = tri_p1;
+	tri.p2 = tri_p2;
+
+	minpoint = glm::vec3(min(min(tri.p0.x, tri.p1.x),tri.p2.x), 
+		min(min(tri.p0.y, tri.p1.y),tri.p2.y),
+		min(min(tri.p0.z, tri.p1.z),tri.p2.z));
+	maxpoint = glm::vec3(max(max(tri.p0.x, tri.p1.x),tri.p2.x), 
+		max(max(tri.p0.y, tri.p1.y),tri.p2.y),
+		max(max(tri.p0.z, tri.p1.z),tri.p2.z));
 }
 
 //LOOK: calculates the signed area of a given triangle
@@ -56,23 +108,50 @@ __host__ __device__ float calculateBarycentricCoordinateValue(glm::vec2 a, glm::
 }
 
 //LOOK: calculates barycentric coordinates
-__host__ __device__ glm::vec3 calculateBarycentricCoordinate(triangle tri, glm::vec2 point){
-  float beta  = calculateBarycentricCoordinateValue(glm::vec2(tri.p0.x,tri.p0.y), point, glm::vec2(tri.p2.x,tri.p2.y), tri);
-  float gamma = calculateBarycentricCoordinateValue(glm::vec2(tri.p0.x,tri.p0.y), glm::vec2(tri.p1.x,tri.p1.y), point, tri);
-  float alpha = 1.0-beta-gamma;
-  return glm::vec3(alpha,beta,gamma);
+//__host__ __device__ glm::vec3 calculateBarycentricCoordinate(triangle tri, glm::vec2 point){
+//  float beta  = calculateBarycentricCoordinateValue(glm::vec2(tri.p0.x,tri.p0.y), point, glm::vec2(tri.p2.x,tri.p2.y), tri);
+//  float gamma = calculateBarycentricCoordinateValue(glm::vec2(tri.p0.x,tri.p0.y), glm::vec2(tri.p1.x,tri.p1.y), point, tri);
+//  float alpha = 1.0-beta-gamma;
+//  return glm::vec3(alpha,beta,gamma);
+//}
+
+// Compute Barycentric coordiantes.
+__host__
+__device__
+glm::vec3 calculateBarycentricCoordinate( glm::vec3 tri_p0, glm::vec3 tri_p1, glm::vec3 tri_p2, glm::vec2 p )
+{
+	triangle tri;
+	tri.p0 = tri_p0;
+	tri.p1 = tri_p1;
+	tri.p2 = tri_p2;
+	float beta  = calculateBarycentricCoordinateValue( glm::vec2( tri.p0.x, tri.p0.y ), p, glm::vec2( tri.p2.x, tri.p2.y ), tri );
+	float gamma = calculateBarycentricCoordinateValue( glm::vec2( tri.p0.x, tri.p0.y ), glm::vec2( tri.p1.x, tri.p1.y ), p, tri );
+	float alpha = 1.0-beta-gamma;
+	return glm::vec3(alpha,beta,gamma);
 }
 
 //LOOK: checks if a barycentric coordinate is within the boundaries of a triangle
-__host__ __device__ bool isBarycentricCoordInBounds(glm::vec3 barycentricCoord){
+__host__ __device__ bool isBarycentricCoordInBounds( glm::vec3 barycentricCoord )
+{
    return barycentricCoord.x >= 0.0 && barycentricCoord.x <= 1.0 &&
           barycentricCoord.y >= 0.0 && barycentricCoord.y <= 1.0 &&
           barycentricCoord.z >= 0.0 && barycentricCoord.z <= 1.0;
 }
 
 //LOOK: for a given barycentric coordinate, return the corresponding z position on the triangle
-__host__ __device__ float getZAtCoordinate(glm::vec3 barycentricCoord, triangle tri){
-  return -(barycentricCoord.x*tri.p0.z + barycentricCoord.y*tri.p1.z + barycentricCoord.z*tri.p2.z);
+//__host__ __device__ float getZAtCoordinate(glm::vec3 barycentricCoord, triangle tri){
+//  return -(barycentricCoord.x*tri.p0.z + barycentricCoord.y*tri.p1.z + barycentricCoord.z*tri.p2.z);
+//}
+
+__host__
+__device__
+float getZAtCoordinate( glm::vec3 barycentricCoord, glm::vec3 tri_p0, glm::vec3 tri_p1, glm::vec3 tri_p2 )
+{
+	triangle tri;
+	tri.p0 = tri_p0;
+	tri.p1 = tri_p1;
+	tri.p2 = tri_p2;
+	return -( barycentricCoord.x * tri.p0.z + barycentricCoord.y * tri.p1.z + barycentricCoord.z * tri.p2.z );
 }
 
 #endif
