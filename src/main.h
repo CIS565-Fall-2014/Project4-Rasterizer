@@ -55,14 +55,26 @@ int nbosize;
 //----------CUDA STUFF-----------
 //-------------------------------
 
-int width = 800; int height = 800;
+int width = 800; int height = 600;
 
 Camera mainCamera;
+//mouse control 
+bool mouseLeftBtnDown = false;
+float mouseScrollOffset = 0.0f;
+double mouseClickedX = 0.0f;
+double mouseClickedY = 0.0f;
+double mouseDeltaX = 0.0f;
+double mouseDeltaY = 0.0f;
+double rotationX = 0.0f;
+double rotationY = 0.0f;
+double *mouseX, *mouseY;
+
 //-------------------------------
 //-------------MAIN--------------
 //-------------------------------
 
 int main(int argc, char** argv);
+
 
 //-------------------------------
 //---------RUNTIME STUFF---------

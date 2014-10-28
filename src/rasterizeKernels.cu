@@ -9,6 +9,8 @@
 #include "rasterizeTools.h"
 #include "Camera.h"
 
+//#define DEPTH_TEST
+
 glm::vec3* framebuffer;
 fragment* depthbuffer;
 float* device_vbo;
@@ -92,7 +94,7 @@ __global__ void clearDepthBuffer(glm::vec2 resolution, fragment* buffer, fragmen
       fragment f = frag;
       f.position.x = x;
       f.position.y = y;
-	  f.position.z = 10000.0f;
+	  //f.position.z = 10000.0f;
 	  f.color = glm::vec3(1, 1, 1);
       buffer[index] = f;
     }
@@ -133,17 +135,26 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 }
 
 //TODO: Implement a vertex shader
-__global__ void vertexShadeKernel(float* vbo, int vbosize, Camera *camera, glm::mat4 modelTransformMatrix){
-  int index = (blockIdx.x * blockDim.x) + threadIdx.x;
-  if(index<vbosize/3){
-	  glm::vec4 thePos(vbo[index * 3], vbo[index * 3 + 1], vbo[index * 3 + 2], 1.0f);
-	  thePos = (camera->viewMatrix)* modelTransformMatrix*thePos;
-	  thePos.x /= thePos.z;
-	  thePos.y /= thePos.z;
-	  thePos /= glm::tan(camera->fovy*3.1415926f / 180.0f);
-	  vbo[index * 3] = thePos.x;
-	  vbo[index * 3 + 1] = thePos.y;
-	  vbo[index * 3 + 2] = -thePos.z;
+__global__ void vertexShadeKernel(float* vbo, int vbosize, float *nbo, int nbosize, Camera *camera, glm::mat4 modelTransformMatrix){
+	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
+	if(index<vbosize/3){
+		glm::vec4 vertex(vbo[index * 3], vbo[index * 3 + 1], vbo[index * 3 + 2], 1.0f);
+		glm::vec4 normal(nbo[index * 3], nbo[index * 3 + 1], nbo[index * 3 + 2], 0.0f);
+		glm::mat4 MVP = camera->projectionMatrix * camera->viewMatrix * modelTransformMatrix;
+		glm::mat4 MV = camera->viewMatrix * modelTransformMatrix;
+		// to eye
+		vertex = MVP * vertex;
+		normal = modelTransformMatrix * normal;
+		//to clip
+		vertex /= vertex.w;
+		//transform to view port
+		vbo[3 * index] = camera->width * 0.5f * (vertex.x + 1.0f);
+		vbo[3 * index + 1] = camera->height *(1- 0.5f * (vertex.y + 1.0f));
+		vbo[3 * index + 2] = vertex.z;
+
+		nbo[3 * index] = normal.x;
+		nbo[3 * index + 1] = normal.y;
+		nbo[3 * index + 2] = normal.z;
   }
 }
 
@@ -159,33 +170,22 @@ __global__ void primitiveAssemblyKernel(float* vbo, int vbosize, float* cbo, int
 		primitives[index].c1 = glm::vec3(cbo[3], cbo[4], cbo[5]);
 		primitives[index].c2 = glm::vec3(cbo[6], cbo[7], cbo[8]);
 
-		glm::vec3 p0 = glm::vec3(vbo[3 * ibo[index * 3]], vbo[3 * ibo[index * 3] + 1], vbo[3 * ibo[index * 3] + 2]);
-		glm::vec3 p1 = glm::vec3(vbo[3 * ibo[index * 3 + 1]], vbo[3 * ibo[index * 3 + 1] + 1], vbo[3 * ibo[index * 3 + 1] + 2]);
-		glm::vec3 p2 = glm::vec3(vbo[3 * ibo[index * 3 + 2]], vbo[3 * ibo[index * 3 + 2] + 1], vbo[3 * ibo[index * 3 + 2] + 2]);
-
 		primitives[index].n0 = glm::vec3(nbo[3 * ibo[index * 3]], nbo[3 * ibo[index * 3] + 1], nbo[3 * ibo[index * 3] + 2]);
 		primitives[index].n1 = glm::vec3(nbo[3 * ibo[index * 3 + 1]], nbo[3 * ibo[index * 3 + 1] + 1], nbo[3 * ibo[index * 3 + 1] + 2]);
 		primitives[index].n2 = glm::vec3(nbo[3 * ibo[index * 3 + 2]], nbo[3 * ibo[index * 3 + 2] + 1], nbo[3 * ibo[index * 3 + 2] + 2]);;
 
-		glm::vec3 faceNormal = glm::normalize(glm::cross(p1 - p0, p2 - p1));
-		glm::vec3 viewDir = camera->viewDirection;
-		float dt = glm::dot(viewDir, faceNormal);
-		primitives[index].visible = (dt < 0);
+		glm::vec3 p0 = glm::vec3(vbo[3 * ibo[index * 3]], vbo[3 * ibo[index * 3] + 1], vbo[3 * ibo[index * 3] + 2]);
+		glm::vec3 p1 = glm::vec3(vbo[3 * ibo[index * 3 + 1]], vbo[3 * ibo[index * 3 + 1] + 1], vbo[3 * ibo[index * 3 + 1] + 2]);
+		glm::vec3 p2 = glm::vec3(vbo[3 * ibo[index * 3 + 2]], vbo[3 * ibo[index * 3 + 2] + 1], vbo[3 * ibo[index * 3 + 2] + 2]);
+
+		//glm::vec3 faceNormal = glm::normalize(glm::cross(p1 - p0, p2 - p0));
+		glm::vec3 viewDir = -camera->viewDirection;
+		float dt = glm::dot(viewDir, primitives[index].n0);
+		primitives[index].visible = (dt > 0);
+		
 	}
 }
 
-__device__ int min(int a, int b, int c)
-{
-	if (a <= b && a <= c) return a;
-	if (b <= a && b <= c) return b;
-	return c;
-}
-__device__ int max(int a, int b, int c)
-{
-	if (a >= b && a >= c) return a;
-	if (b >= a && b >= c) return b;
-	return c;
-}
 __device__ bool inBoundary(float x, float y)
 {
 	return x >= -1.0f && x<1.0f && y >= -1.0f && y<1.0f;
@@ -196,160 +196,46 @@ __device__ int inBoundary(int x, int y, glm::vec2 resolution)
 	return x >= 0 && y >= 0 && x<resolution.x && y<resolution.y;
 }
 
-
-///CALCULATE the det of the 2*2 matrix
-__host__ __device__ float detMatrix22(float a, float b, float c, float d)
-{
-	return a*d - b*c;
-}
-
-__device__ glm::vec2 getInterpolateCoeff(int x, int y, float x1, float y1, float x2, float y2, float x3, float y3)
-{
-	glm::vec3 v21(x2 - x1, y2 - y1, 0);
-	glm::vec3 v31(x3 - x1, y3 - y1, 0);
-	glm::vec3 tbd(x - x1, y - y1, 0);
-	float theBase = detMatrix22(v21.y, v21.x, v31.y, v31.x);
-	if (abs(theBase)<0.0001f)
-	{
-		if (abs(v21.x)>0.0001f) return glm::vec2(tbd.x / v21.x, 0);
-		if (abs(v21.y)>0.0001f) return glm::vec2(tbd.y / v21.y, 0);
-		if (abs(v31.x)>0.0001f) return glm::vec2(0, tbd.x / v31.x);
-		if (abs(v31.y)>0.0001f) return glm::vec2(0, tbd.y / v31.y);
-		return glm::vec2(-1, -1);
-	}
-	float up1 = detMatrix22(v21.y, v21.x, tbd.y, tbd.x);
-	float up2 = -detMatrix22(v31.y, v31.x, tbd.y, tbd.x);
-	float t1 = up2 / theBase;
-	float t2 = up1 / theBase;
-	return glm::vec2(t1, t2);
-}
-__device__ float getZ(glm::vec2 interpCoeff, float z1, float z2, float z3)
-{
-
-	return z1 + interpCoeff.x*(z2 - z1) + interpCoeff.y*(z3 - z1);
-}
-__device__ glm::vec3 getC(glm::vec2 interpCoeff, glm::vec3 c1, glm::vec3 c2, glm::vec3 c3)
-{
-	return c1 + interpCoeff.x*(c2 - c1) + interpCoeff.y*(c3 - c1);
-}
-__device__ glm::vec3 getN(glm::vec2 interpCoeff, glm::vec3 n1, glm::vec3 n2, glm::vec3 n3)
-{
-	return n1 + interpCoeff.x*(n2 - n1) + interpCoeff.y*(n3 - n1);
-}
-__device__ float clampit(float x, float min, float max)
-{
-	if (x<min) return min;
-	if (x>max) return max;
-	return x;
-}
-__device__ glm::vec2 getStartEndPoint(int x, int x1, int y1, int x2, int y2, int x3, int y3, glm::vec2 resolution)
-{
-	bool intersect1 = ((x - x1)*(x - x2) <= 0);
-	bool intersect2 = ((x - x2)*(x - x3) <= 0);
-	bool intersect3 = ((x - x3)*(x - x1) <= 0);
-	float ip1, ip2, ip3;
-	ip1 = (x1 == x2) ? -99999999 : (y1 + (y2 - y1)*(float)((float)(x - x1) / (float)(x2 - x1)));
-	ip2 = (x2 == x3) ? -99999999 : (y2 + (y3 - y2)*(float)((float)(x - x2) / (float)(x3 - x2)));
-	ip3 = (x1 == x3) ? -99999999 : (y3 + (y1 - y3)*(float)((float)(x - x3) / (float)(x1 - x3)));
-	float tmp;
-	float start, end;
-	if (ip1<-9999999 && ip2<-9999999 && ip3<-9999999)
-	{
-		start = clampit((float)min(y1, y2, y3), 0, resolution.y);
-		end = clampit((float)max(y1, y2, y3), 0, resolution.y);
-	}
-	else if ((!intersect3) || ip3<-9999999)
-	{
-		start = clampit(ip1, 0, resolution.y);
-		end = clampit(ip2, 0, resolution.y);
-		if (start>end) { tmp = start; start = end; end = tmp; }
-	}
-	else if ((!intersect1) || ip1<-9999999)
-	{
-		start = clampit(ip2, 0, resolution.y);
-		end = clampit(ip3, 0, resolution.y);
-		if (start>end) { tmp = start; start = end; end = tmp; }
-	}
-	else if ((!intersect2) || ip2<-9999999)
-	{
-		start = clampit(ip3, 0, resolution.y);
-		end = clampit(ip1, 0, resolution.y);
-		if (start>end) { tmp = start; start = end; end = tmp; }
-	}
-	else if (intersect1 && intersect2 && intersect3)
-	{
-		start = min((float)ip1, (float)ip2, (float)ip3);
-		end = max((float)ip1, (float)ip2, (float)ip3);
-	}
-	else
-	{
-		start = 0;
-		end = resolution.y;
-	}
-	return glm::vec2(start, end);
-}
 //TODO: Implement a rasterization method, such as scanline.
-__global__ void rasterizationKernel(triangle* primitives, int primitivesCount, fragment* depthbuffer, glm::vec2 resolution){
+__global__ void rasterizationKernel(triangle* primitives, int primitivesCount, fragment* depthbuffer, glm::vec2 resolution, Camera *camera){
 	int index = (blockIdx.x * blockDim.x) + threadIdx.x;
-	int posx1, posy1, posx2, posy2, posx3, posy3;
-	float posx1f, posy1f, posx2f, posy2f, posx3f, posy3f, posz1f, posz2f, posz3f;
 	if (index<primitivesCount){
-
-		//glm::vec3 com=(primitives[index].p0+primitives[index].p1+primitives[index].p2)/3.0f;
-		triangle current = primitives[index];
-		posx1 = (int)(resolution.x*(current.p0.x + 1.0f) / 2.0f);
-		posy1 = (int)(resolution.y*(current.p0.y + 1.0f) / 2.0f);
-		posx2 = (int)(resolution.x*(current.p1.x + 1.0f) / 2.0f);
-		posy2 = (int)(resolution.y*(current.p1.y + 1.0f) / 2.0f);
-		posx3 = (int)(resolution.x*(current.p2.x + 1.0f) / 2.0f);
-		posy3 = (int)(resolution.y*(current.p2.y + 1.0f) / 2.0f);
-
-		posx1f = resolution.x*(current.p0.x + 1.0f) / 2.0f;
-		posy1f = resolution.y*(current.p0.y + 1.0f) / 2.0f;
-		posz1f = current.p0.z;
-		posx2f = resolution.x*(current.p1.x + 1.0f) / 2.0f;
-		posy2f = resolution.y*(current.p1.y + 1.0f) / 2.0f;
-		posz2f = current.p1.z;
-		posx3f = resolution.x*(current.p2.x + 1.0f) / 2.0f;
-		posy3f = resolution.y*(current.p2.y + 1.0f) / 2.0f;
-		posz3f = current.p2.z;
-
-		glm::vec3 c1 = current.c0;
-		glm::vec3 c2 = current.c1;
-		glm::vec3 c3 = current.c2;
-
-		glm::vec3 n1 = current.n0;
-		glm::vec3 n2 = current.n1;
-		glm::vec3 n3 = current.n2;
-
-		int xmin = min(posx1, posx2, posx3);
-		int xmax = max(posx1, posx2, posx3);
-		int ymin = min(posy1, posy2, posy3);
-		int ymax = max(posy1, posy2, posy3);
-		if (!(inBoundary(xmin, 0, resolution) || inBoundary(xmax, 0, resolution))) return;
-		for (int i = xmin; i <= xmax; i++)
+		triangle tri = primitives[index];
+		if (!tri.visible)	return;
+		if (calculateSignedArea(tri) < 1e-6) return;
+		glm::vec3 minPoint, maxPoint;
+		getAABBForTriangle(tri, minPoint, maxPoint);
+		
+		if (!(inBoundary(minPoint.x, 0, resolution) || inBoundary(maxPoint.x, 0, resolution))) return;
+		for (int j = (int)minPoint.y; j <= (int)maxPoint.y; j++)
 		{
-			glm::vec2 termi;//=getStartEndPoint(i,posx1,posy1,posx2,posy2,posx3,posy3,resolution);
-			termi.x = ymin; termi.y = ymax;
-			for (int j = (int)termi.x; j <= termi.y + 0.001f; j++)
+			for (int i = (int)minPoint.x; i <=(int) maxPoint.x + 0.001f; i++)
 			{
 				if (!inBoundary(i, j, resolution)) continue;
-				int targidx = i + j*(int)resolution.x;
-				glm::vec2 interpcoeff = getInterpolateCoeff(i, j, posx1f, posy1f, posx2f, posy2f, posx3f, posy3f);
-				if (interpcoeff.x<-0.0f || interpcoeff.y<-0.0f || interpcoeff.x + interpcoeff.y>1.0f) continue;
-				float d = getZ(interpcoeff, posz1f, posz2f, posz3f);
-				glm::vec3 c = getC(interpcoeff, c1, c2, c3);
-				glm::vec3 n = getN(interpcoeff, n1, n2, n3);
-				//float d=com.z;
-				if (d<depthbuffer[targidx].position.z)
+				int targetIdx = i + j*(int)resolution.x;
+				float pointX = (float)i;
+				float pointY = (float)j;
+				glm::vec2 point(pointX, pointY);
+				glm::vec3 baryCoords = calculateBarycentricCoordinate(tri, point);
+				if (!isBarycentricCoordInBounds(baryCoords)) continue;
+				float depth = getZAtCoordinate(baryCoords, tri);
+				glm::vec3 color = baryCoords.x * tri.c0 + baryCoords.y * tri.c1 + baryCoords.z * tri.c2;
+				glm::vec3 normal = baryCoords.x * tri.n0 + baryCoords.y * tri.n1 + baryCoords.z * tri.n2;
+
+				if (depthbuffer[targetIdx].position.z < -1)
 				{
-					depthbuffer[targidx].position.z = d;
-					depthbuffer[targidx].color = c;
-					depthbuffer[targidx].normal = n;
+					depthbuffer[targetIdx].position.z = depth;
+					depthbuffer[targetIdx].color = color;
+					depthbuffer[targetIdx].normal = normal;
+				}
+				else if (depth>depthbuffer[targetIdx].position.z)
+				{
+					depthbuffer[targetIdx].position.z = depth;
+					depthbuffer[targetIdx].color = color;
+					depthbuffer[targetIdx].normal = normal;
 				}
 
 			}
-
 		}
 
 	}
@@ -362,24 +248,43 @@ __global__ void fragmentShadeKernel(fragment* depthbuffer, glm::vec2 resolution,
 	int index = x + (y * resolution.x);
 	if (x <= resolution.x && y <= resolution.y){
 
-		///////NORMAL TEST
-		//depthbuffer[index].color=(depthbuffer[index].position.z>1000.0f)?glm::vec3(1,1,1):((depthbuffer[index].normal+glm::vec3(1.0f))*0.5f); 
 
-		///////DEPTH TEST
-		//depthbuffer[index].color=(depthbuffer[index].position.z>998.0f)?glm::vec3(0,0,0):glm::vec3(1.0f)*(maxz-depthbuffer[index].position.z)/(maxz-minz);
+		float specular = 30.0;
+		float ka = 0.1;
+		float kd = 0.7;
+		float ks = 0.2;
+		glm::vec4 lightPos4(camera->lightPos, 1.0f);
+		glm::vec4 lightPosEye4 = camera->viewMatrix * lightPos4;
+		glm::vec3 lightPosEye(lightPosEye4.x, lightPosEye4.y, lightPosEye4.z);
+		glm::vec4 dbp4(depthbuffer[index].position, 1.0f);
+		glm::vec4 dbpEye4 = glm::inverse(camera->projectionMatrix) * dbp4;
+		glm::vec3 dbpEye = glm::vec3(dbpEye4.x, dbpEye4.y, dbpEye4.z);
 
-		//////ILLUMINATION
-		//float yratio = y / resolution.y;
-		//depthbuffer[index].color = (depthbuffer[index].position.z>998.0f) ? glm::vec3(0.5f*yratio, 0.3f*(1 - yratio), 0.8f) : glm::vec3(238, 201, 25)*(1 / 255.0f)*(0.1f +//Ambient Light
-		//	glm::clamp(glm::dot(glm::vec3(0, -1, 0), depthbuffer[index].normal), 0.0f, 1.0f) +
-		//	glm::clamp(glm::dot(glm::vec3(0, 1, 0), depthbuffer[index].normal), 0.0f, 1.0f));
-		
-		if (depthbuffer[index].position.z > 1000)
+		glm::vec3 lightVectorEye = glm::normalize(lightPosEye - dbpEye);  // watch out for division by zero
+		glm::vec3 normal = depthbuffer[index].normal; // watch out for division by zero
+		glm::vec4 normal4(normal, 1.0f);
+		glm::vec4 normalEye4 = camera->viewMatrix * normal4;
+		glm::vec3 normalEye = glm::normalize( glm::vec3(normalEye4.x, normalEye4.y, normalEye4.z));
+		float diffuseTerm = glm::clamp(glm::dot(normal, normalEye), 0.0f, 1.0f);
+
+		glm::vec3 R = glm::normalize(glm::reflect(-lightVectorEye, normal)); // watch out for division by zero
+		glm::vec3 V = glm::normalize(-dbpEye); // watch out for division by zero
+		float specularTerm = pow(fmaxf(glm::dot(R, V), 0.0f), specular);
+
+		glm::vec3 color = ka*depthbuffer[index].color + glm::vec3(1.0f) * (kd*depthbuffer[index].color*diffuseTerm + ks*specularTerm);
+		depthbuffer[index].color = color;
+		if (depthbuffer[index].position.z < -1.0f  )
 		{
-			depthbuffer[index].color = glm::vec3(1);
+			depthbuffer[index].color = glm::vec3(0.6f, 0.6f, 0.6f);
 		}
-		if (depthbuffer[index].position.z < 0)
-			depthbuffer[index].color = glm::vec3(0);
+#ifdef DEPTH_TEST
+		depthbuffer[index].color = glm::vec3(0.5 * (depthbuffer[index].position.z + 1));
+#endif
+#ifdef NORMAL_TEST
+		depthbuffer[index].color = glm::normalize(depthbuffer[index].normal.x * glm::vec3(1, 0, 0) + depthbuffer[index].normal.y * glm::vec3(0, 1, 0) + depthbuffer[index].normal.z * glm::vec3(0, 0, 1));
+		if (depthbuffer[index].position.z < -1.0f)
+			depthbuffer[index].color = glm::normalize(-(camera->viewDirection.x * glm::vec3(1, 0, 0) + camera->viewDirection.y * glm::vec3(0, 1, 0) + camera->viewDirection.z * glm::vec3(0, 0, 1)));
+#endif
 	}
 }
 
@@ -453,7 +358,7 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
   //------------------------------
   //vertex shader
   //------------------------------
-  vertexShadeKernel<<<primitiveBlocks, tileSize>>>(device_vbo, vbosize, cudaCamera, modelTransformMatrix);
+  vertexShadeKernel<<<primitiveBlocks, tileSize>>>(device_vbo, vbosize, device_nbo, nbosize, cudaCamera, modelTransformMatrix);
 
   cudaDeviceSynchronize();
   //------------------------------
@@ -466,7 +371,7 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
   //------------------------------
   //rasterization
   //------------------------------
-  rasterizationKernel<<<primitiveBlocks, tileSize>>>(primitives, ibosize/3, depthbuffer, resolution);
+  rasterizationKernel<<<primitiveBlocks, tileSize>>>(primitives, ibosize/3, depthbuffer, resolution, cudaCamera);
 
   cudaDeviceSynchronize();
   //------------------------------
