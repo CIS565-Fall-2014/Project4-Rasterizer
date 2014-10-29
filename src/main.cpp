@@ -6,7 +6,9 @@
 //-------------------------------
 //-------------MAIN--------------
 //-------------------------------
-
+void mouseCallback(GLFWwindow* window, int button, int action, int mods);
+void scrollCallback(GLFWwindow* window, double xoffset, double yoffset);
+void updateMouse();
 int main(int argc, char** argv){
 
   bool loadedScene = false;
@@ -44,6 +46,7 @@ int main(int argc, char** argv){
 
 void mainLoop() {
   while(!glfwWindowShouldClose(window)){
+	updateMouse();
     glfwPollEvents();
     runCuda();
 
@@ -72,6 +75,7 @@ void mainLoop() {
   glfwTerminate();
 }
 
+
 //-------------------------------
 //---------RUNTIME STUFF---------
 //-------------------------------
@@ -89,12 +93,17 @@ void runCuda(){
                     1.0, 0.0, 0.0};
   cbo = newcbo;
   cbosize = 9;
-
+  
   ibo = mesh->getIBO();
   ibosize = mesh->getIBOsize();
-
+  nbo = mesh->getNBO();
+  nbosize = mesh->getNBOsize();
+ 
   cudaGLMapBufferObject((void**)&dptr, pbo);
-  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize);
+
+  glm::mat4 modelMatrix(1);
+
+  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize,nbo,nbosize, mainCamera,modelMatrix);
   cudaGLUnmapBufferObject(pbo);
 
   vbo = NULL;
@@ -118,7 +127,7 @@ bool init(int argc, char* argv[]) {
   }
 
   width = 800;
-  height = 800;
+  height = 600;
   window = glfwCreateWindow(width, height, "CIS 565 Pathtracer", NULL, NULL);
   if (!window){
       glfwTerminate();
@@ -126,6 +135,7 @@ bool init(int argc, char* argv[]) {
   }
   glfwMakeContextCurrent(window);
   glfwSetKeyCallback(window, keyCallback);
+
 
   // Set up GL context
   glewExperimental = GL_TRUE;
@@ -144,7 +154,10 @@ bool init(int argc, char* argv[]) {
 
   glUseProgram(passthroughProgram);
   glActiveTexture(GL_TEXTURE0);
-
+  glfwSetScrollCallback(window, scrollCallback);
+  mouseX = new double;
+  mouseY = new double;
+  glfwSetMouseButtonCallback(window, mouseCallback);
   return true;
 }
 
@@ -261,11 +274,14 @@ void deleteTexture(GLuint* tex){
 }
  
 void shut_down(int return_code){
+
   kernelCleanup();
   cudaDeviceReset();
   #ifdef __APPLE__
   glfwTerminate();
   #endif
+  delete mouseX;
+  delete mouseY;
   exit(return_code);
 }
 
@@ -281,4 +297,44 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     if(key == GLFW_KEY_ESCAPE && action == GLFW_PRESS){
         glfwSetWindowShouldClose(window, GL_TRUE);
     }
+}
+void scrollCallback(GLFWwindow* window, double xoffset, double yoffset)
+{
+	mouseScrollOffset += yoffset;
+	mainCamera.UpdatePosition(yoffset * 0.1f);
+}
+void mouseCallback(GLFWwindow* window,int button, int action, int mods)
+{
+	glfwGetCursorPos(window, mouseX, mouseY);
+	if (action == GLFW_PRESS)
+	{
+		if (mouseLeftBtnDown == false)
+		{
+			mouseLeftBtnDown = true;
+			mouseClickedX = *mouseX;
+			mouseClickedY = *mouseY;
+		}
+	}
+	if (action == GLFW_RELEASE)
+	{
+		mouseLeftBtnDown = false;
+		mouseDeltaX = 0.0f;
+		mouseDeltaY = 0.0f;
+	}
+	
+}
+void updateMouse()
+{
+	if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS)
+	{
+		glfwGetCursorPos(window, mouseX, mouseY);
+		mouseDeltaX = *mouseX - mouseClickedX;
+		mouseDeltaY = *mouseY - mouseClickedY;
+		rotationX = 20 * mouseDeltaX / mainCamera.width;
+		rotationY = 10 * mouseDeltaY / mainCamera.height;
+		//rotationY = glm::clamp((float)rotationY, .0f, 180.0f);
+	
+		mainCamera.UpdatePosition(rotationX, rotationY);
+		
+	}
 }

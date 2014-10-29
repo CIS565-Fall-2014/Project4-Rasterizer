@@ -9,6 +9,7 @@
 #include "utilities.h"
 #include "cudaMat4.h"
 
+
 struct triangle {
   glm::vec3 p0;
   glm::vec3 p1;
@@ -16,6 +17,11 @@ struct triangle {
   glm::vec3 c0;
   glm::vec3 c1;
   glm::vec3 c2;
+  glm::vec3 n0;
+  glm::vec3 n1;
+  glm::vec3 n2;
+
+  bool visible;
 };
 
 struct fragment{

@@ -113,5 +113,5 @@
 #include "matrix.hpp"
 #include "vector_relational.hpp"
 #include "integer.hpp"
-
+#include "gtc\matrix_transform.hpp"
 #endif//GLM_INCLUDED
