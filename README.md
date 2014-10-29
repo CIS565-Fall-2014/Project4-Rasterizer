@@ -26,11 +26,12 @@ Additional:
    * Points
 * MOUSE BASED interactive camera support. Interactive camera support based only on the keyboard is not acceptable for this feature.
 
-How to use:
+#How to use:
+
 Use #define RENDER_MODE_0 in rasterizeKernels.cu to use different shading mode
 0 for blinn-phong, 1 for wire-frame, 2 for interpolated color, 3 for vertices
 Hold and drag mouse to rotate the camera. Use mouse scroll to zoom in and out.
 
-Result:
+#Result:
 
-Performance:
+#Performance:
