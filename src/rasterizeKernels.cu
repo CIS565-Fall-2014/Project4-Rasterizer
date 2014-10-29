@@ -10,6 +10,7 @@
 #include "Camera.h"
 
 //#define DEPTH_TEST
+#define BARYCENTRIC_COLOR
 
 glm::vec3* framebuffer;
 fragment* depthbuffer;
@@ -178,11 +179,7 @@ __global__ void primitiveAssemblyKernel(float* vbo, int vbosize, float* cbo, int
 		glm::vec3 p1 = glm::vec3(vbo[3 * ibo[index * 3 + 1]], vbo[3 * ibo[index * 3 + 1] + 1], vbo[3 * ibo[index * 3 + 1] + 2]);
 		glm::vec3 p2 = glm::vec3(vbo[3 * ibo[index * 3 + 2]], vbo[3 * ibo[index * 3 + 2] + 1], vbo[3 * ibo[index * 3 + 2] + 2]);
 
-		//glm::vec3 faceNormal = glm::normalize(glm::cross(p1 - p0, p2 - p0));
-		glm::vec3 viewDir = -camera->viewDirection;
-		float dt = glm::dot(viewDir, primitives[index].n0);
-		primitives[index].visible = (dt > 0);
-		
+		primitives[index].visible = (calculateSignedArea(primitives[index]) > 1e-6);
 	}
 }
 
@@ -270,8 +267,13 @@ __global__ void fragmentShadeKernel(fragment* depthbuffer, glm::vec2 resolution,
 		glm::vec3 R = glm::normalize(glm::reflect(-lightVectorEye, normal)); // watch out for division by zero
 		glm::vec3 V = glm::normalize(-dbpEye); // watch out for division by zero
 		float specularTerm = pow(fmaxf(glm::dot(R, V), 0.0f), specular);
-
-		glm::vec3 color = ka*depthbuffer[index].color + glm::vec3(1.0f) * (kd*depthbuffer[index].color*diffuseTerm + ks*specularTerm);
+#ifdef BARYCENTRIC_COLOR
+		glm::vec3 materialColor = depthbuffer[index].color;
+#else
+		glm::vec3 materialColor = glm::vec3(0.5f, 0.4f, 0.7f);
+#endif
+		
+		glm::vec3 color = ka*materialColor + glm::vec3(1.0f) * (kd*materialColor*diffuseTerm + ks*specularTerm);
 		depthbuffer[index].color = color;
 		if (depthbuffer[index].position.z < -1.0f  )
 		{

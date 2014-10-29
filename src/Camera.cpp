@@ -9,6 +9,7 @@ Camera::Camera()
 	width = 800;
 	height = 600;
 	lightPos = glm::vec3(0, 6, 2);
+	lightColor = glm::vec3(1, 1, 1);
 	cameraPos = glm::vec3(0,0.2,1);
 	lookAtPos = glm::vec3(0.0f, 0.3f, 0.0f);
 	cameraUp = glm::vec3(0, 1, 0);
@@ -22,7 +23,7 @@ Camera::~Camera()
 {
 }
 
-void Camera::UpdatePosition(float rotationX, float rotationY)
+void Camera::UpdatePosition(float rotationX, float rotationY, float zOffset)
 {
 	glm::mat4 Transform = utilityCore::buildTransformationMatrix(glm::vec3(0.0f), glm::vec3(-rotationY, rotationX, 0.0f), glm::vec3(1.0f));
 	glm::vec4 cameraPos4(cameraPos, 1.0f);
@@ -33,4 +34,5 @@ void Camera::UpdatePosition(float rotationX, float rotationY)
 	cameraUp = glm::vec3(newUp.x, newUp.y, newUp.z);
 	viewDirection = glm::normalize(lookAtPos - cameraPos);
 	viewMatrix = glm::lookAt(cameraPos, lookAtPos, cameraUp);
+
 }

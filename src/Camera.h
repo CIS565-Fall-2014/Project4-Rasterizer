@@ -11,6 +11,7 @@ public:
 	int width = 800; int height = 800;
 
 	glm::vec3 lightPos;
+	glm::vec3 lightColor;
 	glm::vec3 cameraPos;
 	glm::vec3 viewDirection;
 	glm::vec3 lookAtPos;
@@ -20,6 +21,6 @@ public:
 
 	Camera();
 	~Camera();
-	void UpdatePosition(float rotationX, float rotationY);
+	void UpdatePosition(float rotationX, float rotationY, float zOffset);
 };
 
