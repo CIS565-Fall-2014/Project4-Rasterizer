@@ -42,7 +42,10 @@ Wire- Frame
 ![Alt text](/img/vertices.PNG)
 Vertices
 #Performance:
+Firstly I tried to ananysize the relationship between tile size and one frame runtime. However the result shows they are almost constant against tile size. (See the following chart)\n
+![Alt text](/img/tilezise.PNG)
 
+Then I used the mouse to zoom in and out and I found that the larger one triangle covers the screen the slower the program runs. Here is the result.
 ![Alt text](/img/small.PNG)
 ![Alt text](/img/medium.PNG)
 ![Alt text](/img/large.PNG)
