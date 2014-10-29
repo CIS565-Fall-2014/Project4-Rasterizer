@@ -42,3 +42,10 @@ Wire- Frame
 ![Alt text](/img/vertices.PNG)
 Vertices
 #Performance:
+
+![Alt text](/img/small.PNG)
+![Alt text](/img/medium.PNG)
+![Alt text](/img/large.PNG)
+![Alt text](/img/huge.PNG)
+![Alt text](/img/extrahuge.PNG)
+
