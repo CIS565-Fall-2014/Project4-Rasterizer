@@ -34,4 +34,11 @@ Hold and drag mouse to rotate the camera. Use mouse scroll to zoom in and out.
 
 #Result:
 ![Alt text](/img/phong.PNG "Blinn-Phong shading")
+Blinn-Phong shading
+![Alt text](/img/interp.PNG)
+Color interpolation
+![Alt text](/img/wire.PNG)
+Wire- Frame
+![Alt text](/img/vertices.PNG)
+Vertices
 #Performance:
