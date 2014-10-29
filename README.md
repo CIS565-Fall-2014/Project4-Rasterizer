@@ -33,5 +33,5 @@ Use #define RENDER_MODE_0 in rasterizeKernels.cu to use different shading mode
 Hold and drag mouse to rotate the camera. Use mouse scroll to zoom in and out.
 
 #Result:
-![Alt text](/img/phong.png "Blinn-Phong shading")
+![Alt text](/img/phong.PNG "Blinn-Phong shading")
 #Performance:
