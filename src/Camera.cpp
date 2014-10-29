@@ -10,7 +10,7 @@ Camera::Camera()
 	height = 600;
 	lightPos = glm::vec3(5, 10, 10);
 	lightColor = glm::vec3(1, 1, 1);
-	cameraPos = glm::vec3(0,1,1);
+	cameraPos = glm::vec3(0,0.5f,0.5f);
 	lookAtPos = glm::vec3(0.0f, 0.3f, 0.0f);
 	cameraUp = glm::vec3(0, 1, 0);
 	viewDirection = glm::normalize(lookAtPos - cameraPos);

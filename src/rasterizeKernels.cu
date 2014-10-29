@@ -8,11 +8,12 @@
 #include "rasterizeKernels.h"
 #include "rasterizeTools.h"
 #include "Camera.h"
+#include <time.h>
 
 //*************Render Mode.........0 for blinn-phong, 1 for wire frame 2 for barycentric color
 // 3 for vertices
 //#define DEPTH_TEST
-#define RENDER_MODE_0
+#define RENDER_MODE_2
 
 glm::vec3* framebuffer;
 fragment* depthbuffer;
@@ -360,7 +361,8 @@ __global__ void render(glm::vec2 resolution, fragment* depthbuffer, glm::vec3* f
 
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float* vbo, int vbosize, float* cbo, int cbosize, int* ibo, int ibosize, float *nbo, int nbosize, Camera camera, glm::mat4 modelTransformMatrix){
-
+	clock_t timeBegin, timeEnd;
+	timeBegin = clock();
   // set up crucial magic
   int tileSize = 8;
   dim3 threadsPerBlock(tileSize, tileSize);
@@ -410,7 +412,7 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
   cudaMalloc((void**)&device_nbo, nbosize*sizeof(float));
   cudaMemcpy(device_nbo, nbo, nbosize*sizeof(float), cudaMemcpyHostToDevice);
 
-  tileSize = 32;
+  tileSize = 8;
   int primitiveBlocks = ceil(((float)vbosize/3)/((float)tileSize));
 
   //------------------------------
@@ -449,7 +451,10 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
 
   kernelCleanup();
   cudaFree(cudaCamera);
+  timeEnd = clock();
   checkCUDAError("Kernel failed!");
+
+  printf("One frame completed in %d ms\n", timeEnd - timeBegin);
 }
 
 void kernelCleanup(){
