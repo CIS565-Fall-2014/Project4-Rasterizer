@@ -301,7 +301,7 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 void scrollCallback(GLFWwindow* window, double xoffset, double yoffset)
 {
 	mouseScrollOffset += yoffset;
-
+	mainCamera.UpdatePosition(yoffset * 0.1f);
 }
 void mouseCallback(GLFWwindow* window,int button, int action, int mods)
 {

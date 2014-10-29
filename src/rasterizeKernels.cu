@@ -9,8 +9,10 @@
 #include "rasterizeTools.h"
 #include "Camera.h"
 
+//*************Render Mode.........0 for blinn-phong, 1 for wire frame 2 for barycentric color
+// 3 for vertices
 //#define DEPTH_TEST
-#define BARYCENTRIC_COLOR
+#define RENDER_MODE_0
 
 glm::vec3* framebuffer;
 fragment* depthbuffer;
@@ -267,18 +269,72 @@ __global__ void fragmentShadeKernel(fragment* depthbuffer, glm::vec2 resolution,
 		glm::vec3 R = glm::normalize(glm::reflect(-lightVectorEye, normal)); // watch out for division by zero
 		glm::vec3 V = glm::normalize(-dbpEye); // watch out for division by zero
 		float specularTerm = pow(fmaxf(glm::dot(R, V), 0.0f), specular);
-#ifdef BARYCENTRIC_COLOR
+#ifdef RENDER_MODE_2 // barycentric color
 		glm::vec3 materialColor = depthbuffer[index].color;
-#else
-		glm::vec3 materialColor = glm::vec3(0.5f, 0.4f, 0.7f);
+		depthbuffer[index].color = materialColor;
+		if (depthbuffer[index].position.z < -1.0f)
+		{
+			depthbuffer[index].color = glm::vec3(0.4f, 0.4f, 0.4f);
+		}
 #endif
-		
+#ifdef RENDER_MODE_0 // blinn-phong
+		glm::vec3 materialColor = glm::vec3(0.2f, 0.4f, 0.7f);
 		glm::vec3 color = ka*materialColor + glm::vec3(1.0f) * (kd*materialColor*diffuseTerm + ks*specularTerm);
 		depthbuffer[index].color = color;
 		if (depthbuffer[index].position.z < -1.0f  )
 		{
-			depthbuffer[index].color = glm::vec3(0.6f, 0.6f, 0.6f);
+			depthbuffer[index].color = glm::vec3(0.4f, 0.4f, 0.4f);
 		}
+#endif
+#ifdef RENDER_MODE_1 // wire frame
+		float eps = 0.04f;
+		glm::vec3 materialColor = depthbuffer[index].color;
+		if (depthbuffer[index].color.x <eps || depthbuffer[index].color.y < eps || depthbuffer[index].color.z < eps)
+		{
+			depthbuffer[index].color = glm::vec3(1);
+		}
+		else
+		{
+			depthbuffer[index].color = glm::vec3(0.4f, 0.4f, 0.4f);
+		}
+		
+		if (depthbuffer[index].position.z < -1.0f)
+		{
+			depthbuffer[index].color = glm::vec3(0.4f, 0.4f, 0.4f);
+		}
+#endif
+#ifdef RENDER_MODE_3 // vertices
+		float eps = 0.1f;
+		glm::vec3 materialColor = depthbuffer[index].color;
+		bool isVertex = false;
+		if(depthbuffer[index].color.x > 1- eps)
+		{
+			if (depthbuffer[index].color.y < eps && depthbuffer[index].color.z < eps)
+				isVertex = true;
+		}
+		else if (depthbuffer[index].color.y > 1 - eps)
+		{
+			if (depthbuffer[index].color.x < eps && depthbuffer[index].color.z < eps)
+				isVertex = true;
+		}
+		else if (depthbuffer[index].color.z > 1 - eps)
+		{
+			if (depthbuffer[index].color.y < eps && depthbuffer[index].color.x < eps)
+				isVertex = true;
+		}
+		if (isVertex)
+			depthbuffer[index].color = glm::vec3(1);
+		else
+		{
+			depthbuffer[index].color = glm::vec3(0.4f, 0.4f, 0.4f);
+		}
+
+		if (depthbuffer[index].position.z < -1.0f)
+		{
+			depthbuffer[index].color = glm::vec3(0.4f, 0.4f, 0.4f);
+		}
+#endif
+
 #ifdef DEPTH_TEST
 		depthbuffer[index].color = glm::vec3(0.5 * (depthbuffer[index].position.z + 1));
 #endif

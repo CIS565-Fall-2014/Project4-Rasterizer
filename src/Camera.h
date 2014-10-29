@@ -21,6 +21,7 @@ public:
 
 	Camera();
 	~Camera();
-	void UpdatePosition(float rotationX, float rotationY, float zOffset);
+	void UpdatePosition(float rotationX, float rotationY);
+	void UpdatePosition(float zOffset);
 };
 
