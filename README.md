@@ -42,7 +42,7 @@ Wire- Frame
 ![Alt text](/img/vertices.PNG)
 Vertices
 #Performance:
-Graphic card: GTX780
+Graphic card: GTX780.
 Firstly I tried to ananysize the relationship between tile size and one frame runtime. However the result shows they are almost constant against tile size. (See the following chart)
 ![Alt text](/img/tilesize.PNG)
 
