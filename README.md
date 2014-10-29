@@ -19,11 +19,10 @@ Features Implemented
 * Vertex shader
     * Model-view-projection transformation
 * Primitive Assembly with support for triangle VBOs/IBOs
-* **Backface culling**
 * **Geometry shader**
     * Maps 1 triangle to 0-4 triangles.
-    * Tried implementing backface culling here, but my quick implementation was
-      very inefficient.
+    * **Backface culling** (somewhat more efficient than culling in the
+      rasterization step).
 * Basic scanline rasterization into a fragment buffer
     * Depth-testing
     * Barycentric **interpolation of vertex data**
