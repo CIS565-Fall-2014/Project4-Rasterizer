@@ -10,6 +10,7 @@
 #include <cmath>
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"
+#include <time.h>
 
 struct camera{
 	float aspectRatio;

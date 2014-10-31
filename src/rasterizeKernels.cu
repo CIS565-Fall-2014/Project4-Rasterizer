@@ -129,7 +129,7 @@ __global__ void sendImageToPBO(uchar4* PBOpos, glm::vec2 resolution, glm::vec3* 
 }
 
 //TODO: Implement a vertex shader
-__global__ void vertexShadeKernel(float* vbo, float* vbow, float* nbo, int vbosize, glm::mat4 MV, glm::mat4 P, glm::vec2 resolution){
+__global__ void vertexShadeKernel(float* vbo, float* vbow, float* nbo, int vbosize, glm::mat4 MV, glm::mat4 P, glm::vec2 resolution, float zNear, float zFar){
   int index = (blockIdx.x * blockDim.x) + threadIdx.x;
   if(index<vbosize/3){
 	  
@@ -145,7 +145,8 @@ __global__ void vertexShadeKernel(float* vbo, float* vbow, float* nbo, int vbosi
 	  vbow[vertexIndex+2] = clipSpace.z;
 
 	  glm::vec4 normal(nbo[vertexIndex], nbo[vertexIndex+1], nbo[vertexIndex+2], 0);
-	  normal = glm::normalize(MV*normal);
+	  //normal = glm::normalize(glm::transpose(glm::inverse(MV))*normal);
+	  //normal = glm::normalize(MV*normal);
 	  nbo[vertexIndex] = normal.x;
 	  nbo[vertexIndex+1] = normal.y;
 	  nbo[vertexIndex+2] = normal.z;
@@ -161,8 +162,9 @@ __global__ void vertexShadeKernel(float* vbo, float* vbow, float* nbo, int vbosi
 	  //ndc to window
 	  glm::vec3 windowSpace;
 	  windowSpace.x = (clipSpace.x+1)*resolution.x/2.0f;
-	  windowSpace.y = (clipSpace.y+1)*resolution.y/2.0f;
+	  windowSpace.y = (-clipSpace.y+1)*resolution.y/2.0f;
 	  windowSpace.z = clipSpace.z;
+	  windowSpace.z = (zFar - zNear)/2.0f*clipSpace.z + (zNear + zFar)/2.0f;
 
 	  //Store for primitive assembly
 	  vbo[vertexIndex] = windowSpace.x;
@@ -173,7 +175,7 @@ __global__ void vertexShadeKernel(float* vbo, float* vbow, float* nbo, int vbosi
 
 //TODO: Implement primative assembly
 __global__ void primitiveAssemblyKernel(float* vbo, float* vbow, int vbosize, float* nbo, int nbosize, float* cbo, int cbosize, 
-										int* ibo, int ibosize, triangle* primitives, glm::vec3 eye){
+										int* ibo, int ibosize, triangle* primitives, glm::vec3 viewDir, glm::mat4 MV){
   int index = (blockIdx.x * blockDim.x) + threadIdx.x;
   int primitivesCount = ibosize/3;
   if(index<primitivesCount){
@@ -200,14 +202,28 @@ __global__ void primitiveAssemblyKernel(float* vbo, float* vbow, int vbosize, fl
 	  tri.c2 = glm::vec3(cbo[6], cbo[7], cbo[8]);
 	  tri.p2w = glm::vec3(vbow[vIndex*3], vbow[vIndex*3+1], vbow[vIndex*3+2]);
 	  
-	  glm::vec3 e1 = eye - tri.p0w;
-	  glm::vec3 e2 = eye - tri.p1w;
-	  glm::vec3 e3 = eye - tri.p2w;
-
 	  bool isFrontFacing = false;
-	  if (glm::dot(e1,tri.n0) >= 0) isFrontFacing = true;
-	  else if (glm::dot(e2,tri.n1) >= 0) isFrontFacing = true;
-	  else if (glm::dot(e3,tri.n2) >= 0) isFrontFacing = true;
+	  if (glm::dot(viewDir,tri.n0) >= 0) isFrontFacing = true;
+	  else if (glm::dot(viewDir,tri.n1) >= 0) isFrontFacing = true;
+	  else if (glm::dot(viewDir,tri.n2) >= 0) isFrontFacing = true;
+
+	  glm::vec4 normal(tri.n0, 0);
+	  normal = MV*normal;
+	  tri.n0.x = normal.x;
+	  tri.n0.y = normal.y;
+	  tri.n0.z = normal.z;
+
+	  normal = glm::vec4(tri.n1, 0);
+	  normal = MV*normal;
+	  tri.n1.x = normal.x;
+	  tri.n1.y = normal.y;
+	  tri.n1.z = normal.z;
+
+	  normal = glm::vec4(tri.n2, 0);
+	  normal = MV*normal;
+	  tri.n2.x = normal.x;
+	  tri.n2.y = normal.y;
+	  tri.n2.z = normal.z;
 
 	  tri.isFrontFacing = isFrontFacing;
 
@@ -242,19 +258,18 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
 			  glm::vec3 baryCoords = calculateBarycentricCoordinate(prim, glm::vec2(i,j));
 			  glm::vec3 baryCoordsW = calculateBarycentricCoordinateW(prim, glm::vec2(i,j));
 
-			  //this is triangles
 			  if (isBarycentricCoordInBounds(baryCoords)){
 				  float z = getZAtCoordinate(baryCoords, prim);
 
 				  int fragmentIndex = j*resolution.x + i;
 				  fragment frag = depthbuffer[fragmentIndex];
 
-				  if (z > frag.position.z){
+				  if (z < frag.position.z){
 					  frag.position = glm::vec3(baryCoords.x,baryCoords.y,z);
 					  frag.positionw = baryCoords.x*prim.p0 + baryCoords.y*prim.p1 + baryCoords.z*prim.p2;
 					  frag.normal = baryCoords.x*prim.n0 + baryCoords.y*prim.n1 + baryCoords.z*prim.n2;
 					  frag.color = baryCoords.x*prim.c0 + baryCoords.y*prim.c1 + baryCoords.z*prim.c2;
-					  frag.color = glm::vec3(1,1,0);
+					  //frag.color = glm::vec3(1,1,0);
 					  depthbuffer[fragmentIndex] = frag;
 				  }
 			  }
@@ -275,12 +290,15 @@ __global__ void fragmentShadeKernel(fragment* depthbuffer, glm::vec2 resolution,
 	  glm::vec3 norm = depthbuffer[index].normal;
 	  glm::vec3 l = glm::normalize(lightPos - pos);
 
-	  float diff = glm::dot(norm,l)+.25;
-	  if (diff<0) diff=0;
+	  float diff = glm::dot(norm,l);
+	  if (diff<0.5) diff=0.5;
 	  if (diff>1) diff=1;
 
-	  depthbuffer[index].color = col*diff;
+	  depthbuffer[index].color.x = abs(norm.x);
+	  depthbuffer[index].color.y = abs(norm.y);
+	  depthbuffer[index].color.z = abs(norm.z);
 
+	  depthbuffer[index].color = col*diff;
   }
 }
 
@@ -298,6 +316,9 @@ __global__ void render(glm::vec2 resolution, fragment* depthbuffer, glm::vec3* f
 
 // Wrapper for the __global__ call that sets up the kernel calls and does a ton of memory management
 void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float* vbo, int vbosize, float* cbo, int cbosize, int* ibo, int ibosize, float* nbo, int nbosize, camera cam){
+  
+  clock_t t;
+  t = clock();
 
   // set up crucial magic
   int tileSize = 8;
@@ -318,7 +339,7 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
   fragment frag;
   frag.color = glm::vec3(0,0,0);
   frag.normal = glm::vec3(0,0,0);
-  frag.position = glm::vec3(0,0,-10000);
+  frag.position = glm::vec3(0,0,10000);
   clearDepthBuffer<<<fullBlocksPerGrid, threadsPerBlock>>>(resolution, depthbuffer,frag);
 
   //------------------------------
@@ -360,15 +381,16 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
   //------------------------------
   //vertex shader
   //------------------------------
-  vertexShadeKernel<<<primitiveBlocks, tileSize>>>(device_vbo, device_vbow, device_nbo, vbosize, MV, P, resolution);
+  vertexShadeKernel<<<primitiveBlocks, tileSize>>>(device_vbo, device_vbow, device_nbo, vbosize, MV, P, resolution, cam.zNear, cam.zFar);
 
   cudaDeviceSynchronize();
   checkCUDAError("Kernel failed1!");
+  
   //------------------------------
   //primitive assembly
   //------------------------------
   primitiveBlocks = ceil(((float)ibosize/3)/((float)tileSize));
-  primitiveAssemblyKernel<<<primitiveBlocks, tileSize>>>(device_vbo, device_vbow, vbosize, device_nbo, nbosize, device_cbo, cbosize, device_ibo, ibosize, primitives, cam.eye);
+  primitiveAssemblyKernel<<<primitiveBlocks, tileSize>>>(device_vbo, device_vbow, vbosize, device_nbo, nbosize, device_cbo, cbosize, device_ibo, ibosize, primitives, glm::normalize(cam.center-cam.eye), MV);
 
   cudaDeviceSynchronize();
   checkCUDAError("Kernel failed2!");
@@ -379,7 +401,6 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
 
   cudaDeviceSynchronize();
   checkCUDAError("Kernel failed3!");
-
   //------------------------------
   //fragment shader
   //------------------------------
@@ -398,6 +419,8 @@ void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, float frame, float*
   kernelCleanup();
 
   checkCUDAError("Kernel failed5!");
+  t = clock() - t;
+  //std::cout<<(float)t/CLOCKS_PER_SEC<<std::endl;
 }
 
 void kernelCleanup(){

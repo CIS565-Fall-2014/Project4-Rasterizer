@@ -10,6 +10,7 @@
 camera cam;
 int mouse_old_x, mouse_old_y;
 int pressed = -1;
+float t = 0;
 
 int main(int argc, char** argv){
 
@@ -39,7 +40,7 @@ int main(int argc, char** argv){
   cam.zFar = 1000;
   cam.eye = glm::vec3(0,0.5,1);
   cam.center = glm::vec3(0,0.5,0);
-  cam.up = glm::vec3(0,-1,0);
+  cam.up = glm::vec3(0,1,0);
 
   frame = 0;
   seconds = time (NULL);
@@ -299,6 +300,16 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
     if(key == GLFW_KEY_ESCAPE && action == GLFW_PRESS){
         glfwSetWindowShouldClose(window, GL_TRUE);
     }
+	else if (key == GLFW_KEY_S){
+		glm::vec3 dir = cam.center - cam.eye;
+		cam.eye -= 0.05f*cam.up;
+	}
+	else if (key == GLFW_KEY_W){
+		glm::vec3 dir = cam.center - cam.eye;
+		cam.eye += 0.05f*cam.up;
+	}
+
+	std::cout<<cam.eye.x<<", "<<cam.eye.y<<", "<<cam.eye.z<<std::endl;
 }
 
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
@@ -316,15 +327,18 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods)
 void mouseMotionCallback(GLFWwindow* window, double x, double y)
 {
 	if (pressed == 0){
-		float dx = x-mouse_old_x;
-		float dy = x-mouse_old_y;
-
-
+		glm::vec3 circlePoint;
+		if (x<mouse_old_x) t-=0.1f;
+		else t += 0.1f;
+		circlePoint.x = cos(t);
+		circlePoint.z = sin(t);
+		cam.eye.x = circlePoint.x;
+		cam.eye.z = circlePoint.z;
 	}
 	else if (pressed == 1){
 		glm::vec3 dir = cam.center - cam.eye;
-		if (y>mouse_old_y) cam.eye += 0.05f*dir;
-		else cam.eye -= 0.05f*dir;
+		if (y>mouse_old_y) cam.eye += 0.1f*cam.up;
+		else cam.eye -= 0.1f*cam.up;
 	}
 	else if (pressed = 2){
 	}
