@@ -37,5 +37,7 @@ Blue is with back face culling, red is without.
 
 And mouse based scrolling obviously doesn't affect anything. in terms of performance.
 
+http://youtu.be/rjKDOhJbNLc
+
 [base pt image]:http://2.bp.blogspot.com/-5HfoVl3K_CE/VFQRZcV1bNI/AAAAAAAACd8/BAUZy5cwuqY/s1600/render.png
 [e]:http://3.bp.blogspot.com/-Hl2XbNgf__w/VFQTiHrPO1I/AAAAAAAACeI/YlHoSi2JyZA/s1600/image.png
