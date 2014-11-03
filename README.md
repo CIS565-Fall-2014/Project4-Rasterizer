@@ -21,14 +21,14 @@ Here is a render!
 
 I'm going to talk about the performance of the system briefly.  All times are measured with the dragon file, which is 100,000 triangles.
 
--Base code (io really) 0.007 ms total per frame
--With vertex shader 0.008 ms total per frame 
--With assembly 0.0095 ms total per frame (+18.75%)
--Rasterization step 0.012 ms total per frame (+26%)
--Rasterization step with back face culling 0.011 ms total per frame (-19%)
--Fragment shader 0.013 ms total per frame (+18%)
--Fragment shader w/color interpolation 0.013 ms total per frame (+18%)
--Render step 0.014 ms total per frame (+7%)
+- Base code (io really) 0.007 ms total per frame
+- With vertex shader 0.008 ms total per frame 
+- With assembly 0.0095 ms total per frame (+18.75%)
+- Rasterization step 0.012 ms total per frame (+26%)
+- Rasterization step with back face culling 0.011 ms total per frame (-19%)
+- Fragment shader 0.013 ms total per frame (+18%)
+- Fragment shader w/color interpolation 0.013 ms total per frame (+18%)
+- Render step 0.014 ms total per frame (+7%)
 
 So, culling unseen faces save you on render pretty substantially!  And color interpolation didn't affect things in a noticeable way.
 
