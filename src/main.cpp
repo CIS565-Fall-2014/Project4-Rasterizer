@@ -45,6 +45,36 @@ int main(int argc, char** argv){
 void mainLoop() {
   while(!glfwWindowShouldClose(window)){
     glfwPollEvents();
+	alpha=alpha+1;
+	//camera data
+  cam.view=glm::vec3(0.0f,0.0f,0.0f);
+  cam.up=glm::vec3(0.0,1.0,0.0);
+  cam.position.x=D*cos(beta*PI/180.0f)*cos(alpha*PI/180.0f);
+  cam.position.y=D*sin(beta*PI/180.0f)-0.5f;
+  cam.position.z=D*cos(beta*PI/180.0f)*sin(alpha*PI/180.0f);
+  glm::vec3 temp_lateral=glm::normalize(glm::cross(cam.view-cam.position,cam.up));
+  cam.up=glm::normalize(glm::cross(temp_lateral,cam.view-cam.position));
+
+  cam.FOV=80.0f;
+  z_near=0.1f;
+  z_far=100.0f;
+  //Transform points from model to clip coordinates	
+  model=glm::mat4(1.0f);
+  view=glm::lookAt(cam.position,cam.view,cam.up);
+  projection=glm::perspective(cam.FOV,(float)width/(float)height,z_near,z_far);
+
+  //test 
+  /*glm::vec4 r=glm::vec4(0.0,2.0,1.0,1.0);
+  r=projection*view*r;
+  cout<<r.x<<" "<<r.y<<" "<<r.z<<" "<<r.w<<endl;*/
+  
+  //getchar();
+
+
+  n_modelview=glm::transpose(glm::inverse(view*model));
+  M=projection*view*model;
+  
+
     runCuda();
 
     time_t seconds2 = time (NULL);
@@ -93,8 +123,12 @@ void runCuda(){
   ibo = mesh->getIBO();
   ibosize = mesh->getIBOsize();
 
+  nbo=mesh->getNBO();
+  nbosize=mesh->getNBOsize();
+
+ 
   cudaGLMapBufferObject((void**)&dptr, pbo);
-  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize);
+  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize,nbo,nbosize,model,view,projection,M,n_modelview, z_near,z_far,cam.position);
   cudaGLUnmapBufferObject(pbo);
 
   vbo = NULL;
@@ -109,6 +143,66 @@ void runCuda(){
 //-------------------------------
 //----------SETUP STUFF----------
 //-------------------------------
+void MouseCallback(GLFWwindow* window,int button,int action,int mods)
+{
+	if(action==GLFW_PRESS)
+	{
+		glfwGetCursorPos(window,&x_pos,&y_pos);
+		//cout<<x_pos<<" "<<y_pos<<endl;
+		if(button==GLFW_MOUSE_BUTTON_1)
+		{
+			left_button=true;
+		}
+		else if(button==GLFW_MOUSE_BUTTON_2)
+		{
+			right_button=true;
+		}
+	}
+	else if(action==GLFW_RELEASE)
+	{
+		if(button==GLFW_MOUSE_BUTTON_1)
+		{
+			left_button=false;
+		}
+		else if(button==GLFW_MOUSE_BUTTON_2)
+		{
+			right_button=false;
+		}
+	}
+}
+
+void CursorEnterCallback(GLFWwindow* window,int entered)
+{
+	if(entered==GL_TRUE)
+	{
+		inside_window=true;
+	}
+	else
+	{
+		inside_window=false;
+	}
+}
+
+void CursorCallback(GLFWwindow* window,double x,double y)
+{
+	x=glm::clamp(x,0.0,(double)width);
+	y=glm::clamp(y,0.0,(double)height);
+	int offset_x=x-x_pos;
+	int offset_y=y-y_pos;
+	x_pos=x;
+	y_pos=y;
+	if(left_button&&inside_window)
+	{
+		alpha=alpha+offset_x/(float)5;
+		beta=beta+offset_y/(float)5;
+	}
+	if(right_button&&inside_window)
+	{
+		D=D+offset_x/(float)30;
+	}
+}
+
+
 
 bool init(int argc, char* argv[]) {
   glfwSetErrorCallback(errorCallback);
@@ -126,7 +220,9 @@ bool init(int argc, char* argv[]) {
   }
   glfwMakeContextCurrent(window);
   glfwSetKeyCallback(window, keyCallback);
-
+  glfwSetMouseButtonCallback(window,MouseCallback);
+  glfwSetCursorEnterCallback(window,CursorEnterCallback);
+  glfwSetCursorPosCallback(window,CursorCallback);
   // Set up GL context
   glewExperimental = GL_TRUE;
   if(glewInit()!=GLEW_OK){
@@ -282,3 +378,4 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
         glfwSetWindowShouldClose(window, GL_TRUE);
     }
 }
+
