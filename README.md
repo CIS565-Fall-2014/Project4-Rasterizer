@@ -47,6 +47,7 @@ At last I implemented the backface culling by calculate the dot product between 
 
 Future work:
 I would like to try Anti-aliasing and also smoothing the normals for adjacent primitives. 
+Also try displacement mapping.
 
 
 -------------------------------------------------------------------------------
