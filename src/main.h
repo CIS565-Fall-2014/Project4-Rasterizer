@@ -22,6 +22,7 @@
 
 #include "rasterizeKernels.h"
 #include "utilities.h"
+#include "FreeImage.h"  //for loading texture from ".jpg", ".png", ".bmp"
 
 using namespace std;
 
@@ -49,6 +50,10 @@ float* cbo;
 int cbosize;
 int* ibo;
 int ibosize;
+float* nbo;
+int nbosize;
+float* uvbo;
+int uvbosize;
 
 //-------------------------------
 //----------CUDA STUFF-----------
@@ -75,6 +80,8 @@ void runCuda();
 	void keyboard(unsigned char key, int x, int y);
 #endif
 
+
+
 //-------------------------------
 //----------SETUP STUFF----------
 //-------------------------------
@@ -83,6 +90,8 @@ void initPBO();
 void initCuda();
 void initTextures();
 void initVAO();
+void initTextureMap(char* textureFileName);
+int loadTexture(char* file, std::vector<glm::vec3> &c, int &h,int &w );
 GLuint initShader();
 
 //-------------------------------
@@ -97,7 +106,12 @@ void deleteTexture(GLuint* tex);
 //-------GLFW CALLBACKS---------
 //------------------------------
 void mainLoop();
+void rotateMouseCam(double x, double y, double xlast, double ylast);
+void translateMouseCam(double x, double y, double xlast, double ylast);
 void errorCallback(int error, const char *description);
 void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods);
+void mousebuttonCallback(GLFWwindow* window, int button, int action, int mods);
+void mousescrollCallback(GLFWwindow * window, double xoffset, double yoffset );
+void mousemoveCallback(GLFWwindow *window, double xpos, double ypos);
 
 #endif

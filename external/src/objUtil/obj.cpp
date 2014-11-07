@@ -94,6 +94,7 @@ void obj::buildVBOs(){
 		ibo[i] = IBOvec[i];
 	}
 	setColor(glm::vec3(.4,.4,.4));
+
 }
 
 void obj::compareMaxMin(float x, float y, float z){
@@ -308,6 +309,8 @@ float* obj::getNBO(){
 int* obj::getIBO(){
 	return ibo;
 }
+
+
 
 int obj::getVBOsize(){
 	return vbosize;
