@@ -32,7 +32,7 @@ MOUSE BASED interactive camera support
 - mouse right click + drag: translate the camera lookat point  
 - mouse scroll: zoom in/out   
 The video below shows how the interaction is like.   
-[![ScreenShot](FinalImgs/CamInteractionThumbnail.png)] (http://youtu.be/34XS6eS-lT8)    
+[![ScreenShot](FinalImgs/CamInteractionThumbnail.png)] (https://www.youtube.com/watch?v=23FbbAm_X8U&feature=youtu.be)    
 
 
 
