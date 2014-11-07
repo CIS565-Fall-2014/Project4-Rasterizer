@@ -16,12 +16,21 @@ struct triangle {
   glm::vec3 c0;
   glm::vec3 c1;
   glm::vec3 c2;
+  glm::vec3 n0;
+  glm::vec3 n1;
+  glm::vec3 n2;
 };
 
 struct fragment{
   glm::vec3 color;
   glm::vec3 normal;
   glm::vec3 position;
+  float z;
+};
+
+struct light{
+  glm::vec3 position;
+  glm::vec3 color;
 };
 
 //Multiplies a cudaMat4 matrix and a vec4
@@ -74,5 +83,6 @@ __host__ __device__ bool isBarycentricCoordInBounds(glm::vec3 barycentricCoord){
 __host__ __device__ float getZAtCoordinate(glm::vec3 barycentricCoord, triangle tri){
   return -(barycentricCoord.x*tri.p0.z + barycentricCoord.y*tri.p1.z + barycentricCoord.z*tri.p2.z);
 }
+
 
 #endif

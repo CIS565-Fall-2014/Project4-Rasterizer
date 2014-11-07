@@ -3,6 +3,8 @@
 
 #include "main.h"
 
+
+
 //-------------------------------
 //-------------MAIN--------------
 //-------------------------------
@@ -19,6 +21,7 @@ int main(int argc, char** argv){
       mesh = new obj();
       objLoader* loader = new objLoader(data, mesh);
       mesh->buildVBOs();
+	  meshes.push_back(mesh);
       delete loader;
       loadedScene = true;
     }
@@ -37,12 +40,58 @@ int main(int argc, char** argv){
   if (init(argc, argv)) {
     // GLFW main loop
     mainLoop();
+	
   }
 
   return 0;
 }
 
 void mainLoop() {
+	
+	  vbo = mesh->getVBO();
+	  vbosize = mesh->getVBOsize();
+
+	  float newcbo[] = {0.5, 0.5, 0.5, 
+						0.5, 0.5, 0.5, 
+						0.5, 0.5, 0.5};
+	  cbo = newcbo;
+	  cbosize = 9;
+
+	  ibo = mesh->getIBO();
+	  ibosize = mesh->getIBOsize();
+
+	  nbo = mesh->getNBO();
+	  nbosize = mesh->getNBOsize();
+
+	  //==============for textures!========================
+	  glm::vec3 min; 
+	  glm::vec3 max;
+	  utilityCore::getAABBForMesh(vbo,vbosize,min,max);
+	  //utilityCore::printVec3(min);
+	  //utilityCore::printVec3(max);
+	  //vector<glm::vec4> * texCoord = meshes[i]->getTextureCoords();
+	  //cout<< texCoord->size() << endl;
+	   textureColor = new float[vbosize];
+	  cbosize = vbosize ;
+	  float w = texture1.width();
+	  float h = texture1.height();
+	  float u_scalarX = 1.0f/(max.x - min.x);
+	  float u_scalarY = 1.0f/(max.y - min.y);
+	  for(int i = 0; i < vbosize; i+= 3)
+	  {
+		  unsigned char red;
+	      unsigned char green;
+	      unsigned char blue;
+		  int u = (vbo[i]-min.x) * u_scalarX * w;
+		  int v = (vbo[i+1]-min.y) * u_scalarY * h;
+		  texture1.get_pixel( u,v ,red,green,blue);
+		  textureColor[i] = red/255.0f;
+		  textureColor[i+1] = green/255.0f;
+		  textureColor[i+2] = blue/255.0f;
+		  //cout << (*texCoord)[i].x << " "  << (*texCoord)[i].y  << " " << (*texCoord)[i].z << endl;
+	  }
+	  //cbo = textureColor;
+	  //==============================================
   while(!glfwWindowShouldClose(window)){
     glfwPollEvents();
     runCuda();
@@ -70,6 +119,57 @@ void mainLoop() {
   }
   glfwDestroyWindow(window);
   glfwTerminate();
+
+}
+//-------------------------------
+//---------UI STUFF--------------
+//-------------------------------
+static void cursor_position_callback(GLFWwindow* window, double xpos, double ypos)
+{
+	if(isButtonPressed)
+	{
+		glm::mat4 transform;
+		glm::vec4 eye(eyePos, 1.0);
+		double offsetX = lastX - xpos;
+		double offsetY = lastY - ypos;
+		//cout << "Last: " << lastX << ", " << lastY << endl;
+		//cout << "Current: " << xpos << ", " << ypos << endl;
+		switch(buttonPressed)
+		{
+		case(GLFW_MOUSE_BUTTON_LEFT):
+			transform = utilityCore::buildTransformationMatrix(glm::vec3(0.0), glm::vec3(0,10 * offsetX/800.0f, 10 * offsetY/800.0f) , glm::vec3(1.0f));
+			eye = transform * eye;
+			eyePos.x = eye.x;
+			eyePos.y = eye.y;
+			eyePos.z = eye.z;
+			break;
+		case(GLFW_MOUSE_BUTTON_RIGHT):
+			//double offsetY = lastY - ypos;
+			/*transform = utilityCore::buildTransformationMatrix(glm::vec3(0.0, 0.0, offsetX/800.0f), glm::vec3(0,0, 0) , glm::vec3(1.0f));
+			eye = transform * eye;
+			eyePos.x = eye.x;
+			eyePos.y = eye.y;
+			eyePos.z = eye.z;*/
+			eyePos += (center - eyePos) * (float)offsetX/800.0f;
+			break;
+		}
+	}
+}
+
+static void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
+{
+	if( action == GLFW_PRESS)
+	{
+		isButtonPressed = 1;
+		buttonPressed = button;
+		glfwGetCursorPos(window, &lastX, &lastY);
+	}
+	else
+	{
+		isButtonPressed = 0;
+		lastX = -1;
+		lastY = -1;
+	}
 }
 
 //-------------------------------
@@ -79,28 +179,22 @@ void mainLoop() {
 void runCuda(){
   // Map OpenGL buffer object for writing from CUDA on a single GPU
   // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
-  dptr=NULL;
 
-  vbo = mesh->getVBO();
-  vbosize = mesh->getVBOsize();
+	dptr=NULL;
+	cudaGLMapBufferObject((void**)&dptr, pbo);
 
-  float newcbo[] = {0.0, 1.0, 0.0, 
-                    0.0, 0.0, 1.0, 
-                    1.0, 0.0, 0.0};
-  cbo = newcbo;
-  cbosize = 9;
 
-  ibo = mesh->getIBO();
-  ibosize = mesh->getIBOsize();
+	 glm::mat4 transform  =  utilityCore::buildTransformationMatrix(glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(1.0f));
+	  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, textureColor, cbosize, ibo, ibosize, nbo, nbosize, eyePos, center, transform, backgroundTexture, frame/100.0f);  
+	cudaGLUnmapBufferObject(pbo);
 
-  cudaGLMapBufferObject((void**)&dptr, pbo);
-  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize);
-  cudaGLUnmapBufferObject(pbo);
 
-  vbo = NULL;
-  cbo = NULL;
-  ibo = NULL;
 
+  //vbo = NULL;
+  //cbo = NULL;
+  //ibo = NULL;
+  //nbo = NULL;
+ // textureColor = NULL;
   frame++;
   fpstracker++;
 
@@ -111,6 +205,25 @@ void runCuda(){
 //-------------------------------
 
 bool init(int argc, char* argv[]) {
+   int h = backgroundImage.height();
+   int w = backgroundImage.width();
+   backgroundTexture = new float[height * width * 3];
+   cout << h << " " << w << endl;
+   for (std::size_t y = 0; y < h; ++y)
+   {
+      for (std::size_t x = 0; x < w; ++x)
+      {
+		 unsigned char red;
+	     unsigned char green;
+	     unsigned char blue;
+		 int index = x + y * w;
+         backgroundImage.get_pixel(x,y,red,green,blue);
+         backgroundTexture[3*index] = red/255.0f;
+		 backgroundTexture[3*index+1] = green/255.0f;
+		 backgroundTexture[3*index+2] = blue/255.0f; 
+      }
+   }
+
   glfwSetErrorCallback(errorCallback);
 
   if (!glfwInit()) {
@@ -119,13 +232,16 @@ bool init(int argc, char* argv[]) {
 
   width = 800;
   height = 800;
-  window = glfwCreateWindow(width, height, "CIS 565 Pathtracer", NULL, NULL);
+  window = glfwCreateWindow(width, height, "CIS 565 Rasterizer", NULL, NULL);
   if (!window){
       glfwTerminate();
       return false;
   }
   glfwMakeContextCurrent(window);
   glfwSetKeyCallback(window, keyCallback);
+   glfwSetMouseButtonCallback(window, mouse_button_callback);
+  glfwSetCursorPosCallback(window, cursor_position_callback);
+
 
   // Set up GL context
   glewExperimental = GL_TRUE;
@@ -175,6 +291,8 @@ void initCuda(){
 }
 
 void initTextures(){
+
+
     glGenTextures(1, &displayImage);
     glBindTexture(GL_TEXTURE_2D, displayImage);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
