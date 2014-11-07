@@ -32,7 +32,7 @@ Extra Features:
 	Left button - rotate
 	Right button - zoom in/out
 
-Video Link : https://www.youtube.com/watch?v=UqCF5kZ2ZAc
+Video Link : https://www.youtube.com/watch?v=JLsA9GvFxMs
 
 ![alt tag](https://github.com/zxm5010/Project4-Rasterizer/blob/master/random_render.jpg)
 -------------------------------------------------------------------------------
@@ -45,6 +45,7 @@ bitmap_image.hpp - A simple bitmap reader that reads BMP files.
 PERFORMANCE EVALUATION
 -------------------------------------------------------------------------------
 According to the round table, we could observe that it took much longer time in the pipeline of rasterization and fragment shader. The reason for that is that we have an atomic function in the rasterization to make sure that we only store nearest primitives into depth buffer. The waiting time for other threads to access same memory costs a lot.
+![alt tag](https://github.com/zxm5010/Project4-Rasterizer/blob/master/pipeline_timing.jpg)
 
 Secondly, as we can see from table 1, the performance of rasterization dramastically decrease if the primitives are closer to the view port or are larger, which is because each primitive checks with more pixels it overlaps. To increase the performance, we could use polygon fill method hierarchically instead of scanline in Rasterization pipeline. 
 
