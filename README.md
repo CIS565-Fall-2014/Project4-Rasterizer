@@ -82,6 +82,7 @@ The performance drop without tessellation is less sharp, since it removes 7/8
 of the triangles; but compaction still doesn't improve overall performance.
 
 |                    | With tessellation | Without tessellation |
+| ------------------:| -----------------:| --------------------:|
 | Without compaction |           7.91 ms |              9.48 ms |
 | With    compaction |           9.17 ms |              8.57 ms |
 
