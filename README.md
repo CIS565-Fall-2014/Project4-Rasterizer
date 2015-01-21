@@ -10,7 +10,7 @@ NOTE:
 -------------------------------------------------------------------------------
 Overview
 -------------------------------------------------------------------------------
-In this project I implementED a simplified CUDA based standard rasterized graphics pipeline, similar to the OpenGL pipeline, including vertex shading, primitive assembly, perspective transformation, rasterization, fragment shading, and writing the resulting fragments to a framebuffer.
+In this project I implemented a simplified CUDA based standard rasterized graphics pipeline, similar to the OpenGL pipeline, including vertex shading, primitive assembly, perspective transformation, rasterization, fragment shading, and writing the resulting fragments to a framebuffer.
 ![alt tag](https://github.com/XJMa/Project4-Rasterizer/blob/master/screenshots/demo3.gif)
 
 I have implemented the following features:
