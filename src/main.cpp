@@ -6,7 +6,7 @@
 //-------------------------------
 //-------------MAIN--------------
 //-------------------------------
-
+using namespace std;
 int main(int argc, char** argv){
 
   bool loadedScene = false;
@@ -37,6 +37,7 @@ int main(int argc, char** argv){
   if (init(argc, argv)) {
     // GLFW main loop
     mainLoop();
+	
   }
 
   return 0;
@@ -46,7 +47,7 @@ void mainLoop() {
   while(!glfwWindowShouldClose(window)){
     glfwPollEvents();
     runCuda();
-
+	
     time_t seconds2 = time (NULL);
 
     if(seconds2-seconds >= 1){
@@ -80,11 +81,12 @@ void runCuda(){
   // Map OpenGL buffer object for writing from CUDA on a single GPU
   // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
   dptr=NULL;
-
+  glm::mat4 rotation = glm::rotate(glm::mat4(1.0f), 20.0f-0.5f*frame, glm::vec3(0.0f, 1.0f, 0.0f));
+  //rotation = glm::mat4(1.0f);
   vbo = mesh->getVBO();
   vbosize = mesh->getVBOsize();
 
-  float newcbo[] = {0.0, 1.0, 0.0, 
+  float newcbo[] = {0.8, 0.8, 0.8, 
                     0.0, 0.0, 1.0, 
                     1.0, 0.0, 0.0};
   cbo = newcbo;
@@ -92,9 +94,10 @@ void runCuda(){
 
   ibo = mesh->getIBO();
   ibosize = mesh->getIBOsize();
-
+  nbo = mesh->getNBO();
+  nbosize = mesh->getNBOsize();
   cudaGLMapBufferObject((void**)&dptr, pbo);
-  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize);
+  cudaRasterizeCore(dptr, glm::vec2(width, height), rotation, frame, vbo, vbosize, cbo, cbosize, ibo, ibosize, nbo, nbosize,eye, center);
   cudaGLUnmapBufferObject(pbo);
 
   vbo = NULL;
@@ -104,6 +107,85 @@ void runCuda(){
   frame++;
   fpstracker++;
 
+}
+//--------------------------------
+//--------interactive camera------
+//--------------------------------
+
+
+void MouseClickCallback(GLFWwindow *window, int button, int action, int mods)
+{
+	if(action == GLFW_PRESS && button == GLFW_MOUSE_BUTTON_1)
+	{
+	    glfwGetCursorPos(window,&prevX,&prevY);
+		isLeftButton = true;
+	}
+
+	if(action == GLFW_PRESS && button == GLFW_MOUSE_BUTTON_2)
+	{
+		glfwGetCursorPos(window,&prevX,&prevY);
+		isRightButton = true;
+	}
+
+	if(action == GLFW_PRESS && button == GLFW_MOUSE_BUTTON_3)
+	{
+		glfwGetCursorPos(window,&prevX,&prevY);
+		isMidButton = true;
+	}
+
+	if(action == GLFW_RELEASE && button == GLFW_MOUSE_BUTTON_1)
+		isLeftButton = false;
+
+	if(action == GLFW_RELEASE && button == GLFW_MOUSE_BUTTON_2)
+		isRightButton = false;
+
+	if(action == GLFW_RELEASE && button == GLFW_MOUSE_BUTTON_3)
+		isMidButton = false;
+}
+
+void CursorEnterCallback(GLFWwindow *window,int entered)
+{
+    if(entered == GL_TRUE)
+		isInside = true;
+	else
+		isInside = false;
+}
+void CursorCallback(GLFWwindow *window, double x,double y) {
+	x = max(0.0, x);
+	x = min(x, (double)width);
+	y = max(0.0, y);
+	y = min(y, (double)height);
+	int offsetX = x - prevX;
+	int offsetY = y - prevY;
+	prevX = x;
+	prevY = y;
+
+	glm::vec4 teye;
+	glm::mat4 rotation;
+	glm::vec3 axis;
+	glm::vec3 step;
+
+	if(isLeftButton && isInside){
+		teye = glm::vec4(eye - center, 1);
+		axis = glm::normalize(glm::cross(glm::vec3(0,1,0), eye-center));
+		rotation = glm::rotate(rotation, (float)(-360.0f/width*offsetX), glm::vec3(0.0f, 1.0f, 0.0f)) * glm::rotate(rotation,(float)(-360.0f/width*offsetY), glm::vec3(axis.x, axis.y, axis.z));
+		teye = rotation * teye;
+		eye = glm::vec3(teye);
+		eye = eye + center;
+	}
+	else if(isMidButton && isInside){ //need revise
+		eye += glm::vec3(-0.002, 0, 0) * (float)offsetX;
+		eye += glm::vec3(0, 0.002, 0) * (float)offsetY;
+		center += glm::vec3(-0.002, 0, 0) * (float)offsetX;
+		center += glm::vec3(0, 0.002, 0) * (float)offsetY;
+	}
+	else if(isRightButton && isInside){ //need revise
+		if (glm::distance(center, eye) > 0.01 || (offsetX < 0 && glm::distance(center, eye) < 20)) {
+			step = 0.01f * glm::normalize(center - eye);
+			eye += step * (float)offsetX;
+		}
+	}
+	
 }
   
 //-------------------------------
@@ -126,6 +208,9 @@ bool init(int argc, char* argv[]) {
   }
   glfwMakeContextCurrent(window);
   glfwSetKeyCallback(window, keyCallback);
+  glfwSetMouseButtonCallback(window,MouseClickCallback);
+  glfwSetCursorEnterCallback(window,CursorEnterCallback);
+  glfwSetCursorPosCallback(window,CursorCallback);
 
   // Set up GL context
   glewExperimental = GL_TRUE;

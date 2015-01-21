@@ -6,7 +6,7 @@
 
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
-
+#include <GL/glut.h>
 #include <cuda_runtime.h>
 #include <cuda_gl_interop.h>
 #include <fstream>
@@ -47,6 +47,8 @@ float* vbo;
 int vbosize;
 float* cbo;
 int cbosize;
+float* nbo;
+int nbosize;
 int* ibo;
 int ibosize;
 
@@ -55,7 +57,8 @@ int ibosize;
 //-------------------------------
 
 int width = 800; int height = 800;
-
+glm::vec3 eye(0, 0.25, 2);
+glm::vec3 center(0, 0.25, 0);
 //-------------------------------
 //-------------MAIN--------------
 //-------------------------------
@@ -71,8 +74,13 @@ void runCuda();
 #ifdef __APPLE__
 	void display();
 #else
-	void display();
+	
 	void keyboard(unsigned char key, int x, int y);
+	void mousePress(int button, int state, int x, int y);
+	void mouseMove(int x, int y);
+	int buttonPressed;
+	double prevX, prevY;
+	bool isLeftButton = false, isMidButton = false, isRightButton = false, isInside = false;
 #endif
 
 //-------------------------------
@@ -92,7 +100,7 @@ GLuint initShader();
 void cleanupCuda();
 void deletePBO(GLuint* pbo);
 void deleteTexture(GLuint* tex);
-
+void shut_down(int return_code);
 //------------------------------
 //-------GLFW CALLBACKS---------
 //------------------------------

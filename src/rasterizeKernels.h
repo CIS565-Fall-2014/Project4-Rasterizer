@@ -9,8 +9,8 @@
 #include <cuda.h>
 #include <cmath>
 #include "glm/glm.hpp"
-
+#include "glm/gtc/matrix_transform.hpp"
 void kernelCleanup();
-void cudaRasterizeCore(uchar4* pos, glm::vec2 resolution, float frame, float* vbo, int vbosize, float* cbo, int cbosize, int* ibo, int ibosize);
-
+void cudaRasterizeCore(uchar4* PBOpos, glm::vec2 resolution, glm::mat4 rotation,float frame, float* vbo, int vbosize, float* cbo, int cbosize, int* ibo, int ibosize, float* nbo, int nbosize, glm::vec3 eye, glm::vec3 center);
+                     
 #endif //RASTERIZEKERNEL_H

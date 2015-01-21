@@ -1,184 +1,101 @@
 -------------------------------------------------------------------------------
 CIS565: Project 4: CUDA Rasterizer
 -------------------------------------------------------------------------------
-Fall 2014
--------------------------------------------------------------------------------
-Due Monday 10/27/2014 @ 12 PM
--------------------------------------------------------------------------------
+
 
 -------------------------------------------------------------------------------
 NOTE:
 -------------------------------------------------------------------------------
-This project requires an NVIDIA graphics card with CUDA capability! Any card with CUDA compute capability 1.1 or higher will work fine for this project. For a full list of CUDA capable cards and their compute capability, please consult: http://developer.nvidia.com/cuda/cuda-gpus. If you do not have an NVIDIA graphics card in the machine you are working on, feel free to use any machine in the SIG Lab or in Moore100 labs. All machines in the SIG Lab and Moore100 are equipped with CUDA capable NVIDIA graphics cards. If this too proves to be a problem, please contact Patrick or Karl as soon as possible.
 
 -------------------------------------------------------------------------------
-INTRODUCTION:
+Overview
 -------------------------------------------------------------------------------
-In this project, you will implement a simplified CUDA based implementation of a standard rasterized graphics pipeline, similar to the OpenGL pipeline. In this project, you will implement vertex shading, primitive assembly, perspective transformation, rasterization, fragment shading, and write the resulting fragments to a framebuffer. More information about the rasterized graphics pipeline can be found in the class slides and in your notes from CIS560.
+In this project I implemented a simplified CUDA based standard rasterized graphics pipeline, similar to the OpenGL pipeline, including vertex shading, primitive assembly, perspective transformation, rasterization, fragment shading, and writing the resulting fragments to a framebuffer.
+![alt tag](https://github.com/XJMa/Project4-Rasterizer/blob/master/screenshots/demo3.gif)
 
-The basecode provided includes an OBJ loader and much of the mundane I/O and bookkeeping code. The basecode also includes some functions that you may find useful, described below. The core rasterization pipeline is left for you to implement.
-
-You MAY NOT use ANY raycasting/raytracing AT ALL in this project, EXCEPT in the fragment shader step. One of the purposes of this project is to see how a rasterization pipeline can generate graphics WITHOUT the need for raycasting! Raycasting may only be used in the fragment shader effect for interesting shading results, but is absolutely not allowed in any other stages of the pipeline.
-
-Also, you MAY NOT use OpenGL ANYWHERE in this project, aside from the given OpenGL code for drawing Pixel Buffer Objects to the screen. Use of OpenGL for any pipeline stage instead of your own custom implementation will result in an incomplete project.
-
-Finally, note that while this basecode is meant to serve as a strong starting point for a CUDA rasterizer, you are not required to use this basecode if you wish, and you may also change any part of the basecode specification as you please, so long as the final rendered result is correct.
-
--------------------------------------------------------------------------------
-CONTENTS:
--------------------------------------------------------------------------------
-The Project4 root directory contains the following subdirectories:
-	
-* src/ contains the source code for the project. Both the Windows Visual Studio solution and the OSX makefile reference this folder for all source; the base source code compiles on OSX and Windows without modification.
-* objs/ contains example obj test files: cow.obj, cube.obj, tri.obj.
-* renders/ contains an example render of the given example cow.obj file with a z-depth fragment shader. 
-* windows/ contains a Windows Visual Studio 2010 project and all dependencies needed for building and running on Windows 7.
-
-The Windows and OSX versions of the project build and run exactly the same way as in Project0, Project1, and Project2.
-
--------------------------------------------------------------------------------
-REQUIREMENTS:
--------------------------------------------------------------------------------
-In this project, you are given code for:
-
-* A library for loading/reading standard Alias/Wavefront .obj format mesh files and converting them to OpenGL style VBOs/IBOs
-* A suggested order of kernels with which to implement the graphics pipeline
-* Working code for CUDA-GL interop
-
-You will need to implement the following stages of the graphics pipeline and features:
-
+I have implemented the following features:
 * Vertex Shading
 * Primitive Assembly with support for triangle VBOs/IBOs
 * Perspective Transformation
-* Rasterization through either a scanline or a tiled approach
+* Rasterization through either a scanline
 * Fragment Shading
 * A depth buffer for storing and depth testing fragments
 * Fragment to framebuffer writing
-* A simple lighting/shading scheme, such as Lambert or Blinn-Phong, implemented in the fragment shader
+* A Lambert lighting/shading scheme in the fragment shader
 
-You are also required to implement at least 3 of the following features:
-
-* Additional pipeline stages. Each one of these stages can count as 1 feature:
-   * Geometry shader
-   * Transformation feedback
-   * Back-face culling
-   * Scissor test
-   * Stencil test
-   * Blending
-
-IMPORTANT: For each of these stages implemented, you must also add a section to your README stating what the expected performance impact of that pipeline stage is, and real performance comparisons between your rasterizer with that stage and without.
-
+Additional features:
+* Back-face culling
 * Correct color interpolation between points on a primitive
-* Texture mapping WITH texture filtering and perspective correct texture coordinates
-* Support for additional primitices. Each one of these can count as HALF of a feature.
-   * Lines
-   * Line strips
-   * Triangle fans
-   * Triangle strips
-   * Points
 * Anti-aliasing
-* Order-independent translucency using a k-buffer
-* MOUSE BASED interactive camera support. Interactive camera support based only on the keyboard is not acceptable for this feature.
+* MOUSE BASED interactive camera 
 
 -------------------------------------------------------------------------------
-BASE CODE TOUR:
+Basic Pipeline Implementation
 -------------------------------------------------------------------------------
-You will be working primarily in two files: rasterizeKernel.cu, and rasterizerTools.h. Within these files, areas that you need to complete are marked with a TODO comment. Areas that are useful to and serve as hints for optional features are marked with TODO (Optional). Functions that are useful for reference are marked with the comment LOOK.
+My first step is implementing vertax shader, which is the first stage of the pipeline. This step is mainly transforming input vertices into clipping space. Next step is primitive assembly, which collects 3 vertices in the vertex buffer and assign them with triangle primitives. The thired stage I implemented is rasterization, which is a little more complicated than the first two. This step is parallelized by primitives( it can also be parallelized by pixel I guess) and I did the following things:
+1. use AABB method get the bound box of triangle
+2. set scanline in Y axis and get intersection points for each scan line
+3. fill the pixels between each intersection points with primitive color it is the front pixel
+After these 3 steps I can get a plain filled scene like this
+![alt tag](https://raw.githubusercontent.com/XJMa/Project4-Rasterizer/master/screenshots/paintfill.jpg)
 
-* rasterizeKernels.cu contains the core rasterization pipeline. 
-	* A suggested sequence of kernels exists in this file, but you may choose to alter the order of this sequence or merge entire kernels if you see fit. For example, if you decide that doing has benefits, you can choose to merge the vertex shader and primitive assembly kernels, or merge the perspective transform into another kernel. There is not necessarily a right sequence of kernels (although there are wrong sequences, such as placing fragment shading before vertex shading), and you may choose any sequence you want. Please document in your README what sequence you choose and why.
-	* The provided kernels have had their input parameters removed beyond basic inputs such as the framebuffer. You will have to decide what inputs should go into each stage of the pipeline, and what outputs there should be. 
+Then I implemented a Lambert shading model in fregmant shader
+diffuse model:
 
-* rasterizeTools.h contains various useful tools, including a number of barycentric coordinate related functions that you may find useful in implementing scanline based rasterization...
-	* A few pre-made structs are included for you to use, such as fragment and triangle. A simple rasterizer can be implemented with these structs as is. However, as with any part of the basecode, you may choose to modify, add to, use as-is, or outright ignore them as you see fit.
-	* If you do choose to add to the fragment struct, be sure to include in your README a rationale for why. 
+![alt tag](https://raw.githubusercontent.com/XJMa/Project4-Rasterizer/master/screenshots/diffuss-light.jpg)
 
-You will also want to familiarize yourself with:
+specular model:
 
-* main.cpp, which contains code that transfers VBOs/CBOs/IBOs to the rasterization pipeline. Interactive camera work will also have to be implemented in this file if you choose that feature.
-* utilities.h, which serves as a kitchen-sink of useful functions
+![alt tag](https://raw.githubusercontent.com/XJMa/Project4-Rasterizer/master/screenshots/spec.jpg)
 
--------------------------------------------------------------------------------
-SOME RESOURCES:
--------------------------------------------------------------------------------
-The following resources may be useful for this project:
+Normal debug scene:
 
-* High-Performance Software Rasterization on GPUs
-	* Paper (HPG 2011): http://www.tml.tkk.fi/~samuli/publications/laine2011hpg_paper.pdf
-	* Code: http://code.google.com/p/cudaraster/ Note that looking over this code for reference with regard to the paper is fine, but we most likely will not grant any requests to actually incorporate any of this code into your project.
-	* Slides: http://bps11.idav.ucdavis.edu/talks/08-gpuSoftwareRasterLaineAndPantaleoni-BPS2011.pdf
-* The Direct3D 10 System (SIGGRAPH 2006) - for those interested in doing geometry shaders and transform feedback.
-	* http://133.11.9.3/~takeo/course/2006/media/papers/Direct3D10_siggraph2006.pdf
-* Multi-Fragment Eﬀects on the GPU using the k-Buﬀer - for those who want to do a k-buffer
-	* http://www.inf.ufrgs.br/~comba/papers/2007/kbuffer_preprint.pdf
-* FreePipe: A Programmable, Parallel Rendering Architecture for Efficient Multi-Fragment Effects (I3D 2010)
-	* https://sites.google.com/site/hmcen0921/cudarasterizer
-* Writing A Software Rasterizer In Javascript:
-	* Part 1: http://simonstechblog.blogspot.com/2012/04/software-rasterizer-part-1.html
-	* Part 2: http://simonstechblog.blogspot.com/2012/04/software-rasterizer-part-2.html
+![alt tag](https://raw.githubusercontent.com/XJMa/Project4-Rasterizer/master/screenshots/normal.jpg)
 
 -------------------------------------------------------------------------------
-NOTES ON GLM:
+Color Interpolation
 -------------------------------------------------------------------------------
-This project uses GLM, the GL Math library, for linear algebra. You need to know two important points on how GLM is used in this project:
+To achieve proper color interpolation, I converted each pixel coordinate back to barycentric coordinates relative to the triangle primitive's three vertices. Then I can get properly interpolated color gradients within each face by following barycentric interpolation model
 
-* In this project, indices in GLM vectors (such as vec3, vec4), are accessed via swizzling. So, instead of v[0], v.x is used, and instead of v[1], v.y is used, and so on and so forth.
-* GLM Matrix operations work fine on NVIDIA Fermi cards and later, but pre-Fermi cards do not play nice with GLM matrices. As such, in this project, GLM matrices are replaced with a custom matrix struct, called a cudaMat4, found in cudaMat4.h. A custom function for multiplying glm::vec4s and cudaMat4s is provided as multiplyMV() in intersections.h.
-
--------------------------------------------------------------------------------
-README
--------------------------------------------------------------------------------
-All students must replace or augment the contents of this Readme.md in a clear 
-manner with the following:
-
-* A brief description of the project and the specific features you implemented.
-* At least one screenshot of your project running.
-* A 30 second or longer video of your project running.  To create the video you
-  can use http://www.microsoft.com/expression/products/Encoder4_Overview.aspx 
-* A performance evaluation (described in detail below).
+![alt tag](https://raw.githubusercontent.com/XJMa/Project4-Rasterizer/master/screenshots/color%20interpolation.jpg)
 
 -------------------------------------------------------------------------------
-PERFORMANCE EVALUATION
+Mouse Based Interactive Camera
 -------------------------------------------------------------------------------
-The performance evaluation is where you will investigate how to make your CUDA
-programs more efficient using the skills you've learned in class. You must have
-performed at least one experiment on your code to investigate the positive or
-negative effects on performance. 
+Left Button: Camera rotate
 
-We encourage you to get creative with your tweaks. Consider places in your code
-that could be considered bottlenecks and try to improve them. 
+Middle Button: Camera Pan
 
-Each student should provide no more than a one page summary of their
-optimizations along with tables and or graphs to visually explain any
-performance differences.
+Right Button: Zoom
+
+Interactive camera demo: https://www.youtube.com/watch?v=Q0boU6VKco4
 
 -------------------------------------------------------------------------------
-THIRD PARTY CODE POLICY
+Anti-aliasing
 -------------------------------------------------------------------------------
-* Use of any third-party code must be approved by asking on Piazza.  If it is approved, all students are welcome to use it.  Generally, we approve use of third-party code that is not a core part of the project.  For example, for the ray tracer, we would approve using a third-party library for loading models, but would not approve copying and pasting a CUDA function for doing refraction.
-* Third-party code must be credited in README.md.
-* Using third-party code without its approval, including using another student's code, is an academic integrity violation, and will result in you receiving an F for the semester.
+Anti-aliasing is achieved by rasterizing in another depthbuffer with doubled width and height, and convert the big buffer into normal size with simple interpolation, the result is pretty good:
+
+without antianliazing:
+
+![alt tag](https://raw.githubusercontent.com/XJMa/Project4-Rasterizer/master/screenshots/anti_no.jpg)
+
+with antianliazing:
+
+![alt tag](https://raw.githubusercontent.com/XJMa/Project4-Rasterizer/master/screenshots/anti.jpg)
+-------------------------------------------------------------------------------
+Back-face culling
+-------------------------------------------------------------------------------
+Each face of a sold polyhedron has two sides, a frontface on the outside and a backface on the inside. We can only see frontfaces, and normally, we can only see about half of the front faces. If we take one polygon in isolation, and find that we are looking at it's backface, we can cull that face (remove that face from the list of faces to be rendered).
+This article gives clear explaination of the idea: http://glasnost.itcarlow.ie/~powerk/GeneralGraphicsNotes/HSR/backfaceculling.html
+
+To achieve that I determined if the face is visible in primitive assembly stage by checking the angle between eye direction and face normal. And cull out the invisible face using thrust remove(like we did in stream compaction).
 
 -------------------------------------------------------------------------------
-SELF-GRADING
+Performance Analysis
 -------------------------------------------------------------------------------
-* On the submission date, email your grade, on a scale of 0 to 100, to Liam, harmoli+cis565@seas.upenn.edu, with a one paragraph explanation.  Be concise and realistic.  Recall that we reserve 30 points as a sanity check to adjust your grade.  Your actual grade will be (0.7 * your grade) + (0.3 * our grade).  We hope to only use this in extreme cases when your grade does not realistically reflect your work - it is either too high or too low.  In most cases, we plan to give you the exact grade you suggest.
-* Projects are not weighted evenly, e.g., Project 0 doesn't count as much as the path tracer.  We will determine the weighting at the end of the semester based on the size of each project.
+![alt tag](https://raw.githubusercontent.com/XJMa/Project4-Rasterizer/master/screenshots/performance.jpg)
 
----
-SUBMISSION
----
-As with the previous project, you should fork this project and work inside of
-your fork. Upon completion, commit your finished project back to your fork, and
-make a pull request to the master repository.  You should include a README.md
-file in the root directory detailing the following
+In my implementation the rasterization is parallerized by permitives, so it is no suprise that the FPS rates drop when we have a bigger mesh(with more faces). And the antialiasing process is computationally expensive too, since it require extra computation in a 4X depthbuffer. 
+For the back-face culling, since normally we can only see about half of the front faces, I expected it will speed up the FPS by a factor of 2. But in fact it does not have that obvious influence. When tested with cow the back-face culling did not speed up the rasterization process at all. I think it is because the overhead of thrust::remove_if operation for each primitive(similar to the result of stream compaction in path tracer). For the bunny mesh the culling face process did pretty good. But surprisingly the back-face culling did not speed up the dragon mesh as much as the bunny, given the dragon has more faces the result is quite different from stream compaction. I think this may because the removeif loop is also a hot spot in computaion, since we are not really get rid of the backfaces like we did with the ray in pathtracer. Although we can save time in rasterization, increase mesh faces greatly increase the culling loop time.   
 
-* A brief description of the project and specific features you implemented
-* At least one screenshot of your project running.
-* A link to a video of your raytracer running.
-* Instructions for building and running your project if they differ from the
-  base code.
-* A performance writeup as detailed above.
-* A list of all third-party code used.
-* This Readme file edited as described above in the README section.
 
