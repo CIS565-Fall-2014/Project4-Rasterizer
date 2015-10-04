@@ -17,20 +17,21 @@ Features Implemented
 --------------------
 
 * Vertex shader
-    * Model-view-projection transformation
+  * Model-view-projection transformation
 * Primitive Assembly with support for triangle VBOs/IBOs
 * **Geometry shader**
-    * Maps 1 triangle to 0-4 triangles.
-    * **Backface culling** (somewhat more efficient than culling in the
-      rasterization step).
+  * Maps 1 triangle to 0-4 triangles.
+  * **Backface culling** (somewhat more efficient than culling in the
+    rasterization step).
 * Basic scanline rasterization into a fragment buffer
-    * Depth-testing
-    * Barycentric **interpolation of vertex data**
-        * Color: not visible on uncolored model
-        * Normals: visible with suzanne.obj model
-        * World-space position: used in lighting calculations
+  * Depth-testing
+  * Barycentric **interpolation of vertex data**
+    * Color: not visible on uncolored model
+    * Normals: visible with suzanne.obj model
+    * World-space position: used in lighting calculations
+  * Using `atomicMin` to **avoid race conditions in depth testing**
 * Fragment shading
-    * Lambert diffuse per-fragment lighting
+  * Lambert diffuse per-fragment lighting
 * Fragment to framebuffer writing
 
 (Extras in **bold**.)
