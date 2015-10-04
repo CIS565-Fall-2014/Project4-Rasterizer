@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <cuda.h>
+#include <climits>
 #include <cmath>
 #include <thrust/random.h>
 #include <thrust/fill.h>
@@ -14,10 +15,13 @@
 #define GLM_FORCE_RADIANS
 #include <glm/gtc/matrix_transform.hpp>
 
+static const int INT_ABS_MAX = -INT_MIN;
+
 using namespace utilityCore;
 
 glm::vec3* framebuffer;
 fragment* depthbuffer;
+int *deptharray;
 float* device_pbo;
 float* device_nbo;
 float* device_cbo;
@@ -99,7 +103,7 @@ __global__ void clearImage(glm::vec2 resolution, glm::vec3* image, glm::vec3 col
 }
 
 //Kernel that clears a given fragment buffer with a given fragment
-__global__ void clearDepthBuffer(glm::vec2 resolution, fragment* buffer, fragment frag)
+__global__ void clearDepthBuffer(glm::vec2 resolution, fragment* buffer, int *deptharray, fragment frag)
 {
     int x = (blockIdx.x * blockDim.x) + threadIdx.x;
     int y = (blockIdx.y * blockDim.y) + threadIdx.y;
@@ -109,6 +113,7 @@ __global__ void clearDepthBuffer(glm::vec2 resolution, fragment* buffer, fragmen
         f.pn.x = screen2ndc(x, resolution.x);
         f.pn.y = screen2ndc(y, resolution.y);
         buffer[index] = f;
+        deptharray[index] = f.pn.z * INT_ABS_MAX;
     }
 }
 
@@ -254,7 +259,7 @@ __global__ void geometryShadeKernel(geomU *gunifs,
 }
 
 //TODO: Implement a better rasterization method?
-__global__ void rasterizationKernel(triangle* primitives, int primitivesCount, fragment* depthbuffer, glm::vec2 resolution)
+__global__ void rasterizationKernel(triangle* primitives, int primitivesCount, fragment* depthbuffer, int *deptharray, glm::vec2 resolution)
 {
     int index = (blockIdx.x * blockDim.x) + threadIdx.x;
     if (index < primitivesCount) {
@@ -275,15 +280,17 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
                 glm::vec3 bary = calculateBarycentricCoordinate(tri, ndc);
                 if (isBarycentricCoordInBounds(bary)) {
                     int i = (int) ((resolution.y - y - 1) * resolution.x + x);
-                    fragment frag = depthbuffer[i];
-                    float depthold = frag.pn.z;
-                    float depthnew = getZAtCoordinate(bary, tri);
 
-                    if (depthnew < depthold) {
-                        frag.pn = glm::vec3(ndc, depthnew);
-                        frag.pw = baryinterp(bary, tri.v[0].pw, tri.v[1].pw, tri.v[2].pw);
-                        frag.c  = baryinterp(bary, tri.v[0].c , tri.v[1].c , tri.v[2].c );
-                        frag.nw = baryinterp(bary, tri.v[0].nw, tri.v[1].nw, tri.v[2].nw);
+                    float depthnew = getZAtCoordinate(bary, tri);
+                    fragment frag;
+                    frag.pn = glm::vec3(ndc, depthnew);
+                    frag.pw = baryinterp(bary, tri.v[0].pw, tri.v[1].pw, tri.v[2].pw);
+                    frag.c  = baryinterp(bary, tri.v[0].c , tri.v[1].c , tri.v[2].c );
+                    frag.nw = baryinterp(bary, tri.v[0].nw, tri.v[1].nw, tri.v[2].nw);
+
+                    int mydepth = (int) (depthnew * INT_ABS_MAX);
+                    atomicMin(&deptharray[i], mydepth);
+                    if (deptharray[i] == mydepth) {
                         depthbuffer[i] = frag;
                     }
                 }
@@ -360,15 +367,18 @@ void cudaRasterizeCore(
     depthbuffer = NULL;
     cudaMalloc((void**)&depthbuffer, (int)resolution.x * (int)resolution.y * sizeof(fragment));
 
+    deptharray = NULL;
+    cudaMalloc((void**)&deptharray, (int)resolution.x * (int)resolution.y * sizeof(fragment));
+
     //kernel launches to black out accumulated/unaccumlated pixel buffers and clear our scattering states
     clearImage<<<fullBlocksPerGrid, threadsPerBlock>>>(resolution, framebuffer, glm::vec3(1, 0, 1));
 
     fragment frag;
-    frag.pn = glm::vec3(0, 0, 10000);
+    frag.pn = glm::vec3(0, 0, 1);
     frag.pw = glm::vec3(0, 0, 0);
     frag.c  = glm::vec3(0.2f, 0.2f, 0.2f);
     frag.nw = glm::vec3(0, 0, 0);
-    clearDepthBuffer<<<fullBlocksPerGrid, threadsPerBlock>>>(resolution, depthbuffer, frag);
+    clearDepthBuffer<<<fullBlocksPerGrid, threadsPerBlock>>>(resolution, depthbuffer, deptharray, frag);
 
     // CONFIG: this is the max number of output tris per input tri
     int tricount = ibosize / 3;
@@ -401,7 +411,7 @@ void cudaRasterizeCore(
 
     int vbocount = vbosize / 3;
 
-    tileSize = 32;
+    tileSize = 256;
     int primitiveBlocks = ceil(((float) vbocount) / ((float)tileSize));
 
     //------------------------------
@@ -436,7 +446,7 @@ void cudaRasterizeCore(
         fragU funifs;
         funifs.eye = eye;
         funifs.lightpos = glm::vec3(8, 4, -5);
-        funifs.lightcol = glm::vec3(0.9, 0.7, 0.7);
+        funifs.lightcol = glm::vec3(1.0, 1.0, 1.0);
         funifs.ambcol = glm::vec3(0.1, 0.1, 0.1);
         cudaMemcpy(device_funifs, &funifs, sizeof(fragU), cudaMemcpyHostToDevice);
 
@@ -465,8 +475,8 @@ void cudaRasterizeCore(
     // Geometry shader
     //------------------------------
     primitiveBlocks = ceil(((float)tricount) / ((float)tileSize));
-    geometryShadeKernel<<<primitiveBlocks, tileSize>>>(
-            device_gunifs, primitives, tricount, geomstride);
+    //geometryShadeKernel<<<primitiveBlocks, tileSize>>>(
+    //        device_gunifs, primitives, tricount, geomstride);
 
 #if 0
     triangle *lastprim = thrust::remove_if(thrust::device,
@@ -479,7 +489,7 @@ void cudaRasterizeCore(
     //rasterization
     //------------------------------
     primitiveBlocks = ceil(((float)tricount) / ((float)tileSize));
-    rasterizationKernel<<<primitiveBlocks, tileSize>>>(primitives, tricount, depthbuffer, resolution);
+    rasterizationKernel<<<primitiveBlocks, tileSize>>>(primitives, tricount, depthbuffer, deptharray, resolution);
 
     cudaDeviceSynchronize();
     //------------------------------
@@ -515,5 +525,6 @@ void kernelCleanup()
     cudaFree(device_vbo);
     cudaFree(framebuffer);
     cudaFree(depthbuffer);
+    cudaFree(deptharray);
 }
 
