@@ -15,8 +15,6 @@
 #define GLM_FORCE_RADIANS
 #include <glm/gtc/matrix_transform.hpp>
 
-static const int INT_ABS_MAX = -INT_MIN;
-
 using namespace utilityCore;
 
 glm::vec3* framebuffer;
@@ -113,7 +111,7 @@ __global__ void clearDepthBuffer(glm::vec2 resolution, fragment* buffer, int *de
         f.pn.x = screen2ndc(x, resolution.x);
         f.pn.y = screen2ndc(y, resolution.y);
         buffer[index] = f;
-        deptharray[index] = f.pn.z * INT_ABS_MAX;
+        deptharray[index] = f.pn.z * INT_MAX;
     }
 }
 
@@ -288,7 +286,7 @@ __global__ void rasterizationKernel(triangle* primitives, int primitivesCount, f
                     frag.c  = baryinterp(bary, tri.v[0].c , tri.v[1].c , tri.v[2].c );
                     frag.nw = baryinterp(bary, tri.v[0].nw, tri.v[1].nw, tri.v[2].nw);
 
-                    int mydepth = (int) (depthnew * INT_ABS_MAX);
+                    int mydepth = (int) (depthnew * INT_MAX);
                     atomicMin(&deptharray[i], mydepth);
                     if (deptharray[i] == mydepth) {
                         depthbuffer[i] = frag;
