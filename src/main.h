@@ -35,7 +35,7 @@ int fps = 0;
 GLuint positionLocation = 0;
 GLuint texcoordsLocation = 1;
 const char *attributeLocations[] = { "Position", "Tex" };
-GLuint pbo = (GLuint)NULL;
+GLuint pixbuf = (GLuint)NULL;
 GLuint displayImage;
 uchar4 *dptr;
 
@@ -43,10 +43,11 @@ GLFWwindow *window;
 
 obj* mesh;
 
-float* vbo;
 int vbosize;
+float* pbo;
+float* nbo;
 float* cbo;
-int cbosize;
+
 int* ibo;
 int ibosize;
 
@@ -79,7 +80,7 @@ void runCuda();
 //----------SETUP STUFF----------
 //-------------------------------
 bool init(int argc, char* argv[]);
-void initPBO();
+void initPixbuf();
 void initCuda();
 void initTextures();
 void initVAO();
@@ -90,7 +91,7 @@ GLuint initShader();
 //-------------------------------
 
 void cleanupCuda();
-void deletePBO(GLuint* pbo);
+void deletePixbuf(GLuint* pixbuf);
 void deleteTexture(GLuint* tex);
 
 //------------------------------

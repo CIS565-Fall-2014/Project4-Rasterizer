@@ -2,6 +2,7 @@
 // Written by Yining Karl Li, Copyright (c) 2012 University of Pennsylvania
 
 #include "main.h"
+#include <cstring>
 
 //-------------------------------
 //-------------MAIN--------------
@@ -59,7 +60,7 @@ void mainLoop() {
     string title = "CIS565 Rasterizer | " + utilityCore::convertIntToString((int)fps) + " FPS";
 		glfwSetWindowTitle(window, title.c_str());
     
-    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pixbuf);
     glBindTexture(GL_TEXTURE_2D, displayImage);
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
     glClear(GL_COLOR_BUFFER_BIT);   
@@ -81,23 +82,40 @@ void runCuda(){
   // No data is moved (Win & Linux). When mapped to CUDA, OpenGL should not use this buffer
   dptr=NULL;
 
-  vbo = mesh->getVBO();
+  // We're going to assume that these are all the same size. -Kai
   vbosize = mesh->getVBOsize();
-
-  float newcbo[] = {0.0, 1.0, 0.0, 
-                    0.0, 0.0, 1.0, 
-                    1.0, 0.0, 0.0};
-  cbo = newcbo;
-  cbosize = 9;
+  pbo = mesh->getVBO();
+  cbo = mesh->getCBO();
+  nbo = mesh->getNBO();
 
   ibo = mesh->getIBO();
   ibosize = mesh->getIBOsize();
 
-  cudaGLMapBufferObject((void**)&dptr, pbo);
-  cudaRasterizeCore(dptr, glm::vec2(width, height), frame, vbo, vbosize, cbo, cbosize, ibo, ibosize);
-  cudaGLUnmapBufferObject(pbo);
+  cudaGLMapBufferObject((void**)&dptr, pixbuf);
+#ifdef __linux__
+  static int iterations = 0;
+  cudaDeviceSynchronize();
+  struct timespec ts1, ts2;
+  clock_gettime(CLOCK_MONOTONIC, &ts1);
+#endif
+  cudaRasterizeCore(dptr, glm::vec2(width, height), frame,
+          vbosize, pbo, nbo, cbo,
+          ibo, ibosize);
+#ifdef __linux__
+  cudaDeviceSynchronize();
+  clock_gettime(CLOCK_MONOTONIC, &ts2);
+  double t1 = ts1.tv_sec * 1e3 + ts1.tv_nsec * 1e-6;
+  double t2 = ts2.tv_sec * 1e3 + ts2.tv_nsec * 1e-6;
+  static float sum = 0;
+  if (iterations > 10) {
+      sum += t2 - t1;
+      std::cout << sum / (iterations - 10) << std::endl;
+  }
+  iterations += 1;
+#endif
+  cudaGLUnmapBufferObject(pixbuf);
 
-  vbo = NULL;
+  pbo = NULL;
   cbo = NULL;
   ibo = NULL;
 
@@ -137,7 +155,7 @@ bool init(int argc, char* argv[]) {
   initVAO();
   initTextures();
   initCuda();
-  initPBO();
+  initPixbuf();
   
   GLuint passthroughProgram;
   passthroughProgram = initShader();
@@ -148,21 +166,21 @@ bool init(int argc, char* argv[]) {
   return true;
 }
 
-void initPBO(){
+void initPixbuf(){
   // set up vertex data parameter
   int num_texels = width*height;
   int num_values = num_texels * 4;
   int size_tex_data = sizeof(GLubyte) * num_values;
     
   // Generate a buffer ID called a PBO (Pixel Buffer Object)
-  glGenBuffers(1, &pbo);
+  glGenBuffers(1, &pixbuf);
 
   // Make this the current UNPACK buffer (OpenGL is state-based)
-  glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pbo);
+  glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pixbuf);
 
   // Allocate data for the buffer. 4-channel 8-bit image
   glBufferData(GL_PIXEL_UNPACK_BUFFER, size_tex_data, NULL, GL_DYNAMIC_COPY);
-  cudaGLRegisterBufferObject(pbo);
+  cudaGLRegisterBufferObject(pixbuf);
 
 }
 
@@ -239,19 +257,19 @@ GLuint initShader() {
 //-------------------------------
 
 void cleanupCuda(){
-  if(pbo) deletePBO(&pbo);
+  if(pixbuf) deletePixbuf(&pixbuf);
   if(displayImage) deleteTexture(&displayImage);
 }
 
-void deletePBO(GLuint* pbo){
-  if (pbo) {
+void deletePixbuf(GLuint* pixbuf){
+  if (pixbuf) {
     // unregister this buffer object with CUDA
-    cudaGLUnregisterBufferObject(*pbo);
+    cudaGLUnregisterBufferObject(*pixbuf);
     
-    glBindBuffer(GL_ARRAY_BUFFER, *pbo);
-    glDeleteBuffers(1, pbo);
+    glBindBuffer(GL_ARRAY_BUFFER, *pixbuf);
+    glDeleteBuffers(1, pixbuf);
     
-    *pbo = (GLuint)NULL;
+    *pixbuf = (GLuint)NULL;
   }
 }
 
